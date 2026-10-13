@@ -53,6 +53,25 @@ node scripts/build-channels.mjs          # use the playlists in the repo
 node scripts/build-channels.mjs --fetch  # refresh iptv-org first
 ```
 
+## Why some channels don't play in the app (and what fixes each)
+
+A browser is stricter than VLC. When a channel shows "Channel unavailable", the message now says why:
+
+| Reason shown | Cause | Fix |
+|---|---|---|
+| `blocked or unreachable (likely CORS)` | the stream's server doesn't allow web pages to read it | the **stream proxy** (below). On Android Chrome and Safari the app also retries with the browser's own HLS player, which doesn't need CORS |
+| `HTTP 403` / `HTTP 404` | region-locked, or the channel is offline | none from the app. The channel is hidden on that device for 12 hours; try another |
+| `no video after 15s` / `media error` | wrong codec for the browser, or a dead stream | open in VLC |
+| (VLC badge) | needs custom headers, or plain `http://` | the stream proxy, or open in VLC |
+
+What the app does to help:
+- **Playback fallback chain:** direct, then the browser's own HLS player, then your proxy, each only when needed.
+- **Verified first:** `scripts/probe-streams.mjs` checks each stream's manifest and CORS headers. Channels that loaded cleanly are flagged and listed first; the **Verified** chip on Live TV shows only those.
+- **Learns on your device:** channels that fail are hidden for 12 hours (Settings → show them again).
+- **Stream proxy** (`proxy/`, see its README): the way to get *every* channel playing inside the app.
+
+For a native phone app, wrapping this site with [Capacitor](https://capacitorjs.com) lets it use the phone's own HTTP and HLS player, which ignore CORS entirely.
+
 ## Playing VLC-only channels
 
 About 770 channels can't play in a browser: they use plain `http://`, or they need a custom user-agent/referrer. Browsers can't embed VLC or send those headers, so StreamBox hands them to the VLC app:

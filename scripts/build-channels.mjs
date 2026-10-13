@@ -1,7 +1,7 @@
 // Builds public/data/channels.json for the app from playlists/*.m3u and playlists/*.xspf (VLC).
 //   node scripts/build-channels.mjs           use the playlists in the repo
 //   node scripts/build-channels.mjs --fetch   first refresh playlists/iptv-org.m3u from iptv-org (used on every Netlify deploy)
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -53,6 +53,9 @@ if (process.argv.includes('--fetch')) {
 
 const channels = [];
 const seen = new Set();
+// URLs that scripts/probe-streams.mjs found loadable in a browser (manifest 200 + CORS); flagged `v: 1`
+const probePath = join(root, 'playlists/probe.json');
+const verified = new Set(existsSync(probePath) ? JSON.parse(readFileSync(probePath, 'utf8')) : []);
 
 // Shared by both parsers. `raw` has name, url, group, quality?, tvgId?, logo?, ua?, rf?
 function add({ name, url, group = '', quality = '', tvgId = '', logo = '', ua, rf, isPlaylist = false }) {
@@ -69,6 +72,7 @@ function add({ name, url, group = '', quality = '', tvgId = '', logo = '', ua, r
     // Streams that need custom headers or plain http won't play inside an https web app.
     h: ua || rf ? 1 : 0,
     p: isPlaylist ? 1 : 0,
+    ...(verified.has(url) && { v: 1 }),
     ...(tvgId && { t: tvgId }),
     ...(logo && { l: logo }),
     // Header values are kept so "Open in VLC" playlists can send them (browsers can't)
@@ -121,4 +125,4 @@ for (const file of files.filter(f => f.endsWith('.xspf'))) {
 
 writeFileSync(join(root, 'public/data/channels.json'), JSON.stringify(channels));
 const counts = channels.reduce((a, c) => (a[c.c] = (a[c.c] || 0) + 1, a), {});
-console.log(`${channels.length} channels`, counts);
+console.log(`${channels.length} channels (${channels.filter(c => c.v).length} verified)`, counts);
