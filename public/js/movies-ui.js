@@ -13,7 +13,10 @@
 
   async function load() {
     try {
-      const cols = await (await fetch('/data/movies.json')).json();
+      const cols = [
+        ...(await (await fetch('/data/movies-a.json')).json()),
+        ...(await (await fetch('/data/movies-b.json')).json())
+      ];
       collections = cols.map((col, ci) => ({
         id: col.id, title: col.title,
         movies: (col.movies || []).map(m => {
@@ -31,7 +34,7 @@
 
   function card(m) {
     const poster = m.poster ? TMDB + '/w342' + m.poster : '';
-    const meta = [m.year, m.vote ? '★ ' + m.vote : ''].filter(Boolean).join(' · ');
+    const meta = [m.year, m.vote ? '\u2605 ' + m.vote : ''].filter(Boolean).join(' \u00b7 ');
     return '<button class="card poster" data-movie-key="' + esc(m.key) + '" aria-label="' + esc(m.name) + '">' +
       (poster ? '<img class="poster-img" loading="lazy" src="' + esc(poster) + '" alt="" onerror="this.remove()">' : '') +
       '<span class="tile" style="--tile:' + tileColor(m.name) + '"><span class="name">' + esc(m.name) + '</span><span class="meta">' + esc(meta) + '</span></span></button>';
@@ -40,7 +43,7 @@
   function row(title, list, seeAll) {
     if (!list.length) return '';
     return '<section class="row"><div class="row-head"><h2>' + esc(title) + '</h2>' +
-      (seeAll ? '<a class="see-all" href="' + esc(seeAll) + '">See all ›</a>' : '') + '</div>' +
+      (seeAll ? '<a class="see-all" href="' + esc(seeAll) + '">See all \u203a</a>' : '') + '</div>' +
       '<div class="row-track-wrap"><div class="row-track">' + list.map(card).join('') + '</div></div></section>';
   }
 
@@ -56,10 +59,10 @@
       (backdrop ? '<img src="' + esc(backdrop) + '" alt="" onerror="this.remove()">' : '') +
       (poster ? '<img class="poster-side" src="' + esc(poster) + '" alt="">' : '') +
       '<div class="inner" style="padding-left:' + (poster ? 'clamp(120px,22vw,180px)' : '28px') + '"><h2>' + esc(m.name) + '</h2>' +
-      '<a class="btn btn-play" href="https://www.themoviedb.org/movie/' + m.id + '" target="_blank" rel="noopener" style="font-size:13px;padding:6px 12px">TMDB ↗</a></div></div>' +
+      '<a class="btn btn-play" href="https://www.themoviedb.org/movie/' + m.id + '" target="_blank" rel="noopener" style="font-size:13px;padding:6px 12px">TMDB \u2197</a></div></div>' +
       '<div class="modal-body"><div class="facts">' +
       (m.year ? '<span>' + esc(m.year) + '</span>' : '') +
-      (m.vote ? '<span class="ok">★ ' + m.vote + '</span>' : '') +
+      (m.vote ? '<span class="ok">\u2605 ' + m.vote + '</span>' : '') +
       (m.collection ? '<span>' + esc(m.collection) + '</span>' : '') +
       '</div><p>' + (esc(m.overview) || 'No synopsis available.') + '</p>' +
       '<p style="color:var(--muted);font-size:12px;margin-top:16px">Curated from KiduyuTv lists. Discovery metadata only.</p></div>';
@@ -80,7 +83,7 @@
       return;
     }
     const total = collections.reduce((n, c) => n + c.movies.length, 0);
-    view.innerHTML = '<div class="page"><div class="page-head"><h1>Movies</h1><span class="count">' + total + ' titles · ' + collections.length + ' collections</span></div>' +
+    view.innerHTML = '<div class="page"><div class="page-head"><h1>Movies</h1><span class="count">' + total + ' titles \u00b7 ' + collections.length + ' collections</span></div>' +
       '<div class="chips">' + collections.map(c => '<a class="chip" href="#movies/' + esc(c.id) + '">' + esc(c.title) + '</a>').join('') + '</div>' +
       '<div class="rows">' + collections.map(c => row(c.title, c.movies.slice(0, 30), '#movies/' + c.id)).join('') + '</div></div>';
   }
