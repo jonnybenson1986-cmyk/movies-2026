@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StreamBox playback protection</title>
+  <link rel="stylesheet" href="/css/app.css">
+<style>.protection-guide p,.protection-guide ol,.protection-guide details{margin:20px 0;line-height:1.6}.protection-guide ol{padding-left:24px}.protection-guide li{margin:12px 0}.protection-guide a:not(.btn){text-decoration:underline}.protection-guide summary{cursor:pointer}</style>
+</head>
+<body>
+  <main class="page protection-guide" style="max-width:800px;margin:auto;padding-top:48px">
+    <h1>Playback protection</h1>
+    <p>Install the StreamBox movie helper (v1.1+) in Chrome or Edge on your computer to enable Vidy Play and automatic movie source fallback.</p>
+    <p><a class="btn btn-play" href="/downloads/streambox-playback-protection.zip" download>Download extension</a></p>
+    <ol>
+      <li>Extract the downloaded ZIP.</li>
+      <li>Open <strong>chrome://extensions</strong> or <strong>edge://extensions</strong> in your browser's address bar.</li>
+      <li>Enable <strong>Developer mode</strong>, choose <strong>Load unpacked</strong>, and select the extracted folder containing <strong>manifest.json</strong>.</li>
+      <li>Reload StreamBox. The title page will show <strong>Playback protection active</strong>.</li>
+    </ol>
+    <p>Already installed v1.0? Replace its files with this download, reload the extension, then reload StreamBox.</p>
+    <p>When a movie is missing, fails or stalls, the helper lets StreamBox try the next source. It attempts autoplay once when ready. Your browser may require pressing Play. Pausing and seeking keep the current source. Use <strong>Try next source</strong> for players the helper cannot inspect.</p>
+    <p>The extension blocks known advertising hosts, popups and external page/frame navigation from Movy, Vidy, VidLink, MoviesAPI, Videasy and VidNest. It allows media and subtitles. It does not collect or upload browsing data.</p>
+    <p>Rules may need updates when the provider changes. Ads embedded inside a video cannot be removed by these rules, and provider availability still determines whether a title plays.</p>
+    <p>Browsers without extension support can browse Movy titles; protected playback requires a supported browser.</p>
+    <details>
+      <summary>Using a custom StreamBox domain?</summary>
+      <p>The extension recognizes localhost, Netlify and Vercel sites. For your own domain, edit the extracted manifest.json: add your app's exact HTTPS origin followed by /* to the connector.js content script's matches list. Reload the extension and StreamBox.</p>
+    </details>
+    <p><a href="/#movy/movie">Back to Movy</a></p>
+  </main>
+</body>
+</html>

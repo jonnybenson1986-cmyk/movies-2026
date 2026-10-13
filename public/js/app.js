@@ -27,6 +27,7 @@
   const VLC_LIST_LIMIT = 3000;
 
   const movies = window.StreamBoxMovies;
+  const movy = window.StreamBoxMovy;
 
   // ---------------------------------------------------------------- storage
   const store = {
@@ -233,8 +234,12 @@
   }
 
   // ---------------------------------------------------------------- my list & history
-  const savedItems = list => list.filter(i => i?.type === 'live' || (i?.type === 'movie' && items.get(i.key)?.type === 'movie')); // Ignore obsolete discovery entries
+  const savedItems = list => list.filter(i => i?.type === 'live' || (i?.type === 'movie' && (items.get(i.key)?.type === 'movie' || movy.restore(i)))); // Ignore obsolete discovery entries
   const myList = () => savedItems(store.get('mylist', []));
+  for (const saved of [...store.get('mylist', []), ...store.get('history', [])]) {
+    const restored = movy.restore(saved);
+    if (restored) register(restored);
+  }
   const inMyList = key => myList().some(i => i.key === key);
   function toggleMyList(item) {
     let list = myList();
@@ -249,15 +254,15 @@
   }
   // Saved items survive reloads even if the source list changes
   const snapshot = it => {
-    const { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id } = it;
-    return { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id };
+    const { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId } = it;
+    return { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId };
   };
-  const revive = saved => items.get(saved.key) || (register(saved), saved);
+  const revive = saved => items.get(saved.key) || movy.restore(saved) || (register(saved), saved);
 
   // ---------------------------------------------------------------- card rendering
   function cardHTML(item) {
     register(item);
-    if (item.type === 'movie') return movies.card(item);
+    if (item.type === 'movie') return item.catalog === 'movy' ? movy.card(item) : movies.card(item);
     if (item.type === 'link') {
       return `<a class="card link-card" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">
         <span class="ico">${item.icon}</span><span><span class="name">${esc(item.name)}</span><span class="meta">${esc(item.note)} ↗</span></span>
@@ -346,6 +351,7 @@
         ${rowHTML('Continue Watching', history.slice(0, ROW_LIMIT))}
         ${rowHTML('My List', mine.slice(0, ROW_LIMIT), '#mylist')}
         ${rowHTML('Movies', movies.all.slice(0, ROW_LIMIT), '#movies')}
+        <section class="row"><div class="row-head"><h2>Movy</h2></div><div class="chips"><a class="chip" href="#movy/movie">Movies</a><a class="chip" href="#movy/tv">TV Shows</a><a class="chip" href="#movy/anime">Anime</a><a class="chip" href="#movy/4k">4K Library</a></div></section>
         ${rowHTML('Live Sports', byCat('Sports').slice(0, ROW_LIMIT), '#sports')}
         ${rowHTML('Pluto TV Channels', all.filter(c => c.source === 'Pluto TV').slice(0, ROW_LIMIT), '#live/Pluto TV')}
         ${rowHTML('News', byCat('News').slice(0, ROW_LIMIT), '#live/News')}
@@ -418,6 +424,7 @@
     mountGrid($('#gridMount'), live);
     view.insertAdjacentHTML('beforeend', '<div class="row-head"><h2>Movies</h2></div><div id="movieResults"></div>');
     mountGrid($('#movieResults'), films);
+    view.insertAdjacentHTML('beforeend', `<div class="movy-pages"><a class="btn btn-more" href="#movy/movie/1?query=${encodeURIComponent(q)}">Search Movy movies, TV shows &amp; anime</a></div>`);
   }
 
   // ---------------------------------------------------------------- router
@@ -425,6 +432,7 @@
   async function route() {
     const version = ++routeVersion;
     stopHero();
+    movy.cancel();
     const [name, ...rest] = decodeURIComponent(location.hash.slice(1) || 'home').split('/');
     const arg = rest.join('/');
     document.querySelectorAll('[data-route]').forEach(a => a.classList.toggle('active', a.dataset.route === name));
@@ -436,10 +444,12 @@
       case 'live': renderLive(arg); break;
       case 'sports': renderSports(); break;
       case 'movies': movies.render(view, arg); break;
+      case 'movy': await movy.render(view, location.hash.slice(1).split('/').slice(1).join('/'), { register, isSaved: inMyList, retry: route, play }); break;
       case 'mylist': renderMyList(); break;
       case 'search': renderSearch(arg); break;
       default: renderHome();
     }
+    if (version !== routeVersion) return;
     $('#topbar').classList.toggle('solid', name !== 'home' && name !== '');
     onScroll();
   }
@@ -447,14 +457,22 @@
   // ---------------------------------------------------------------- player
   const player = $('#player'), video = $('#video'), msg = $('#playerMsg');
   const movieFrame = $('#movieFrame'), movieTools = $('#movieTools'), movieSource = $('#movieSource');
-  function setMovieSource() {
-    if (current?.type !== 'movie') return;
-    const url = movies.url(current, Number(movieSource.value));
-    movieFrame.src = url;
-    $('#movieExternal').href = url;
+  const moviePlayback = window.StreamBoxMoviePlayback.create({
+    frame: movieFrame, select: movieSource, external: $('#movieExternal'),
+    status: $('#movieSourceStatus'), next: $('#movieNextSource'),
+    canOpen: source => current?.catalog === 'movy' || source.url.startsWith('https://www.vidy.st/') ? movy.checkProtection() : true,
+  });
+  function movieChoices(item) {
+    if (item.catalog === 'movy' && item.mediaType !== 'movie') {
+      return [{ name: 'Vidy · Protected', url: movy.playerUrl(item, item.season ?? 1, item.episode ?? 1) }];
+    }
+    const alternatives = movies.sources.map((source, i) => ({ name: source.name, url: movies.url(item, i) + (source.name === 'VidLink' ? '?autoPlay=true' : '') }));
+    if (movy.protectedPlayback) {
+      const vidy = { name: 'Vidy · Protected', url: movy.playerUrl({ ...item, mediaType: 'movie' }) };
+      return item.catalog === 'movy' ? [vidy, ...alternatives] : [...alternatives, vidy];
+    }
+    return alternatives;
   }
-  movieSource.innerHTML = movies.sources.map((s, i) => `<option value="${i}">${esc(s.name)}</option>`).join('');
-  movieSource.onchange = setMovieSource;
   let hls = null, current = null, currentList = [], stallTimer = null;
 
   // ---- VLC hand-off. Browsers can't embed VLC or send custom headers, so channels that need either
@@ -534,6 +552,7 @@
 
   function teardown() {
     clearTimeout(stallTimer);
+    moviePlayback.stop();
     movieFrame.src = 'about:blank';
     movieFrame.hidden = movieTools.hidden = true;
     video.hidden = false;
@@ -557,14 +576,18 @@
     pushHistory(item);
     wakeControls();
 
+    if (item.type === 'movie' && item.catalog === 'movy' && !movy.protectedPlayback) {
+      showPlayerMsg('Playback protection required', 'Install the StreamBox playback protection extension and reload the app to play Movy titles.', item);
+      return;
+    }
     if (item.type === 'movie') {
+      movieFrame.allow = item.catalog === 'movy' ? 'encrypted-media; autoplay *; fullscreen *; picture-in-picture' : 'autoplay; fullscreen; encrypted-media; picture-in-picture';
       video.hidden = true;
       movieFrame.hidden = movieTools.hidden = false;
       movieFrame.title = item.name + ' player';
       player.classList.add('movie-mode');
-      movieSource.value = '0';
       msg.hidden = true;
-      setMovieSource();
+      moviePlayback.start(item, movieChoices(item));
       return;
     }
 
@@ -694,8 +717,8 @@
     if (data?.app !== 'streambox') { toast('That isn’t a StreamBox backup'); return; }
     // Only accept known item types and re-build each entry from whitelisted fields
     const clean = list => (Array.isArray(list) ? list : [])
-      .filter(i => i && typeof i.key === 'string' && (i.type === 'live' || (i.type === 'movie' && items.get(i.key)?.type === 'movie')) && /^https?:\/\//.test(i.url || ''))
-      .map(i => snapshot(i.type === 'movie' ? items.get(i.key) : i));
+      .filter(i => i && typeof i.key === 'string' && (i.type === 'live' || (i.type === 'movie' && (items.get(i.key)?.type === 'movie' || movy.restore(i)))) && /^https?:\/\//.test(i.url || ''))
+      .map(i => snapshot(i.type === 'movie' ? (items.get(i.key) || movy.restore(i)) : i));
     const merge = (a, b) => { const seen = new Set(a.map(i => i.key)); return [...a, ...b.filter(i => !seen.has(i.key))]; };
     store.set('mylist', merge(myList(), clean(data.mylist)).slice(0, 200));
     store.set('history', merge(store.get('history', []), clean(data.history)).slice(0, 30));
@@ -834,6 +857,7 @@
     if (card) {
       const item = items.get(card.dataset.key);
       if (!item) return;
+      if (item.catalog === 'movy') { location.hash = 'movy/detail/' + item.mediaType + '/' + item.id; return; }
       if (item.type === 'movie') return openModal(movies.detail(item, inMyList(item.key)));
       if (item.isPlaylist) return addSource(item.url.replace(/^http:/, 'https:'));
       if (!isPlayable(item)) return openVlcChannel(item);
@@ -893,6 +917,7 @@
 
   // ---------------------------------------------------------------- boot
   view.innerHTML = '<div class="spinner" style="margin:40vh auto"></div>';
+  movy.checkProtection();
   channelsReady = loadChannels();
   channelsReady.then(loadGuides);
   setInterval(patchGuide, 60000);
