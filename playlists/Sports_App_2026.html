@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKY Racing Live</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            background: #0d0d0f;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .video-area {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+            background: #000;
+        }
+
+        .video-wrapper {
+            position: absolute;
+            inset: 0;
+            display: none;
+        }
+
+        .video-wrapper.active {
+            display: flex;
+        }
+
+        .video-wrapper.split {
+            flex-direction: column;
+        }
+
+        .video-panel {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            background: #000;
+        }
+
+        .video-panel video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+            cursor: pointer;
+        }
+
+        .channel-badge {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px);
+            padding: 6px 14px;
+            border-radius: 6px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .channel-badge .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #e74c3c;
+            animation: pulse 1.5s infinite;
+        }
+
+        .channel-badge span {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .split-divider {
+            height: 2px;
+            background: #1a1a1e;
+            flex-shrink: 0;
+        }
+
+        .telemetry {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 280px;
+            background: rgba(13, 13, 15, 0.85);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid rgba(255, 255, 255, 0.06);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 0 0 0 10px;
+            padding: 20px;
+            z-index: 20;
+            display: none;
+        }
+
+        .telemetry.visible {
+            display: block;
+        }
+
+        .telemetry-header {
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 4px;
+        }
+
+        .telemetry-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .telemetry-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .telemetry-row .label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .telemetry-row .value {
+            font-size: 14px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .volume-control {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            padding: 8px 12px;
+            border-radius: 8px;
+            z-index: 15;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .video-panel:hover .volume-control {
+            opacity: 1;
+        }
+
+        .volume-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            text-align: center;
+            line-height: 1;
+        }
+
+        .volume-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 80px;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            border: none;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            border: none;
+        }
+
+        .volume-pct {
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+            min-width: 30px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            padding: 12px 16px;
+            background: #141416;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.5);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .tab-btn.active {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(200, 170, 110, 0.5);
+            color: #fff;
+        }
+
+        .tab-btn .num {
+            font-size: 11px;
+            font-weight: 600;
+            color: rgba(200, 170, 110, 0.7);
+            letter-spacing: 0.5px;
+        }
+
+        .tab-btn .icon {
+            font-size: 16px;
+            opacity: 0.6;
+        }
+
+        .quick-links {
+            display: flex;
+            gap: 8px;
+            padding: 8px 16px 12px;
+            background: #141416;
+            flex-shrink: 0;
+        }
+
+        .quick-link {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-link:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        .quick-link .link-icon {
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="video-area">
+            <!-- Sky 1 Full -->
+            <div id="view-sky1" class="video-wrapper active">
+                <div class="video-panel">
+                    <video id="sky1-full" autoplay playsinline></video>
+                    <div class="channel-badge">
+                        <div class="dot"></div>
+                        <span>SKY 1</span>
+                    </div>
+                    <div class="volume-control">
+                        <button class="volume-btn" data-video="sky1-full">&#128264;</button>
+                        <input type="range" class="volume-slider" data-video="sky1-full" min="0" max="100" value="50">
+                        <span class="volume-pct" data-video="sky1-full">50%</span>
+                    </div>
+                </div>
+                <div id="telemetry-sky1" class="telemetry visible">
+                    <div class="telemetry-header">LIVE</div>
+                    <div class="telemetry-title">SKY 1</div>
+                    <div class="telemetry-row">
+                        <span class="label">Status</span>
+                        <span class="value" id="status-sky1">Connecting...</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="label">Quality</span>
+                        <span class="value" id="quality-sky1">—</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="label">Buffer</span>
+                        <span class="value" id="buffer-sky1">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sky 2 Full -->
+            <div id="view-sky2" class="video-wrapper">
+                <div class="video-panel">
+                    <video id="sky2-full" autoplay playsinline></video>
+                    <div class="channel-badge">
+                        <div class="dot"></div>
+                        <span>SKY 2</span>
+                    </div>
+                    <div class="volume-control">
+                        <button class="volume-btn" data-video="sky2-full">&#128264;</button>
+                        <input type="range" class="volume-slider" data-video="sky2-full" min="0" max="100" value="50">
+                        <span class="volume-pct" data-video="sky2-full">50%</span>
+                    </div>
+                </div>
+                <div id="telemetry-sky2" class="telemetry visible">
+                    <div class="telemetry-header">LIVE</div>
+                    <div class="telemetry-title">SKY 2</div>
+                    <div class="telemetry-row">
+                        <span class="label">Status</span>
+                        <span class="value" id="status-sky2">Connecting...</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="label">Quality</span>
+                        <span class="value" id="quality-sky2">—</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="label">Buffer</span>
+                        <span class="value" id="buffer-sky2">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Split View -->
+            <div id="view-split" class="video-wrapper split">
+                <div class="video-panel">
+                    <video id="sky1-split" autoplay playsinline></video>
+                    <div class="channel-badge">
+                        <div class="dot"></div>
+                        <span>SKY 1</span>
+                    </div>
+                    <div class="volume-control">
+                        <button class="volume-btn" data-video="sky1-split">&#128264;</button>
+                        <input type="range" class="volume-slider" data-video="sky1-split" min="0" max="100" value="50">
+                        <span class="volume-pct" data-video="sky1-split">50%</span>
+                    </div>
+                </div>
+                <div class="split-divider"></div>
+                <div class="video-panel">
+                    <video id="sky2-split" autoplay playsinline></video>
+                    <div class="channel-badge">
+                        <div class="dot"></div>
+                        <span>SKY 2</span>
+                    </div>
+                    <div class="volume-control">
+                        <button class="volume-btn" data-video="sky2-split">&#128264;</button>
+                        <input type="range" class="volume-slider" data-video="sky2-split" min="0" max="100" value="50">
+                        <span class="volume-pct" data-video="sky2-split">50%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="tab-btn active" data-view="sky1">
+                <span class="num">01</span> Sky 1
+            </button>
+            <button class="tab-btn" data-view="sky2">
+                <span class="num">02</span> Sky 2
+            </button>
+            <button class="tab-btn" data-view="split">
+                <span class="icon">&#9776;</span> Split
+            </button>
+        </div>
+
+        <div class="quick-links">
+            <a class="quick-link" href="https://go.webcric.com/frame8.htm" target="_blank" rel="noopener noreferrer">
+                <span class="link-icon">&#127951;</span> WebCric
+            </a>
+            <a class="quick-link" href="https://7plus.com.au/live-tv?channel-id=Seven" target="_blank" rel="noopener noreferrer">
+                <span class="link-icon">&#128250;</span> 7plus Live
+            </a>
+            <a class="quick-link" href="https://www.thgoaldady.com/en" target="_blank" rel="noopener noreferrer">
+                <span class="link-icon">&#9917;</span> GoalDaddy
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const SKY1_URL = 'https://skylivetab-new.akamaized.net/hls/live/2038780/sky1/index.m3u8';
+        const SKY2_URL = 'https://skylivetab-new.akamaized.net/hls/live/2038781/sky2/index.m3u8';
+
+        const players = {};
+
+        function attachHls(videoEl, url, key) {
+            if (Hls.isSupported()) {
+                const hls = new Hls({
+                    lowLatencyMode: true,
+                    liveSyncDurationCount: 1,
+                    liveMaxLatencyDurationCount: 3,
+                    liveDurationInfinity: true,
+                    highBufferWatchdogPeriod: 1,
+                    maxBufferLength: 5,
+                    maxMaxBufferLength: 10,
+                    backBufferLength: 0,
+                    enableWorker: true
+                });
+                hls.loadSource(url);
+                hls.attachMedia(videoEl);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    videoEl.play().catch(() => {
+                        videoEl.muted = true;
+                        videoEl.play();
+                        syncVolumeUI(videoEl.id);
+                    });
+                });
+                if (key) players[key] = hls;
+                return hls;
+            } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+                videoEl.src = url;
+                videoEl.addEventListener('loadedmetadata', () => videoEl.play());
+            }
+        }
+
+        function jumpToLive(video) {
+            if (video.buffered.length > 0) {
+                const liveEdge = video.buffered.end(video.buffered.length - 1);
+                if (liveEdge - video.currentTime > 3) {
+                    video.currentTime = liveEdge - 0.5;
+                }
+            }
+        }
+
+        setInterval(() => {
+            document.querySelectorAll('video').forEach(jumpToLive);
+        }, 5000);
+
+        attachHls(document.getElementById('sky1-full'), SKY1_URL, 'sky1');
+        attachHls(document.getElementById('sky2-full'), SKY2_URL, 'sky2');
+        attachHls(document.getElementById('sky1-split'), SKY1_URL);
+        attachHls(document.getElementById('sky2-split'), SKY2_URL);
+
+        document.querySelectorAll('video').forEach(v => {
+            v.volume = 0.5;
+            v.muted = false;
+        });
+
+        // Tab switching
+        const tabs = document.querySelectorAll('.tab-btn');
+        const views = {
+            sky1: document.getElementById('view-sky1'),
+            sky2: document.getElementById('view-sky2'),
+            split: document.getElementById('view-split')
+        };
+
+        tabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.dataset.view;
+                tabs.forEach(t => t.classList.remove('active'));
+                btn.classList.add('active');
+                Object.values(views).forEach(v => v.classList.remove('active'));
+                views[view].classList.add('active');
+            });
+        });
+
+        function getVolumeIcon(volume, muted) {
+            if (muted || volume === 0) return '\u{1F507}';
+            if (volume < 0.5) return '\u{1F509}';
+            return '\u{1F50A}';
+        }
+
+        function syncVolumeUI(videoId) {
+            const video = document.getElementById(videoId);
+            if (!video) return;
+            const slider = document.querySelector(`.volume-slider[data-video="${videoId}"]`);
+            const pct = document.querySelector(`.volume-pct[data-video="${videoId}"]`);
+            const btn = document.querySelector(`.volume-btn[data-video="${videoId}"]`);
+            if (slider) slider.value = video.muted ? 0 : Math.round(video.volume * 100);
+            if (pct) pct.textContent = video.muted ? '0%' : Math.round(video.volume * 100) + '%';
+            if (btn) btn.textContent = getVolumeIcon(video.volume, video.muted);
+        }
+
+        document.querySelectorAll('.volume-slider').forEach(slider => {
+            slider.addEventListener('input', (e) => {
+                const videoId = e.target.dataset.video;
+                const video = document.getElementById(videoId);
+                if (!video) return;
+                const val = parseInt(e.target.value) / 100;
+                video.volume = val;
+                video.muted = val === 0;
+                syncVolumeUI(videoId);
+            });
+        });
+
+        document.querySelectorAll('.volume-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const videoId = e.target.dataset.video;
+                const video = document.getElementById(videoId);
+                if (!video) return;
+                if (video.muted || video.volume === 0) {
+                    video.muted = false;
+                    video.volume = video._lastVolume || 0.5;
+                } else {
+                    video._lastVolume = video.volume;
+                    video.muted = true;
+                }
+                syncVolumeUI(videoId);
+            });
+        });
+
+        // Telemetry updates
+        function updateTelemetry() {
+            ['sky1', 'sky2'].forEach(key => {
+                const hls = players[key];
+                if (!hls) return;
+                const statusEl = document.getElementById(`status-${key}`);
+                const qualityEl = document.getElementById(`quality-${key}`);
+                const bufferEl = document.getElementById(`buffer-${key}`);
+
+                const video = document.getElementById(`${key}-full`);
+                if (video && video.readyState >= 2) {
+                    statusEl.textContent = 'Live';
+                    statusEl.style.color = '#4ade80';
+                }
+
+                if (hls.currentLevel >= 0 && hls.levels[hls.currentLevel]) {
+                    const level = hls.levels[hls.currentLevel];
+                    qualityEl.textContent = level.height ? `${level.height}p` : 'Auto';
+                }
+
+                if (video && video.buffered.length > 0) {
+                    const buffered = video.buffered.end(video.buffered.length - 1) - video.currentTime;
+                    bufferEl.textContent = `${buffered.toFixed(1)}s`;
+                }
+            });
+        }
+
+        setInterval(updateTelemetry, 1000);
+    </script>
+</body>
+</html>
