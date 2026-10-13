@@ -46,6 +46,12 @@
     <a href="#mylist" data-route="mylist"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>My List</a>
   </nav>
   <div class="player" id="player" hidden>
+    <iframe id="movieFrame" title="Movie player" hidden allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="no-referrer"></iframe>
+    <div id="movieTools" class="movie-tools" hidden>
+      <label for="movieSource">Source</label><select id="movieSource"></select>
+      <a id="movieExternal" class="btn btn-more" target="_blank" rel="noopener noreferrer">Open source ↗</a>
+      <span>Unavailable? Try another source.</span>
+    </div>
     <video id="video" playsinline controls></video>
     <div class="player-top">
       <button class="icon-btn" id="playerClose" aria-label="Back">
@@ -68,7 +74,7 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-  <script src="/js/app.js"></script>
   <script src="/js/movies-ui.js"></script>
+  <script src="/js/app.js"></script>
 </body>
 </html>
