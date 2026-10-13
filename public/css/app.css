@@ -238,3 +238,21 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
   .card.poster { width: 32vw; }
   .tabbar a { min-width: 52px; font-size: 9px; }
 }
+
+/* Movie artwork uses local title tiles, with no external image dependency. */
+.card.movie-card .tile { background: var(--tile); }
+.card.movie-card .name { font-size: clamp(13px, 1.2vw, 17px); -webkit-line-clamp: 4; }
+.movie-mark { position: absolute; top: 24%; left: 38%; font-size: 38px; color: rgba(255,255,255,.22); }
+.movie-grid { padding: 12px var(--gutter) 40px; }
+.movie-note { color: var(--muted); font-size: 12px; margin-top: 16px; }
+.player #movieFrame { position: absolute; inset: 76px 0 64px; width: 100%; height: calc(100% - 140px); border: 0; background: #000; }
+.player.movie-mode .player-top { opacity: 1; pointer-events: auto; padding-bottom: 10px; background: #141414; }
+.movie-tools { position: absolute; inset: auto 0 0; min-height: 64px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; background: #141414; }
+.movie-tools select { color: #fff; background: #252525; border: 1px solid #555; border-radius: 4px; padding: 8px; }
+.movie-tools .btn { font-size: 12px; padding: 8px 12px; }
+.movie-tools span { color: var(--muted); font-size: 12px; }
+@media (max-width: 600px) {
+  .movie-tools { gap: 8px; flex-wrap: wrap; }
+  .movie-tools span { display: none; }
+  .player.movie-mode .player-title small { display: none; }
+}

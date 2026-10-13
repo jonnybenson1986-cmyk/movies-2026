@@ -26,6 +26,8 @@
   };
   const VLC_LIST_LIMIT = 3000;
 
+  const movies = window.StreamBoxMovies;
+
   // ---------------------------------------------------------------- storage
   const store = {
     get(key, fallback) { try { const v = localStorage.getItem('sb:' + key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
@@ -231,8 +233,8 @@
   }
 
   // ---------------------------------------------------------------- my list & history
-  const liveOnly = list => list.filter(i => i?.type === 'live');   // older saved movie entries are ignored
-  const myList = () => liveOnly(store.get('mylist', []));
+  const savedItems = list => list.filter(i => i?.type === 'live' || (i?.type === 'movie' && items.get(i.key)?.type === 'movie')); // Ignore obsolete discovery entries
+  const myList = () => savedItems(store.get('mylist', []));
   const inMyList = key => myList().some(i => i.key === key);
   function toggleMyList(item) {
     let list = myList();
@@ -241,20 +243,21 @@
     store.set('mylist', list.slice(0, 200));
   }
   function pushHistory(item) {
-    const list = liveOnly(store.get('history', [])).filter(i => i.key !== item.key);
+    const list = savedItems(store.get('history', [])).filter(i => i.key !== item.key);
     list.unshift(snapshot(item));
     store.set('history', list.slice(0, 30));
   }
   // Saved items survive reloads even if the source list changes
   const snapshot = it => {
-    const { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf } = it;
-    return { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf };
+    const { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id } = it;
+    return { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id };
   };
   const revive = saved => items.get(saved.key) || (register(saved), saved);
 
   // ---------------------------------------------------------------- card rendering
   function cardHTML(item) {
     register(item);
+    if (item.type === 'movie') return movies.card(item);
     if (item.type === 'link') {
       return `<a class="card link-card" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">
         <span class="ico">${item.icon}</span><span><span class="name">${esc(item.name)}</span><span class="meta">${esc(item.note)} ↗</span></span>
@@ -322,7 +325,7 @@
     const hero = channels.find(c => c.url === SKY_RACING[0].url);
     const all = visibleChannels();
     const byCat = cat => all.filter(c => c.cat === cat);
-    const history = liveOnly(store.get('history', [])).map(revive);
+    const history = savedItems(store.get('history', [])).map(revive);
     const mine = myList().map(revive);
 
     view.innerHTML = `
@@ -342,6 +345,7 @@
       <div class="rows">
         ${rowHTML('Continue Watching', history.slice(0, ROW_LIMIT))}
         ${rowHTML('My List', mine.slice(0, ROW_LIMIT), '#mylist')}
+        ${rowHTML('Movies', movies.all.slice(0, ROW_LIMIT), '#movies')}
         ${rowHTML('Live Sports', byCat('Sports').slice(0, ROW_LIMIT), '#sports')}
         ${rowHTML('Pluto TV Channels', all.filter(c => c.source === 'Pluto TV').slice(0, ROW_LIMIT), '#live/Pluto TV')}
         ${rowHTML('News', byCat('News').slice(0, ROW_LIMIT), '#live/News')}
@@ -398,33 +402,40 @@
         ${mine.some(i => i.type === 'live') ? '<button class="btn btn-more page-btn" data-act="vlcpl">Play channels in VLC</button>' : ''}</div>
       <div id="gridMount"></div>
     </div>`;
-    if (!mine.length) { $('#gridMount').innerHTML = '<div class="empty">Tap <b>+ My List</b> on a channel to save it here.</div>'; return; }
+    if (!mine.length) { $('#gridMount').innerHTML = '<div class="empty">Tap <b>+ My List</b> on a channel or movie to save it here.</div>'; return; }
     mountGrid($('#gridMount'), mine);
   }
 
   function renderSearch(q) {
     const term = q.trim().toLowerCase();
     const live = term ? visibleChannels().filter(c => c.name.toLowerCase().includes(term) || c.cat.toLowerCase() === term) : [];
+    const films = term ? movies.all.filter(m => m.name.toLowerCase().includes(term)) : [];
     view.innerHTML = `<div class="page">
-      <div class="page-head"><h1>Results for “${esc(q)}”</h1><span class="count">${live.length} channels</span></div>
+      <div class="page-head"><h1>Results for “${esc(q)}”</h1><span class="count">${live.length} channels · ${films.length} movies</span></div>
       <div class="row-head"><h2>Live Channels</h2></div>
       <div id="gridMount"></div>
     </div>`;
     mountGrid($('#gridMount'), live);
+    view.insertAdjacentHTML('beforeend', '<div class="row-head"><h2>Movies</h2></div><div id="movieResults"></div>');
+    mountGrid($('#movieResults'), films);
   }
 
   // ---------------------------------------------------------------- router
+  let routeVersion = 0;
   async function route() {
+    const version = ++routeVersion;
     stopHero();
     const [name, ...rest] = decodeURIComponent(location.hash.slice(1) || 'home').split('/');
     const arg = rest.join('/');
     document.querySelectorAll('[data-route]').forEach(a => a.classList.toggle('active', a.dataset.route === name));
-    await channelsReady;
+    await Promise.all([channelsReady, movies.ready]);
+    if (version !== routeVersion) return;
+    movies.all.forEach(register);
     window.scrollTo(0, 0);
     switch (name) {
       case 'live': renderLive(arg); break;
       case 'sports': renderSports(); break;
-      case 'movies': break;   // rendered by movies-ui.js (curated movie lists), which listens for the same route
+      case 'movies': movies.render(view, arg); break;
       case 'mylist': renderMyList(); break;
       case 'search': renderSearch(arg); break;
       default: renderHome();
@@ -435,6 +446,15 @@
 
   // ---------------------------------------------------------------- player
   const player = $('#player'), video = $('#video'), msg = $('#playerMsg');
+  const movieFrame = $('#movieFrame'), movieTools = $('#movieTools'), movieSource = $('#movieSource');
+  function setMovieSource() {
+    if (current?.type !== 'movie') return;
+    const url = movies.url(current, Number(movieSource.value));
+    movieFrame.src = url;
+    $('#movieExternal').href = url;
+  }
+  movieSource.innerHTML = movies.sources.map((s, i) => `<option value="${i}">${esc(s.name)}</option>`).join('');
+  movieSource.onchange = setMovieSource;
   let hls = null, current = null, currentList = [], stallTimer = null;
 
   // ---- VLC hand-off. Browsers can't embed VLC or send custom headers, so channels that need either
@@ -514,6 +534,10 @@
 
   function teardown() {
     clearTimeout(stallTimer);
+    movieFrame.src = 'about:blank';
+    movieFrame.hidden = movieTools.hidden = true;
+    video.hidden = false;
+    player.classList.remove('movie-mode');
     if (hls) { hls.destroy(); hls = null; }
     video.pause(); video.removeAttribute('src'); video.load();
   }
@@ -532,6 +556,17 @@
     msg.innerHTML = '<div class="spinner"></div>'; msg.hidden = false;
     pushHistory(item);
     wakeControls();
+
+    if (item.type === 'movie') {
+      video.hidden = true;
+      movieFrame.hidden = movieTools.hidden = false;
+      movieFrame.title = item.name + ' player';
+      player.classList.add('movie-mode');
+      movieSource.value = '0';
+      msg.hidden = true;
+      setMovieSource();
+      return;
+    }
 
     if (item.type === 'live' && !force && !isPlayable(item)) {
       showPlayerMsg('Plays in VLC only', item.needsHeaders
@@ -659,8 +694,8 @@
     if (data?.app !== 'streambox') { toast('That isn’t a StreamBox backup'); return; }
     // Only accept known item types and re-build each entry from whitelisted fields
     const clean = list => (Array.isArray(list) ? list : [])
-      .filter(i => i && typeof i.key === 'string' && i.type === 'live' && /^https?:\/\//.test(i.url || ''))
-      .map(snapshot);
+      .filter(i => i && typeof i.key === 'string' && (i.type === 'live' || (i.type === 'movie' && items.get(i.key)?.type === 'movie')) && /^https?:\/\//.test(i.url || ''))
+      .map(i => snapshot(i.type === 'movie' ? items.get(i.key) : i));
     const merge = (a, b) => { const seen = new Set(a.map(i => i.key)); return [...a, ...b.filter(i => !seen.has(i.key))]; };
     store.set('mylist', merge(myList(), clean(data.mylist)).slice(0, 200));
     store.set('history', merge(store.get('history', []), clean(data.history)).slice(0, 30));
@@ -772,6 +807,7 @@
       const a = act.dataset.act;
       const item = items.get(act.dataset.key);
       if (a === 'close') closeModal();
+      else if (a === 'movieplay' && item?.type === 'movie') { closeModal(); play(item); }
       else if (a === 'fav' && item) { toggleMyList(item); act.textContent = inMyList(item.key) ? '✓ In My List' : '+ My List'; }
       else if (a === 'next') step(1);
       else if (a === 'copy') navigator.clipboard?.writeText(item?.url || current?.url || '').then(() => toast('Stream URL copied'));
@@ -798,6 +834,7 @@
     if (card) {
       const item = items.get(card.dataset.key);
       if (!item) return;
+      if (item.type === 'movie') return openModal(movies.detail(item, inMyList(item.key)));
       if (item.isPlaylist) return addSource(item.url.replace(/^http:/, 'https:'));
       if (!isPlayable(item)) return openVlcChannel(item);
       const siblings = [...card.parentElement.querySelectorAll('[data-key]')].map(el => items.get(el.dataset.key)).filter(i => i?.type === 'live');

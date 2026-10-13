@@ -7,7 +7,7 @@ A Netflix-style player for live TV, sports and movies. It's a static Progressive
 | Section | Source |
 |---|---|
 | **Live TV** (~11,600 channels) | The [iptv-org](https://github.com/iptv-org/iptv) playlist (`playlists/iptv-org.m3u`) plus your VLC playlist (`playlists/VLC_TV_IPTV.xspf`: Pluto TV, Samsung TV Plus, Tubi…), merged into `public/data/channels.json` with logos and TV-guide IDs |
-| **Movies** | Curated collections (MCU, Bond, Oscar contenders, Horror, Classics, Hallmark, …) from [KiduyuTv](https://github.com/kiduyu-klaus/KiduyuTv_final) lists — posters & metadata via TMDB; open TMDB for details |
+| **Movies** | Curated collections (MCU, Bond, Oscar contenders, Horror, Classics, Hallmark, …) from [KiduyuTv](https://github.com/kiduyu-klaus/KiduyuTv_final) lists — local catalog, Play buttons and switchable video sources |
 | **Sports** | SKY Racing 1 & 2 (from `playlists/Sports_App_2026.html`) plus every sports channel in the playlist |
 | **My List / Continue Watching** | Saved on the device (channels and movies) |
 | **Settings → Playlists** | Add any extra M3U playlist URL |
@@ -87,4 +87,8 @@ cd public && python3 -m http.server 8080
 
 ## Movies
 
-The **Movies** tab shows curated collections (Marvel, James Bond, Oscar contenders, Popular Horror, Classic Cinema, Hallmark, and more) adapted from [KiduyuTv](https://github.com/kiduyu-klaus/KiduyuTv_final) lists. Cards use TMDB posters; tapping a title opens a detail modal with synopsis, rating, and a link to TMDB. Movies can be saved to **My List**. StreamBox does not host or stream the films themselves.
+The **Movies** tab includes 13 movie collections from [KiduyuTv](https://github.com/kiduyu-klaus/KiduyuTv_final), bundled in `public/data/movies.json`. Browsing uses local title artwork and descriptions, with no TMDB API, images or detail links. TV entries and unreleased movies are excluded. Search finds movies as well as channels; movies can be saved to **My List** and recently opened titles appear in **Continue Watching**.
+
+Open a movie and tap **Play** to load a video provider inside StreamBox. **Source** switches between VidLink, MoviesAPI, Videasy and VidNest, using the movie URL templates declared by KiduyuTv. **Open source** opens the selected provider in another tab if it cannot be embedded. These are external services: availability varies by title, region and browser, and a catalog entry does not guarantee a working video. StreamBox does not host film files. Playback position inside a provider is controlled by that provider.
+
+To regenerate the catalog, run `npm run build:movies`. The importer fetches the pinned upstream revision recorded in the script and catalog; normal site builds use the bundled catalog. For a local checkout of that revision, run `node scripts/build-movies.mjs --source /path/to/KiduyuTv_final`.
