@@ -1,0 +1,90 @@
+{
+  "manifest_version": 3,
+  "name": "StreamBox \u2014 Movie playback helper",
+  "version": "1.1.0",
+  "description": "Detects failed movie playback and blocks known ads, popups and provider-initiated top-level redirects.",
+  "permissions": [
+    "declarativeNetRequest",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "https://*.movy.sx/*",
+    "https://*.vidy.st/*",
+    "https://*.vidlink.pro/*",
+    "https://moviesapi.to/*",
+    "https://player.videasy.net/*",
+    "https://*.vidnest.fun/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "protection",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.movy.sx/*",
+        "https://*.vidy.st/*",
+        "https://*.vidlink.pro/*",
+        "https://moviesapi.to/*",
+        "https://player.videasy.net/*",
+        "https://*.vidnest.fun/*"
+      ],
+      "js": [
+        "guard.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://*.movy.sx/*",
+        "https://*.vidy.st/*",
+        "https://*.vidlink.pro/*",
+        "https://moviesapi.to/*",
+        "https://player.videasy.net/*",
+        "https://*.vidnest.fun/*"
+      ],
+      "css": [
+        "ads.css"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "https://*.netlify.app/*",
+        "https://*.vercel.app/*"
+      ],
+      "js": [
+        "connector.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://*.movy.sx/*",
+        "https://*.vidy.st/*",
+        "https://*.vidlink.pro/*",
+        "https://moviesapi.to/*",
+        "https://player.videasy.net/*",
+        "https://*.vidnest.fun/*"
+      ],
+      "js": [
+        "playback.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}

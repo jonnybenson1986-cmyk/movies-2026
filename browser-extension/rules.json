@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "initiatorDomains": [
+        "movy.sx",
+        "vidy.st",
+        "vidlink.pro",
+        "moviesapi.to",
+        "player.videasy.net",
+        "vidnest.fun"
+      ],
+      "requestDomains": [
+        "amselvex.com",
+        "nablescatch.com",
+        "adsterra.com",
+        "popads.net",
+        "popcash.net",
+        "doubleclick.net",
+        "googlesyndication.com",
+        "adnxs.com",
+        "exoclick.com",
+        "exosrv.com",
+        "trafficjunky.net",
+        "propellerads.com",
+        "onclicka.com",
+        "onclickalgo.com"
+      ]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "initiatorDomains": [
+        "movy.sx",
+        "vidy.st"
+      ],
+      "excludedRequestDomains": [
+        "movy.sx",
+        "vidy.st"
+      ],
+      "resourceTypes": [
+        "sub_frame"
+      ]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "initiatorDomains": [
+        "movy.sx",
+        "vidy.st"
+      ],
+      "urlFilter": "||users.vidy.st/api/script.js",
+      "resourceTypes": [
+        "script"
+      ]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "initiatorDomains": [
+        "movy.sx",
+        "vidy.st",
+        "vidlink.pro",
+        "moviesapi.to",
+        "player.videasy.net",
+        "vidnest.fun"
+      ],
+      "resourceTypes": [
+        "main_frame"
+      ]
+    }
+  }
+]
