@@ -29,6 +29,14 @@ The key is saved only on that device (browser storage). It is never written into
 
 This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming data by JustWatch via TMDB.
 
+## TV guide ("Now / Next")
+
+Settings → **TV guide (XMLTV)** → add the URL of an XMLTV guide (`.xml` or `.xml.gz`, https, and it must allow cross-origin requests). Channels then show "Now: …" on their card, and the player shows "Now … · Next 8:45 PM: …". Channels match a guide by their playlist `tvg-id`, or by name. If a playlist you add declares a guide in its `#EXTM3U url-tvg="…"` header, that guide is picked up automatically. Only the next ~36 hours are kept, and guide files over 80 MB are skipped.
+
+## Backup & restore
+
+Settings → **Backup & restore** → **Export backup** saves a `streambox-backup.json` with My List, watch history and your playlist and guide URLs. Your TMDB key is left out unless you tick the box. **Import backup** merges a backup into the current device. Imports are filtered, so only known item types with http(s) streams are kept.
+
 ## Install on your phone
 
 - **iPhone / iPad:** open the site in **Safari** → Share button → **Add to Home Screen**.
@@ -48,6 +56,7 @@ Commit the updated `public/data/channels.json` and Netlify redeploys.
 
 ## Notes and limits
 
+- **More like this:** every TMDB movie page ends with a row of similar films from TMDB's recommendations (needs your TMDB key).
 - **Some channels only play in VLC.** About 2,100 channels use plain `http://` or need custom headers. Browsers block both on a secure (https) site. These channels are hidden by default. Turn on **Settings → Show channels that only play in VLC** to list them; each one gets an **Open in VLC** button.
 - **Geo-blocking:** SKY Racing only plays from Australia. Many other channels are region-locked too. If a stream fails, the player shows an error and offers the next channel.
 - Free IPTV channels go up and down all the time. A channel that's offline today may work tomorrow.

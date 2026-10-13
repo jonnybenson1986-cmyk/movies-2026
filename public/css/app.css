@@ -216,6 +216,10 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .provider { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; background: #000; border: 1px solid #333; border-radius: 8px; font-size: 13px; color: #fff; }
 .provider:hover { border-color: #666; }
 .provider img { width: 36px; height: 36px; border-radius: 7px; object-fit: cover; }
+.modal-body .row { margin: 22px 0 0; }
+.modal-body .row-head, .modal-body .row-track { padding-left: 0; padding-right: 0; }
+.modal-body .row-arrow { display: none; }
+.player-title small { overflow: hidden; text-overflow: ellipsis; }
 .trailer { position: relative; aspect-ratio: 16/9; margin: 18px 0 6px; border-radius: 8px; overflow: hidden; background: #000; }
 .trailer iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 

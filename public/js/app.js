@@ -58,7 +58,7 @@
     get(key, fallback) { try { const v = localStorage.getItem('sb:' + key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
     set(key, value) { try { localStorage.setItem('sb:' + key, JSON.stringify(value)); } catch { /* private mode */ } },
   };
-  const settings = Object.assign({ showAll: false, sources: [], tmdbKey: '' }, store.get('settings', {}));
+  const settings = Object.assign({ showAll: false, sources: [], guides: [], tmdbKey: '' }, store.get('settings', {}));
   const saveSettings = () => store.set('settings', settings);
 
   // ---------------------------------------------------------------- state
@@ -90,19 +90,22 @@
     return {
       key: `l:${origin}:${i}`, type: 'live',
       name: raw.n, url: raw.u, cat: raw.c || 'Entertainment', quality: raw.q || '',
-      source: raw.s || '', logo: raw.l || '', needsHeaders: !!raw.h, isPlaylist: !!raw.p,
+      source: raw.s || '', logo: raw.l || '', needsHeaders: !!raw.h, isPlaylist: !!raw.p, tvgId: raw.t || '',
     };
   }
 
   function parseM3U(text) {
     const out = [];
+    out.guides = [];   // XMLTV guide URLs advertised in the #EXTM3U header
     let meta = null;
     for (const line of text.split(/\r?\n/)) {
       const l = line.trim();
-      if (l.startsWith('#EXTINF')) {
+      if (l.startsWith('#EXTM3U')) {
+        (l.match(/(?:url-tvg|x-tvg-url)="([^"]*)"/)?.[1] || '').split(',').map(u => u.trim()).filter(u => /^https:\/\//.test(u)).forEach(u => out.guides.push(u));
+      } else if (l.startsWith('#EXTINF')) {
         const attr = k => l.match(new RegExp(`${k}="([^"]*)"`))?.[1] || '';
         const title = l.slice(l.lastIndexOf(',') + 1).trim();
-        meta = { n: title.replace(/\s*\(\d{3,4}p\)/, '').replace(/\s*\[[^\]]*\]/g, '').trim(), q: title.match(/\((\d{3,4}p)\)/)?.[1] || '', c: attr('group-title').split(';')[0], l: attr('tvg-logo') };
+        meta = { n: title.replace(/\s*\(\d{3,4}p\)/, '').replace(/\s*\[[^\]]*\]/g, '').trim(), q: title.match(/\((\d{3,4}p)\)/)?.[1] || '', c: attr('group-title').split(';')[0], l: attr('tvg-logo'), t: attr('tvg-id') };
       } else if (l.startsWith('#EXTVLCOPT') && meta && /http-(referrer|user-agent)/.test(l)) {
         meta.h = 1;
       } else if (l && !l.startsWith('#') && meta) {
@@ -143,7 +146,9 @@
     await Promise.all(settings.sources.map(async (src, si) => {
       try {
         const res = await fetch(src);
-        add(parseM3U(await res.text()), 'src' + si);
+        const list = parseM3U(await res.text());
+        list.guides.forEach(g => autoGuides.add(g));
+        add(list, 'src' + si);
       } catch (e) { console.warn('source failed', src, e); toast(`Couldn't load playlist: ${src}`); }
     }));
     return channels;
@@ -247,6 +252,80 @@
     ].join('');
   }
 
+  // ---------------------------------------------------------------- data: TV guide (XMLTV)
+  // Channels match a guide by tvg-id, or by normalised channel name. Only the next ~36 hours are kept.
+  const guide = { byId: new Map(), byName: new Map() };
+  const autoGuides = new Set();   // guide URLs advertised by the user's M3U playlists
+  const normName = s => (s || '').toLowerCase().replace(/\b(hd|fhd|uhd|sd)\b/g, '').replace(/[^a-z0-9]/g, '');
+
+  function parseXmltvTime(s) {
+    const m = /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)?\s*([+-])?(\d\d)?(\d\d)?/.exec(s || '');
+    if (!m) return 0;
+    const offset = m[7] ? (m[7] === '-' ? -1 : 1) * ((+m[8] || 0) * 60 + (+m[9] || 0)) : 0;
+    return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)) - offset * 60000;
+  }
+
+  async function fetchGuideText(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (/\.gz(\?|$)/i.test(url) && 'DecompressionStream' in window) {
+      try { return await new Response(res.clone().body.pipeThrough(new DecompressionStream('gzip'))).text(); }
+      catch { /* server already decompressed it */ }
+    }
+    return res.text();
+  }
+
+  function ingestXmltv(xml) {
+    if (xml.length > 80e6) throw new Error('guide file too large');
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    if (doc.getElementsByTagName('parsererror').length) throw new Error('not valid XMLTV');
+    const now = Date.now(), horizon = now + 36 * 3600e3;
+    for (const ch of doc.getElementsByTagName('channel')) {
+      const id = ch.getAttribute('id');
+      if (!id) continue;
+      for (const dn of ch.getElementsByTagName('display-name')) { const n = normName(dn.textContent); if (n) guide.byName.set(n, id); }
+    }
+    for (const p of doc.getElementsByTagName('programme')) {
+      const start = parseXmltvTime(p.getAttribute('start')), stop = parseXmltvTime(p.getAttribute('stop'));
+      if (!stop || stop < now || start > horizon) continue;
+      const id = p.getAttribute('channel');
+      if (!guide.byId.has(id)) guide.byId.set(id, []);
+      guide.byId.get(id).push({ start, stop, title: p.getElementsByTagName('title')[0]?.textContent || '', desc: p.getElementsByTagName('desc')[0]?.textContent || '' });
+    }
+    guide.byId.forEach(list => list.sort((a, b) => a.start - b.start));
+  }
+
+  function guideFor(item) {
+    if (!guide.byId.size || item.type !== 'live') return null;
+    const id = item.tvgId && guide.byId.has(item.tvgId) ? item.tvgId : guide.byName.get(normName(item.name));
+    const list = id && guide.byId.get(id);
+    if (!list) return null;
+    const t = Date.now();
+    const now = list.find(p => p.start <= t && p.stop > t) || null;
+    const next = list.find(p => p.start > t) || null;
+    return now || next ? { now, next } : null;
+  }
+
+  // Update channel cards already on screen once guide data arrives or the programme changes
+  function patchGuide() {
+    document.querySelectorAll('.card[data-key]').forEach(el => {
+      const it = items.get(el.dataset.key);
+      const nowOn = it?.type === 'live' && guideFor(it)?.now;
+      const meta = el.querySelector('.meta');
+      if (nowOn && meta) meta.textContent = `Now: ${nowOn.title}`;
+    });
+    renderPlayerSub();
+  }
+
+  async function loadGuides() {
+    const urls = [...new Set([...settings.guides, ...autoGuides])].slice(0, 5);
+    for (const url of urls) {
+      try { ingestXmltv(await fetchGuideText(url)); }
+      catch (e) { console.warn('guide failed', url, e); toast(`Couldn’t load TV guide (${e.message})`); }
+    }
+    patchGuide();
+  }
+
   // ---------------------------------------------------------------- my list & history
   const myList = () => store.get('mylist', []);
   const inMyList = key => myList().some(i => i.key === key);
@@ -263,8 +342,8 @@
   }
   // Saved items survive reloads even if the source list changes
   const snapshot = it => {
-    const { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc, img, backdrop, rating } = it;
-    return { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc: (desc || '').slice(0, 400), img, backdrop, rating };
+    const { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc, img, backdrop, rating, tvgId } = it;
+    return { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc: (desc || '').slice(0, 400), img, backdrop, rating, tvgId };
   };
   const revive = saved => items.get(saved.key) || (register(saved), saved);
 
@@ -283,7 +362,8 @@
       </a>`;
     }
     const ok = isPlayable(item);
-    const meta = [item.source, item.quality].filter(Boolean).join(' · ') || item.cat;
+    const nowOn = guideFor(item)?.now;
+    const meta = nowOn ? `Now: ${nowOn.title}` : ([item.source, item.quality].filter(Boolean).join(' · ') || item.cat);
     return `<button class="card" data-key="${esc(item.key)}" aria-label="${esc(item.name)}">
       <span class="badge ${ok ? '' : 'warn'}">${ok ? '<span class="dot" style="background:#fff"></span>LIVE' : 'VLC'}</span>
       ${inMyList(item.key) ? '<span class="fav">★</span>' : ''}
@@ -520,6 +600,14 @@
     };
   }
 
+  function renderPlayerSub() {
+    if (!current) return;
+    const base = current.type === 'live' ? [current.source, current.quality, current.cat].filter(Boolean).join(' · ') : (current.year || '');
+    const g = guideFor(current);
+    const at = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('#playerSub').textContent = [base, g?.now && `Now: ${g.now.title}`, g?.next && `Next ${at(g.next.start)}: ${g.next.title}`].filter(Boolean).join(' · ');
+  }
+
   function showPlayerMsg(title, text, item) {
     const v = vlcLinks(item.url);
     msg.innerHTML = `<h3>${esc(title)}</h3><p>${esc(text)}</p><div class="btns">
@@ -544,7 +632,7 @@
     player.hidden = false;
     document.body.style.overflow = 'hidden';
     $('#playerTitle').textContent = item.name;
-    $('#playerSub').textContent = item.type === 'live' ? [item.source, item.quality, item.cat].filter(Boolean).join(' · ') : (item.year || '');
+    renderPlayerSub();
     $('#playerLive').hidden = item.type !== 'live';
     $('#playerPrev').hidden = $('#playerNext').hidden = item.type !== 'live' || currentList.length < 2;
     msg.innerHTML = '<div class="spinner"></div>'; msg.hidden = false;
@@ -635,7 +723,7 @@
     openModal('<div class="spinner" style="margin:80px auto"></div>');
     let d;
     try {
-      d = await tmdb(`movie/${item.id}`, { append_to_response: 'videos,watch/providers,credits' });
+      d = await tmdb(`movie/${item.id}`, { append_to_response: 'videos,watch/providers,credits,recommendations' });
     } catch (e) {
       openModal(`<div class="modal-body" style="padding-top:28px"><p>${esc(e.message)}</p></div>`);
       return;
@@ -658,6 +746,7 @@
         ${p.logo_path ? `<img src="${TMDB_IMG}w92${esc(p.logo_path)}" alt="">` : ''}<span>${esc(p.provider_name)}</span>
       </a>`).join('')}</div>`).join('');
     const img = item.backdrop || item.img;
+    const similar = (d.recommendations?.results || []).filter(m => m.poster_path && m.id !== item.id).slice(0, 20).map(tmdbItem).map(m => (register(m), m));
 
     openModal(`
       <div class="modal-hero" style="--tile:${tileColor(item.name)}">
@@ -679,8 +768,51 @@
         ${trailer ? `<div class="trailer"><iframe src="https://www.youtube-nocookie.com/embed/${esc(trailer.key)}" title="Trailer" allow="encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>` : ''}
         <h3>Where to watch in Australia</h3>
         ${providersHTML || '<p style="color:var(--muted)">Not currently listed for streaming in Australia.</p>'}
+        ${rowHTML('More like this', similar)}
         <p class="attrib">Streaming data by JustWatch via TMDB. ${TMDB_ATTRIBUTION}</p>
       </div>`);
+    modal.scrollTop = 0;
+  }
+
+  // ---------------------------------------------------------------- backup & restore
+  async function exportData() {
+    const data = {
+      app: 'streambox', version: 1, exported: new Date().toISOString(),
+      mylist: myList(), history: store.get('history', []),
+      settings: { showAll: settings.showAll, sources: settings.sources, guides: settings.guides, ...($('#optExportKey')?.checked ? { tmdbKey: settings.tmdbKey } : {}) },
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const file = new File([blob], 'streambox-backup.json', { type: 'application/json' });
+    if (navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'StreamBox backup' }); return; }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'streambox-backup.json' });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast('Backup downloaded');
+  }
+
+  async function importData(file) {
+    let data;
+    try { data = JSON.parse(await file.text()); } catch { toast('That file isn’t valid JSON'); return; }
+    if (data?.app !== 'streambox') { toast('That isn’t a StreamBox backup'); return; }
+    // Only accept known item types and re-build each entry from whitelisted fields
+    const clean = list => (Array.isArray(list) ? list : [])
+      .filter(i => i && typeof i.key === 'string' && ['live', 'vod', 'tmdb'].includes(i.type) && (i.type !== 'live' || /^https?:\/\//.test(i.url || '')))
+      .map(snapshot);
+    const merge = (a, b) => { const seen = new Set(a.map(i => i.key)); return [...a, ...b.filter(i => !seen.has(i.key))]; };
+    store.set('mylist', merge(myList(), clean(data.mylist)).slice(0, 200));
+    store.set('history', merge(store.get('history', []), clean(data.history)).slice(0, 30));
+    const s = data.settings || {};
+    for (const k of ['sources', 'guides']) {
+      const incoming = (Array.isArray(s[k]) ? s[k] : []).filter(u => typeof u === 'string' && /^https:\/\//.test(u));
+      settings[k] = [...new Set([...settings[k], ...incoming])];
+    }
+    if (!settings.tmdbKey && /^[a-f0-9]{32}$/i.test(s.tmdbKey || '')) settings.tmdbKey = s.tmdbKey;
+    saveSettings();
+    toast('Backup imported — reloading…');
+    setTimeout(() => location.reload(), 700);
   }
 
   async function saveTmdbKey(key) {
@@ -727,11 +859,31 @@
         <ul class="src-list">${settings.sources.map((s, i) => `<li><span>${esc(s)}</span><button class="btn btn-more" style="padding:4px 10px;font-size:12px" data-act="rmsrc" data-i="${i}">Remove</button></li>`).join('') || '<li><span style="color:var(--muted)">No extra playlists.</span></li>'}</ul>
         <div class="form-row"><input type="url" id="srcInput" placeholder="https://example.com/playlist.m3u"><button class="btn btn-red" data-act="addsrc" style="padding:8px 16px">Add</button></div>
         <button class="btn btn-more" data-act="addiptv" style="margin-top:10px;font-size:13px;padding:6px 12px">+ Add iptv-org full list</button>
+        <h3>TV guide (XMLTV)</h3>
+        <p style="color:var(--muted)">Adds “Now / Next” to channels. Guides listed in your M3U playlists are picked up automatically. ${guide.byId.size ? `<b>${guide.byId.size}</b> channels with guide data loaded.` : ''} URLs must be https and allow cross-origin requests; .xml and .xml.gz both work.</p>
+        <ul class="src-list">${settings.guides.map((s, i) => `<li><span>${esc(s)}</span><button class="btn btn-more" style="padding:4px 10px;font-size:12px" data-act="rmguide" data-i="${i}">Remove</button></li>`).join('') || '<li><span style="color:var(--muted)">No guide URLs added.</span></li>'}</ul>
+        <div class="form-row"><input type="url" id="guideInput" placeholder="https://example.com/guide.xml"><button class="btn btn-red" data-act="addguide" style="padding:8px 16px">Add</button></div>
+        <h3>Backup &amp; restore</h3>
+        <p style="color:var(--muted)">Move My List, watch history and playlists between your phone and laptop.</p>
+        <label><input type="checkbox" id="optExportKey"> Include my TMDB key in the backup</label>
+        <div class="form-row">
+          <button class="btn btn-more" data-act="export" style="font-size:13px;padding:6px 12px">Export backup</button>
+          <button class="btn btn-more" data-act="import" style="font-size:13px;padding:6px 12px">Import backup</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+        </div>
         <h3>Data</h3>
         <button class="btn btn-more" data-act="clearhist" style="font-size:13px;padding:6px 12px">Clear watch history</button>
         <h3>Install on your phone</h3>
         <p><b>iPhone / iPad:</b> open in Safari → Share → <i>Add to Home Screen</i>.<br><b>Android:</b> open in Chrome → ⋮ menu → <i>Install app</i>.</p>
       </div>`);
+  }
+
+  function addGuide(url) {
+    if (!/^https:\/\//.test(url)) { toast('Guide URL must start with https://'); return; }
+    if (settings.guides.includes(url)) { toast('Already added'); return; }
+    settings.guides.push(url); saveSettings();
+    toast('Guide added — reloading…');
+    setTimeout(() => location.reload(), 700);
   }
 
   function addSource(url) {
@@ -758,13 +910,18 @@
       else if (a === 'rmsrc') { settings.sources.splice(+act.dataset.i, 1); saveSettings(); location.reload(); }
       else if (a === 'clearhist') { store.set('history', []); toast('History cleared'); }
       else if (a === 'opensettings') showSettings();
+      else if (a === 'addguide') addGuide($('#guideInput').value.trim());
+      else if (a === 'rmguide') { settings.guides.splice(+act.dataset.i, 1); saveSettings(); location.reload(); }
+      else if (a === 'export') exportData();
+      else if (a === 'import') $('#importFile').click();
       else if (a === 'savetmdb') saveTmdbKey($('#tmdbInput').value.trim());
       else if (a === 'cleartmdb') { settings.tmdbKey = ''; saveSettings(); tmdbCache.clear(); toast('TMDB key removed'); route(); showSettings(); }
       return;
     }
 
+    // Cards inside the movie modal ("More like this") open that title; modal buttons carry data-act and returned above
     const card = e.target.closest('[data-key]');
-    if (card && !card.closest('.modal')) {
+    if (card) {
       const item = items.get(card.dataset.key);
       if (!item) return;
       if (item.type === 'vod') return showMovie(item);
@@ -783,7 +940,10 @@
   });
 
   modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-  modal.addEventListener('change', e => { if (e.target.id === 'optShowAll') { settings.showAll = e.target.checked; saveSettings(); route(); } });
+  modal.addEventListener('change', e => {
+    if (e.target.id === 'optShowAll') { settings.showAll = e.target.checked; saveSettings(); route(); }
+    else if (e.target.id === 'importFile' && e.target.files[0]) importData(e.target.files[0]);
+  });
 
   $('#playerClose').onclick = closePlayer;
   $('#playerPrev').onclick = () => step(-1);
@@ -823,6 +983,8 @@
   // ---------------------------------------------------------------- boot
   view.innerHTML = '<div class="spinner" style="margin:40vh auto"></div>';
   channelsReady = loadChannels();
+  channelsReady.then(loadGuides);
+  setInterval(patchGuide, 60000);
   route();
 
   if ('serviceWorker' in navigator && PAGE_IS_HTTPS) navigator.serviceWorker.register('/sw.js').catch(() => {});
