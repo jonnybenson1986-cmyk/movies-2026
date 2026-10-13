@@ -15,7 +15,9 @@
     try {
       const cols = [
         ...(await (await fetch('/data/movies-a.json')).json()),
-        ...(await (await fetch('/data/movies-b.json')).json())
+        ...(await (await fetch('/data/movies-b.json')).json()),
+        ...(await (await fetch('/data/movies-c.json')).json()),
+        ...(await (await fetch('/data/movies-d.json')).json())
       ];
       collections = cols.map((col, ci) => ({
         id: col.id, title: col.title,
