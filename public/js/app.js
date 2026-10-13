@@ -81,12 +81,50 @@
 
   function register(item) { items.set(item.key, item); return item.key; }
 
+  // ---------------------------------------------------------------- country / area of origin
+  // Each channel's country comes from its iptv-org ID, e.g. "BBCOne.uk@SD" -> United Kingdom.
+  const CC_ALIAS = { uk: 'gb' };
+  const AREAS = {
+    Americas: 'ag ai ar aw bb bm bo br bs bz ca cl co cr cu cw dm do ec gd gf gl gp gt gy hn ht jm kn ky lc mq ms mx ni pa pe pr py sr sv tt us uy vc ve vg vi',
+    Europe: 'ad al am at az ba be bg by ch cy cz de dk ee es fi fo fr gb ge gg gi gr hr hu ie im is it je li lt lu lv mc md me mk mt nl no pl pt ro rs ru se si sk sm ua va xk',
+    Asia: 'af bd bn bt cn hk id in jp kg kh kp kr kz la lk mm mn mo mv my np pk ph sg th tj tl tm tw uz vn',
+    'Middle East': 'ae bh iq ir il jo kw lb om ps qa sa sy tr ye',
+    Africa: 'ao bf bi bj bw cd cf cg ci cm cv dj dz eg er et ga gh gm gn gq gw ke km lr ls ly ma mg ml mr mu mw mz na ne ng re rw sc sd sh sl sn so ss st sz td tg tn tz ug yt za zm zw',
+    Oceania: 'as au ck fj fm gu ki mh mp nc nr nu nz pf pg pw sb to tv vu wf ws',
+  };
+  const AREA_ORDER = ['Americas', 'Europe', 'Asia', 'Middle East', 'Africa', 'Oceania', 'International'];
+  const AREA_OF = {};
+  for (const [area, codes] of Object.entries(AREAS)) codes.split(' ').forEach(c => { AREA_OF[c] = area; });
+  const areaOf = cc => AREA_OF[cc] || 'International';
+
+  function ccFromId(id) {
+    const m = /\.([a-z]{2})(?:@|$)/i.exec(id || '');
+    const cc = m ? m[1].toLowerCase() : '';
+    return CC_ALIAS[cc] || cc;
+  }
+  const regionNames = (() => { try { return new Intl.DisplayNames(['en'], { type: 'region' }); } catch { return null; } })();
+  function countryName(cc) {
+    if (!cc) return 'International / Other';
+    try { const n = regionNames?.of(cc.toUpperCase()); return n && n !== cc.toUpperCase() ? n : cc.toUpperCase(); } catch { return cc.toUpperCase(); }
+  }
+  // Flag emoji don't render on Windows, so use small images (hidden if they can't load)
+  const flagUrl = cc => `https://flagcdn.com/w40/${cc}.png`;
+  const flagImg = (cc, cls = 'flag') => (cc ? `<img class="${cls}" loading="lazy" src="${flagUrl(cc)}" alt="" onerror="this.remove()">` : `<span class="${cls} globe">🌐</span>`);
+
+  function groupByCountry(list) {
+    const by = new Map();
+    for (const c of list) { const k = c.cc || ''; if (!by.has(k)) by.set(k, []); by.get(k).push(c); }
+    return [...by].map(([cc, chans]) => ({ cc, name: countryName(cc), area: areaOf(cc), channels: chans }))
+      .sort((a, b) => b.channels.length - a.channels.length || a.name.localeCompare(b.name));
+  }
+
   // ---------------------------------------------------------------- data: channels
   function liveItem(raw, i, origin) {
     return {
       key: `l:${origin}:${i}`, type: 'live',
       name: raw.n, url: raw.u, cat: raw.c || 'Entertainment', quality: raw.q || '',
       source: raw.s || '', logo: raw.l || '', needsHeaders: !!raw.h, isPlaylist: !!raw.p, tvgId: raw.t || '',
+      cc: ccFromId(raw.t),                  // country of origin (ISO 3166-1 alpha-2, lower case), '' if unknown
       ua: raw.ua || '', rf: raw.rf || '',   // HTTP headers the stream needs (sent via the VLC playlist / proxy)
       verified: !!raw.v,                    // manifest loaded with CORS when the build probed it
       noCors: !!raw.nc,                     // live, but its server sends no CORS header (browsers can't read it)
@@ -255,8 +293,8 @@
   }
   // Saved items survive reloads even if the source list changes
   const snapshot = it => {
-    const { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId } = it;
-    return { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId };
+    const { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId, cc } = it;
+    return { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId, cc };
   };
   const revive = saved => items.get(saved.key) || restoreMovie(saved) || (register(saved), saved);
 
@@ -279,6 +317,7 @@
         ${item.logo ? `<img loading="lazy" src="${esc(item.logo)}" alt="" style="position:absolute;inset:18% 25% 38%;width:50%;height:44%;object-fit:contain" onerror="this.remove()">` : ''}
         <span class="name">${esc(item.name)}</span>
         <span class="meta">${esc(meta)}</span>
+        ${item.cc ? flagImg(item.cc, 'card-flag') : ''}
       </span>
     </button>`;
   }
@@ -355,6 +394,7 @@
         ${rowHTML('Movies', movies.all.slice(0, ROW_LIMIT), '#movies')}
         <section class="row"><div class="row-head"><h2>Australia</h2><a class="see-all" href="#australia">${window.StreamBoxAustralia.count} guide channels ›</a></div></section>
         <section class="row"><div class="row-head"><h2>Movy</h2></div><div class="chips"><a class="chip" href="#movy/movie">Movies</a><a class="chip" href="#movy/tv">TV Shows</a><a class="chip" href="#movy/anime">Anime</a><a class="chip" href="#movy/4k">4K Library</a></div></section>
+        ${countryRow('Browse by country', groupByCountry(all).filter(g => g.cc).slice(0, 24), '#countries')}
         ${rowHTML('Live Sports', byCat('Sports').slice(0, ROW_LIMIT), '#sports')}
         ${rowHTML('Pluto TV Channels', all.filter(c => c.source === 'Pluto TV').slice(0, ROW_LIMIT), '#live/Pluto TV')}
         ${rowHTML('News', byCat('News').slice(0, ROW_LIMIT), '#live/News')}
@@ -383,7 +423,70 @@
     view.innerHTML = `<div class="page">
       <div class="page-head"><h1>Live TV</h1><span class="count">${list.length.toLocaleString()} channels${settings.showAll ? '' : ` · ${channels.filter(c => !c.isPlaylist && !c.dead && !isPlayable(c)).length.toLocaleString()} more need VLC or a proxy (Settings)`}</span>
         <button class="btn btn-more page-btn" data-act="vlcpl">Play this list in VLC</button></div>
-      <div class="chips"><a class="chip" href="#australia">Australia · ${window.StreamBoxAustralia.count} guide channels</a>${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
+      <div class="chips"><a class="chip chip-accent" href="#countries">🌍 By country</a><a class="chip" href="#australia">Australia · ${window.StreamBoxAustralia.count} guide channels</a>${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
+      <div id="gridMount"></div>
+    </div>`;
+    mountGrid($('#gridMount'), list);
+  }
+
+  // ---------------------------------------------------------------- countries
+  const countryTile = g => `<a class="country-tile" href="#country/${esc(g.cc || 'other')}" data-name="${esc(g.name.toLowerCase())}">
+      ${flagImg(g.cc)}<span><b>${esc(g.name)}</b><small>${g.channels.length.toLocaleString()} channel${g.channels.length === 1 ? '' : 's'}</small></span></a>`;
+
+  function countryRow(title, groups, seeAll) {
+    if (!groups.length) return '';
+    return `<section class="row">
+      <div class="row-head"><h2>${esc(title)}</h2>${seeAll ? `<a class="see-all" href="${esc(seeAll)}">See all ›</a>` : ''}</div>
+      <div class="row-track-wrap"><div class="row-track country-row">${groups.map(countryTile).join('')}</div></div>
+    </section>`;
+  }
+
+  // All countries, grouped by area. `area` (optional) narrows to one area.
+  function renderCountries(area) {
+    const groups = groupByCountry(visibleChannels());
+    const areas = AREA_ORDER.filter(a => groups.some(g => g.area === a));
+    const active = areas.includes(area) ? area : '';
+    const shown = groups.filter(g => !active || g.area === active);
+    const total = shown.reduce((n, g) => n + g.channels.length, 0);
+    view.innerHTML = `<div class="page">
+      <div class="page-head"><h1>Countries</h1><span class="count">${shown.filter(g => g.cc).length} countries · ${total.toLocaleString()} channels</span>
+        <input class="country-filter" id="countryFilter" type="search" placeholder="Find a country…" autocomplete="off"></div>
+      <div class="chips"><a class="chip ${active ? '' : 'active'}" href="#countries">All areas</a>${areas.map(a => {
+        const n = groups.filter(g => g.area === a).reduce((m, g) => m + g.channels.length, 0);
+        return `<a class="chip ${a === active ? 'active' : ''}" href="#countries/${encodeURIComponent(a)}">${esc(a)} · ${n.toLocaleString()}</a>`;
+      }).join('')}</div>
+      ${areas.filter(a => !active || a === active).map(a => {
+        const list = shown.filter(g => g.area === a);
+        return `<section class="area"><h2 class="area-head">${esc(a)} <small>${list.length} ${list.length === 1 ? 'country' : 'countries'}</small></h2>
+          <div class="country-grid">${list.map(countryTile).join('')}</div></section>`;
+      }).join('')}
+    </div>`;
+    $('#countryFilter').addEventListener('input', e => {
+      const q = e.target.value.trim().toLowerCase();
+      view.querySelectorAll('.country-tile').forEach(t => { t.hidden = !!q && !t.dataset.name.includes(q); });
+      view.querySelectorAll('.area').forEach(sec => { sec.hidden = ![...sec.querySelectorAll('.country-tile')].some(t => !t.hidden); });
+    });
+  }
+
+  // One country's channels bundled together, with category filters. arg is "<cc>" or "<cc>/<category>".
+  function renderCountry(arg) {
+    const [code, ...rest] = (arg || '').split('/');
+    const cc = code === 'other' ? '' : code.toLowerCase();
+    const category = rest.join('/');
+    const all = visibleChannels().filter(c => (c.cc || '') === cc);
+    if (!all.length) { view.innerHTML = '<div class="page"><div class="empty">No channels for that country.<br><a class="btn btn-more" href="#countries" style="margin-top:14px">All countries</a></div></div>'; return; }
+    const counts = all.reduce((a, c) => (a[c.cat] = (a[c.cat] || 0) + 1, a), {});
+    const cats = CATEGORY_ORDER.filter(c => counts[c]);
+    const active = cats.includes(category) ? category : 'All';
+    const list = active === 'All' ? all : all.filter(c => c.cat === active);
+    const name = countryName(cc);
+    vlcList = { name: `streambox-${name}`, items: list };
+    view.innerHTML = `<div class="page">
+      <div class="page-head country-head">${flagImg(cc, 'flag flag-lg')}<h1>${esc(name)}</h1>
+        <span class="count">${esc(areaOf(cc))} · ${list.length.toLocaleString()} channels</span>
+        <a class="btn btn-more page-btn" href="#countries">All countries</a>
+        <button class="btn btn-more" data-act="vlcpl" style="font-size:13px;padding:7px 14px">Play in VLC</button></div>
+      <div class="chips"><a class="chip ${active === 'All' ? 'active' : ''}" href="#country/${esc(code)}">All · ${all.length}</a>${cats.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#country/${esc(code)}/${encodeURIComponent(c)}">${esc(c)} · ${counts[c]}</a>`).join('')}</div>
       <div id="gridMount"></div>
     </div>`;
     mountGrid($('#gridMount'), list);
@@ -417,7 +520,7 @@
 
   function renderSearch(q) {
     const term = q.trim().toLowerCase();
-    const live = term ? visibleChannels().filter(c => c.name.toLowerCase().includes(term) || c.cat.toLowerCase() === term) : [];
+    const live = term ? visibleChannels().filter(c => c.name.toLowerCase().includes(term) || c.cat.toLowerCase() === term || (term.length >= 3 && countryName(c.cc).toLowerCase().startsWith(term))) : [];
     const films = term ? movies.all.filter(m => m.name.toLowerCase().includes(term)) : [];
     view.innerHTML = `<div class="page">
       <div class="page-head"><h1>Results for “${esc(q)}”</h1><span class="count">${live.length} channels · ${films.length} movies</span></div>
@@ -439,7 +542,8 @@
     movy.cancel();
     const [name, ...rest] = decodeURIComponent(location.hash.slice(1) || 'home').split('/');
     const arg = rest.join('/');
-    document.querySelectorAll('[data-route]').forEach(a => a.classList.toggle('active', a.dataset.route === name));
+    const navName = name === 'country' ? 'countries' : name;
+    document.querySelectorAll('[data-route]').forEach(a => a.classList.toggle('active', a.dataset.route === navName));
     await Promise.all([channelsReady, movies.ready, window.StreamBoxAustralia.ready]);
     if (version !== routeVersion) return;
     movies.all.forEach(register);
@@ -448,6 +552,8 @@
       case 'live': renderLive(arg); break;
       case 'sports': renderSports(); break;
       case 'australia': window.StreamBoxAustralia.render(view, arg, { streams: channels.filter(c => !(settings.hideBad && isBad(c))), card: cardHTML }); break;
+      case 'countries': renderCountries(arg); break;
+      case 'country': renderCountry(arg); break;
       case 'movies': movies.render(view, arg); break;
       case 'movy': await movy.render(view, location.hash.slice(1).split('/').slice(1).join('/'), { register, isSaved: inMyList, retry: route, play }); break;
       case 'mylist': renderMyList(); break;
@@ -540,7 +646,7 @@
 
   function renderPlayerSub() {
     if (!current) return;
-    const base = [current.source, current.quality, current.cat].filter(Boolean).join(' · ');
+    const base = [current.cc && countryName(current.cc), current.source, current.quality, current.cat].filter(Boolean).join(' · ');
     const g = guideFor(current);
     const at = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     $('#playerSub').textContent = [base, g?.now && `Now: ${g.now.title}`, g?.next && `Next ${at(g.next.start)}: ${g.next.title}`].filter(Boolean).join(' · ');
@@ -807,8 +913,9 @@
         </div>
         <h3>Data</h3>
         <button class="btn btn-more" data-act="clearhist" style="font-size:13px;padding:6px 12px">Clear watch history</button>
-        <h3>Install on your phone</h3>
-        <p><b>iPhone / iPad:</b> open in Safari → Share → <i>Add to Home Screen</i>.<br><b>Android:</b> open in Chrome → ⋮ menu → <i>Install app</i>.</p>
+        <h3>Download the app</h3>
+        ${isInstalled() ? '<p style="color:var(--green)">StreamBox is installed on this device ✓</p>' : '<button class="btn btn-red" data-act="install" style="font-size:13px;padding:6px 12px">Download StreamBox</button>'}
+        <p style="margin-top:8px"><b>iPhone / iPad:</b> open in Safari → Share → <i>Add to Home Screen</i>.<br><b>Android:</b> open in Chrome → ⋮ menu → <i>Install app</i>.<br><b>Windows / Mac:</b> open in Chrome or Edge → install icon in the address bar.</p>
       </div>`);
   }
 
@@ -843,6 +950,41 @@
     setTimeout(() => location.reload(), 700);
   }
 
+  // ---------------------------------------------------------------- install (download the app)
+  // Chrome/Edge/Android hand us an install prompt; iOS Safari has no prompt, so we show the steps instead.
+  let installPrompt = null;
+  const isInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const installBtn = $('#installBtn');
+  const refreshInstallBtn = () => { installBtn.hidden = isInstalled() || !(installPrompt || IS_IOS); };
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; refreshInstallBtn(); });
+  addEventListener('appinstalled', () => { installPrompt = null; refreshInstallBtn(); toast('StreamBox installed ✓'); });
+
+  async function installApp() {
+    if (isInstalled()) { toast('StreamBox is already installed'); return; }
+    if (installPrompt) {
+      const prompt = installPrompt; installPrompt = null;
+      prompt.prompt();
+      const { outcome } = await prompt.userChoice.catch(() => ({}));
+      if (outcome !== 'accepted') installPrompt = prompt;
+      refreshInstallBtn();
+      return;
+    }
+    openModal(`
+      <div class="modal-body" style="padding-top:28px">
+        <h2 style="font-size:24px;margin-bottom:6px">Download StreamBox</h2>
+        <p style="color:var(--muted)">StreamBox installs straight from your browser — no app store needed. It opens full-screen with its own icon.</p>
+        ${IS_IOS ? `<h3>iPhone / iPad</h3>
+        <p>1. Open this page in <b>Safari</b>.<br>2. Tap the <b>Share</b> button (the square with an arrow).<br>3. Choose <i>Add to Home Screen</i>, then <i>Add</i>.</p>` : `<h3>Android</h3>
+        <p>Open this page in <b>Chrome</b> → ⋮ menu → <i>Install app</i> (or <i>Add to Home screen</i>).</p>
+        <h3>Windows / Mac / Linux</h3>
+        <p>Open this page in <b>Chrome</b> or <b>Edge</b> → click the install icon at the right of the address bar (or ⋮ menu → <i>Install StreamBox</i>).</p>
+        <h3>iPhone / iPad</h3>
+        <p>Open this page in <b>Safari</b> → Share → <i>Add to Home Screen</i>.</p>`}
+      </div>`);
+  }
+  installBtn.onclick = installApp;
+  refreshInstallBtn();
+
   // ---------------------------------------------------------------- events
   document.addEventListener('click', e => {
     const act = e.target.closest('[data-act]');
@@ -870,6 +1012,7 @@
       else if (a === 'addguide') addGuide($('#guideInput').value.trim());
       else if (a === 'rmguide') { settings.guides.splice(+act.dataset.i, 1); saveSettings(); location.reload(); }
       else if (a === 'export') exportData();
+      else if (a === 'install') installApp();
       else if (a === 'import') $('#importFile').click();
       return;
     }

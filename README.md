@@ -43,6 +43,14 @@ node scripts/build-channels.mjs          # use the playlists in the repo
 node scripts/build-channels.mjs --fetch  # refresh iptv-org first
 ```
 
+## Browse by country
+
+Channels are bundled by **country / area of origin**, taken from the country code in each channel's iptv-org ID (for example `BBCOne.uk@SD` is the United Kingdom). That covers about 11,200 of the 11,600 channels across roughly 175 countries. The rest appear under *International / Other*.
+
+- **Countries** (top menu, or the 🌍 chip on Live TV, or the *Browse by country* row on Home): every country grouped by area (Americas, Europe, Asia, Middle East, Africa, Oceania, International), biggest first, with a find-a-country box.
+- **A country's page** bundles all its channels, with category filters (News, Sports, Kids…) and **Play in VLC** to export the whole bundle as one playlist.
+- Cards show the channel's flag, the player shows its country, and search understands country names (try `ukraine`).
+
 ## Why some channels don't play in the app (and what fixes each)
 
 A browser is stricter than VLC. When a channel shows "Channel unavailable", the message now says why:
