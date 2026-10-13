@@ -36,6 +36,9 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .icon-btn { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; }
 .icon-btn:hover { background: rgba(255,255,255,.1); }
+.btn.install-btn { gap: 6px; padding: 6px 12px; font-size: 13px; white-space: nowrap; }
+.btn.install-btn svg { width: 18px; height: 18px; }
+.install-btn[hidden] { display: none; }
 .search-input {
   width: 0; opacity: 0; padding: 0; border: 1px solid transparent;
   background: rgba(0,0,0,.75); color: #fff; font-size: 14px; height: 36px;
@@ -204,6 +207,8 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
   .card { width: 42vw; }
   .row { margin-bottom: 26px; }
   .btn { font-size: 15px; padding: 9px 18px; }
+  .btn.install-btn { font-size: 12px; padding: 6px 10px; }
+  .install-btn:has(~ .search-input.open) { display: none; }
 }
 @media (min-width: 821px) { body { padding-bottom: 0; } }
 @media (hover: none) { .card:hover { transform: none; box-shadow: none; } }
