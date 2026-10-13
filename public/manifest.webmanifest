@@ -1,7 +1,8 @@
 {
-  "name": "StreamBox — Live TV & Sports",
+  "id": "/",
+  "name": "StreamBox — Live TV, Movies & Sports",
   "short_name": "StreamBox",
-  "description": "Netflix-style player for live TV and sports.",
+  "description": "Netflix-style player for live TV, movies and sports.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

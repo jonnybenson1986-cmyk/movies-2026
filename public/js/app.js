@@ -893,8 +893,9 @@
         </div>
         <h3>Data</h3>
         <button class="btn btn-more" data-act="clearhist" style="font-size:13px;padding:6px 12px">Clear watch history</button>
-        <h3>Install on your phone</h3>
-        <p><b>iPhone / iPad:</b> open in Safari → Share → <i>Add to Home Screen</i>.<br><b>Android:</b> open in Chrome → ⋮ menu → <i>Install app</i>.</p>
+        <h3>Download the app</h3>
+        ${isInstalled() ? '<p style="color:var(--green)">StreamBox is installed on this device ✓</p>' : '<button class="btn btn-red" data-act="install" style="font-size:13px;padding:6px 12px">Download StreamBox</button>'}
+        <p style="margin-top:8px"><b>iPhone / iPad:</b> open in Safari → Share → <i>Add to Home Screen</i>.<br><b>Android:</b> open in Chrome → ⋮ menu → <i>Install app</i>.<br><b>Windows / Mac:</b> open in Chrome or Edge → install icon in the address bar.</p>
       </div>`);
   }
 
@@ -929,6 +930,41 @@
     setTimeout(() => location.reload(), 700);
   }
 
+  // ---------------------------------------------------------------- install (download the app)
+  // Chrome/Edge/Android hand us an install prompt; iOS Safari has no prompt, so we show the steps instead.
+  let installPrompt = null;
+  const isInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const installBtn = $('#installBtn');
+  const refreshInstallBtn = () => { installBtn.hidden = isInstalled() || !(installPrompt || IS_IOS); };
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; refreshInstallBtn(); });
+  addEventListener('appinstalled', () => { installPrompt = null; refreshInstallBtn(); toast('StreamBox installed ✓'); });
+
+  async function installApp() {
+    if (isInstalled()) { toast('StreamBox is already installed'); return; }
+    if (installPrompt) {
+      const prompt = installPrompt; installPrompt = null;
+      prompt.prompt();
+      const { outcome } = await prompt.userChoice.catch(() => ({}));
+      if (outcome !== 'accepted') installPrompt = prompt;
+      refreshInstallBtn();
+      return;
+    }
+    openModal(`
+      <div class="modal-body" style="padding-top:28px">
+        <h2 style="font-size:24px;margin-bottom:6px">Download StreamBox</h2>
+        <p style="color:var(--muted)">StreamBox installs straight from your browser — no app store needed. It opens full-screen with its own icon.</p>
+        ${IS_IOS ? `<h3>iPhone / iPad</h3>
+        <p>1. Open this page in <b>Safari</b>.<br>2. Tap the <b>Share</b> button (the square with an arrow).<br>3. Choose <i>Add to Home Screen</i>, then <i>Add</i>.</p>` : `<h3>Android</h3>
+        <p>Open this page in <b>Chrome</b> → ⋮ menu → <i>Install app</i> (or <i>Add to Home screen</i>).</p>
+        <h3>Windows / Mac / Linux</h3>
+        <p>Open this page in <b>Chrome</b> or <b>Edge</b> → click the install icon at the right of the address bar (or ⋮ menu → <i>Install StreamBox</i>).</p>
+        <h3>iPhone / iPad</h3>
+        <p>Open this page in <b>Safari</b> → Share → <i>Add to Home Screen</i>.</p>`}
+      </div>`);
+  }
+  installBtn.onclick = installApp;
+  refreshInstallBtn();
+
   // ---------------------------------------------------------------- events
   document.addEventListener('click', e => {
     const act = e.target.closest('[data-act]');
@@ -955,6 +991,7 @@
       else if (a === 'addguide') addGuide($('#guideInput').value.trim());
       else if (a === 'rmguide') { settings.guides.splice(+act.dataset.i, 1); saveSettings(); location.reload(); }
       else if (a === 'export') exportData();
+      else if (a === 'install') installApp();
       else if (a === 'import') $('#importFile').click();
       return;
     }
