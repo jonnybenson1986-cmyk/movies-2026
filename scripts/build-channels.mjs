@@ -1,5 +1,6 @@
-// Converts playlists/*.xspf (VLC) into public/data/channels.json for the app.
-// Run: node scripts/build-channels.mjs
+// Builds public/data/channels.json for the app from playlists/*.m3u and playlists/*.xspf (VLC).
+//   node scripts/build-channels.mjs           use the playlists in the repo
+//   node scripts/build-channels.mjs --fetch   first refresh playlists/iptv-org.m3u from iptv-org (used on every Netlify deploy)
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -27,6 +28,7 @@ const MERGE = {
   Business: 'News', Legislative: 'News', Family: 'Kids', Animation: 'Kids',
   Cooking: 'Lifestyle', Travel: 'Lifestyle', Outdoor: 'Lifestyle', Auto: 'Lifestyle', Relax: 'Lifestyle',
   Education: 'Documentary', Science: 'Documentary', Culture: 'Documentary',
+  Shop: 'Lifestyle', Weather: 'News', Public: 'News', Interactive: 'Entertainment',
 };
 
 const sourceOf = url => {
@@ -38,33 +40,81 @@ const sourceOf = url => {
   return '';
 };
 
+const IPTV_ORG = 'https://iptv-org.github.io/iptv/index.m3u';
+if (process.argv.includes('--fetch')) {
+  try {
+    const res = await fetch(IPTV_ORG);
+    const text = await res.text();
+    if (!res.ok || !text.startsWith('#EXTM3U')) throw new Error(`HTTP ${res.status}`);
+    writeFileSync(join(root, 'playlists/iptv-org.m3u'), text);
+    console.log(`refreshed playlists/iptv-org.m3u (${(text.length / 1e6).toFixed(1)} MB)`);
+  } catch (e) { console.warn(`could not refresh iptv-org (${e.message}); using the copy in the repo`); }
+}
+
 const channels = [];
 const seen = new Set();
-for (const file of readdirSync(join(root, 'playlists')).filter(f => f.endsWith('.xspf'))) {
+
+// Shared by both parsers. `raw` has name, url, group, quality?, tvgId?, logo?, ua?, rf?
+function add({ name, url, group = '', quality = '', tvgId = '', logo = '', ua, rf, isPlaylist = false }) {
+  if (!url || seen.has(url)) return;
+  seen.add(url);
+  const category = (group && !/general|undefined/i.test(group) ? group : '')
+    || CATEGORIES.find(([, re]) => re.test(name))?.[0] || 'Entertainment';
+  channels.push({
+    n: name,
+    u: url,
+    c: MERGE[category] || category,
+    q: quality,
+    s: sourceOf(url),
+    // Streams that need custom headers or plain http won't play inside an https web app.
+    h: ua || rf ? 1 : 0,
+    p: isPlaylist ? 1 : 0,
+    ...(tvgId && { t: tvgId }),
+    ...(logo && { l: logo }),
+    // Header values are kept so "Open in VLC" playlists can send them (browsers can't)
+    ...(ua && { ua }),
+    ...(rf && { rf }),
+  });
+}
+const cleanName = title => title.replace(/\s*\(\d{3,4}p\)/, '').replace(/\s*\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+
+const files = readdirSync(join(root, 'playlists'));
+
+// 1) M3U first: richest data (tvg-id for the TV guide, logos, headers)
+for (const file of files.filter(f => /\.m3u8?$/i.test(f))) {
+  let meta = null;
+  for (const line of readFileSync(join(root, 'playlists', file), 'utf8').split(/\r?\n/)) {
+    const l = line.trim();
+    if (l.startsWith('#EXTINF')) {
+      const attr = k => l.match(new RegExp(`${k}="([^"]*)"`))?.[1] || '';
+      const title = l.slice(l.lastIndexOf(',') + 1).trim();
+      meta = { name: cleanName(title), quality: title.match(/\((\d{3,4}p)\)/)?.[1] || '', group: attr('group-title').split(';')[0], tvgId: attr('tvg-id'), logo: attr('tvg-logo') };
+    } else if (l.startsWith('#EXTVLCOPT') && meta) {
+      const m = /^#EXTVLCOPT:http-(user-agent|referrer)=(.*)$/.exec(l);
+      if (m) meta[m[1] === 'referrer' ? 'rf' : 'ua'] = m[2];
+    } else if (l && !l.startsWith('#') && meta) {
+      add({ ...meta, url: l });
+      meta = null;
+    }
+  }
+}
+
+// 2) VLC .xspf playlists fill in anything the M3U didn't have
+for (const file of files.filter(f => f.endsWith('.xspf'))) {
   const xml = readFileSync(join(root, 'playlists', file), 'utf8');
   for (const [, body] of xml.matchAll(/<track>([\s\S]*?)<\/track>/g)) {
     const url = decode(body.match(/<location>([^<]*)<\/location>/)?.[1] || '');
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
     const rawTitle = decode(body.match(/<title>([^<]*)<\/title>/)?.[1] || '');
     const creator = decode(body.match(/<creator>([^<]*)<\/creator>/)?.[1] || '');
     const options = [...body.matchAll(/<vlc:option>([^<]*)<\/vlc:option>/g)].map(m => decode(m[1]));
     const isPlaylist = /\.m3u$/i.test(url);
     const title = rawTitle || (isPlaylist ? 'iptv-org: All Channels' : url.split('/').pop());
-    const quality = title.match(/\((\d{3,4}p)\)/)?.[1] || '';
-    const name = title.replace(/\s*\(\d{3,4}p\)/, '').replace(/\s*\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
-    const group = creator.match(/group-title="([^"]*)"/)?.[1]?.split(';')[0] || '';
-    const category = (group && !/general|undefined/i.test(group) ? group : '')
-      || CATEGORIES.find(([, re]) => re.test(name))?.[0] || 'Entertainment';
-    channels.push({
-      n: name,
-      u: url,
-      c: MERGE[category] || category,
-      q: quality,
-      s: sourceOf(url),
-      // Streams that need custom headers or plain http won't play inside an https web app.
-      h: options.some(o => /^http-(referrer|user-agent)/.test(o)) ? 1 : 0,
-      p: isPlaylist ? 1 : 0,
+    const opt = prefix => options.find(o => o.startsWith(prefix))?.slice(prefix.length);
+    add({
+      name: cleanName(title), url, isPlaylist,
+      quality: title.match(/\((\d{3,4}p)\)/)?.[1] || '',
+      group: creator.match(/group-title="([^"]*)"/)?.[1]?.split(';')[0] || '',
+      ua: opt('http-user-agent='), rf: opt('http-referrer='),
     });
   }
 }

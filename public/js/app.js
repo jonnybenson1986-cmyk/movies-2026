@@ -52,13 +52,20 @@
   const GRID_CHUNK = 120;
   const PAGE_IS_HTTPS = location.protocol === 'https:';
   const IS_IOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const IS_ANDROID = /Android/.test(navigator.userAgent);
+  const VLC_STORES = {
+    ios: 'https://apps.apple.com/app/vlc-for-mobile/id650377962',
+    android: 'https://play.google.com/store/apps/details?id=org.videolan.vlc',
+    desktop: 'https://www.videolan.org/vlc/',
+  };
+  const VLC_LIST_LIMIT = 3000;
 
   // ---------------------------------------------------------------- storage
   const store = {
     get(key, fallback) { try { const v = localStorage.getItem('sb:' + key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
     set(key, value) { try { localStorage.setItem('sb:' + key, JSON.stringify(value)); } catch { /* private mode */ } },
   };
-  const settings = Object.assign({ showAll: false, sources: [], guides: [], tmdbKey: '' }, store.get('settings', {}));
+  const settings = Object.assign({ showAll: false, autoVlc: true, sources: [], guides: [], tmdbKey: '' }, store.get('settings', {}));
   const saveSettings = () => store.set('settings', settings);
 
   // ---------------------------------------------------------------- state
@@ -66,6 +73,7 @@
   let channels = [];              // live channels (bundled + user playlists)
   let channelsReady = null;       // promise
   const movieCache = new Map();   // collection/query -> items
+  let vlcList = { name: 'streambox', items: [] };   // channels on the current page, for "Play this list in VLC"
 
   // ---------------------------------------------------------------- helpers
   const $ = sel => document.querySelector(sel);
@@ -91,6 +99,7 @@
       key: `l:${origin}:${i}`, type: 'live',
       name: raw.n, url: raw.u, cat: raw.c || 'Entertainment', quality: raw.q || '',
       source: raw.s || '', logo: raw.l || '', needsHeaders: !!raw.h, isPlaylist: !!raw.p, tvgId: raw.t || '',
+      ua: raw.ua || '', rf: raw.rf || '',   // HTTP headers the stream needs (sent via the VLC playlist)
     };
   }
 
@@ -106,8 +115,9 @@
         const attr = k => l.match(new RegExp(`${k}="([^"]*)"`))?.[1] || '';
         const title = l.slice(l.lastIndexOf(',') + 1).trim();
         meta = { n: title.replace(/\s*\(\d{3,4}p\)/, '').replace(/\s*\[[^\]]*\]/g, '').trim(), q: title.match(/\((\d{3,4}p)\)/)?.[1] || '', c: attr('group-title').split(';')[0], l: attr('tvg-logo'), t: attr('tvg-id') };
-      } else if (l.startsWith('#EXTVLCOPT') && meta && /http-(referrer|user-agent)/.test(l)) {
-        meta.h = 1;
+      } else if (l.startsWith('#EXTVLCOPT') && meta) {
+        const m = /^#EXTVLCOPT:http-(user-agent|referrer)=(.*)$/.exec(l);
+        if (m) { meta.h = 1; meta[m[1] === 'referrer' ? 'rf' : 'ua'] = m[2]; }
       } else if (l && !l.startsWith('#') && meta) {
         out.push({ ...meta, u: l, c: CATEGORY_ORDER.includes(meta.c) ? meta.c : guessCategory(meta.n, meta.c) });
         meta = null;
@@ -342,8 +352,8 @@
   }
   // Saved items survive reloads even if the source list changes
   const snapshot = it => {
-    const { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc, img, backdrop, rating, tvgId } = it;
-    return { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc: (desc || '').slice(0, 400), img, backdrop, rating, tvgId };
+    const { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc, img, backdrop, rating, tvgId, ua, rf } = it;
+    return { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc: (desc || '').slice(0, 400), img, backdrop, rating, tvgId, ua, rf };
   };
   const revive = saved => items.get(saved.key) || (register(saved), saved);
 
@@ -476,11 +486,15 @@
     const all = visibleChannels();
     const counts = all.reduce((a, c) => (a[c.cat] = (a[c.cat] || 0) + 1, a), {});
     const sources = [...new Set(all.map(c => c.source).filter(Boolean))];
-    const chips = ['All', ...CATEGORY_ORDER.filter(c => counts[c]), ...sources];
+    const vlcOnly = all.filter(c => !isPlayable(c));
+    counts['VLC only'] = vlcOnly.length;
+    const chips = ['All', ...CATEGORY_ORDER.filter(c => counts[c]), ...sources, ...(vlcOnly.length ? ['VLC only'] : [])];
     const active = cat || 'All';
-    const list = active === 'All' ? all : all.filter(c => c.cat === active || c.source === active);
+    const list = active === 'All' ? all : active === 'VLC only' ? vlcOnly : all.filter(c => c.cat === active || c.source === active);
+    vlcList = { name: `streambox-${active}`, items: list };
     view.innerHTML = `<div class="page">
-      <div class="page-head"><h1>Live TV</h1><span class="count">${list.length.toLocaleString()} channels${settings.showAll ? '' : ' · browser-playable only'}</span></div>
+      <div class="page-head"><h1>Live TV</h1><span class="count">${list.length.toLocaleString()} channels${settings.showAll ? '' : ' · browser-playable only'}</span>
+        <button class="btn btn-more page-btn" data-act="vlcpl">Play this list in VLC</button></div>
       <div class="chips">${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
       <div id="gridMount"></div>
     </div>`;
@@ -545,8 +559,10 @@
 
   function renderMyList() {
     const mine = myList().map(revive);
+    vlcList = { name: 'streambox-my-list', items: mine.filter(i => i.type === 'live') };
     view.innerHTML = `<div class="page">
-      <div class="page-head"><h1>My List</h1><span class="count">${mine.length} saved</span></div>
+      <div class="page-head"><h1>My List</h1><span class="count">${mine.length} saved</span>
+        ${mine.some(i => i.type === 'live') ? '<button class="btn btn-more page-btn" data-act="vlcpl">Play channels in VLC</button>' : ''}</div>
       <div id="gridMount"></div>
     </div>`;
     if (!mine.length) { $('#gridMount').innerHTML = '<div class="empty">Tap <b>+ My List</b> on any movie or while watching a channel to save it here.</div>'; return; }
@@ -593,11 +609,62 @@
   const player = $('#player'), video = $('#video'), msg = $('#playerMsg');
   let hls = null, current = null, currentList = [], stallTimer = null;
 
+  // ---- VLC hand-off. Browsers can't embed VLC or send custom headers, so channels that need either
+  // are opened in the VLC app: a deep link on mobile, or an .m3u file that carries the headers.
+  const oneLine = s => String(s ?? '').replace(/[\r\n]+/g, ' ').trim();
+
   function vlcLinks(url) {
+    const m = /^(https?):\/\/(.+)$/.exec(url);
     return {
       ios: `vlc-x-callback://x-callback-url/stream?url=${encodeURIComponent(url)}`,
-      android: `intent:${url}#Intent;package=org.videolan.vlc;type=video/*;end`,
+      android: m ? `intent://${m[2]}#Intent;scheme=${m[1]};action=android.intent.action.VIEW;type=video/*;package=org.videolan.vlc;S.browser_fallback_url=${encodeURIComponent(VLC_STORES.android)};end` : '',
     };
+  }
+  const vlcDeepLink = url => (IS_ANDROID ? vlcLinks(url).android : IS_IOS ? vlcLinks(url).ios : '');
+
+  function buildM3U(list) {
+    return '#EXTM3U\n' + list.map(c => [
+      `#EXTINF:-1 group-title="${oneLine(c.cat).replace(/"/g, "'")}",${oneLine(c.name)}`,
+      c.ua && `#EXTVLCOPT:http-user-agent=${oneLine(c.ua)}`,
+      c.rf && `#EXTVLCOPT:http-referrer=${oneLine(c.rf)}`,
+      oneLine(c.url),
+    ].filter(Boolean).join('\n')).join('\n') + '\n';
+  }
+
+  // Share sheet where files can be shared (iOS/Android), otherwise a normal download
+  async function saveFile(name, mime, text) {
+    const blob = new Blob([text], { type: mime });
+    const file = new File([blob], name, { type: mime });
+    if (navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: name }); return; }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: name });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast(`Saved ${name}`);
+  }
+
+  const vlcButtons = item => {
+    const link = vlcDeepLink(item.url);
+    return `${link ? `<a class="btn btn-red" href="${esc(link)}">Open in VLC</a>` : ''}
+      <button class="btn ${link ? 'btn-more' : 'btn-red'}" data-act="vlcfile" data-key="${esc(item.key)}">Open in VLC (.m3u file)</button>
+      <button class="btn btn-more" data-act="copy" data-key="${esc(item.key)}">Copy stream URL</button>`;
+  };
+
+  function exportVlcList() {
+    const { name, items: list } = vlcList;
+    if (!list.length) { toast('No channels to export'); return; }
+    const slice = list.slice(0, VLC_LIST_LIMIT);
+    saveFile(`${name.replace(/[^\w.-]+/g, '_')}.m3u`, 'audio/x-mpegurl', buildM3U(slice));
+    if (list.length > slice.length) toast(`Exported the first ${VLC_LIST_LIMIT.toLocaleString()} of ${list.length.toLocaleString()} channels`);
+  }
+
+  function openVlcChannel(item) {
+    showChannel(item);
+    // On phones, jump straight into VLC (this runs inside the tap, so the browser allows it)
+    const link = settings.autoVlc && vlcDeepLink(item.url);
+    if (link) location.href = link;
   }
 
   function renderPlayerSub() {
@@ -609,10 +676,8 @@
   }
 
   function showPlayerMsg(title, text, item) {
-    const v = vlcLinks(item.url);
     msg.innerHTML = `<h3>${esc(title)}</h3><p>${esc(text)}</p><div class="btns">
-      ${item.type === 'live' ? `<a class="btn btn-red" href="${/Android/.test(navigator.userAgent) ? v.android : v.ios}">Open in VLC</a>` : ''}
-      <button class="btn btn-more" data-act="copy">Copy stream URL</button>
+      ${item.type === 'live' ? vlcButtons(item) : ''}
       ${item.type === 'live' && currentList.length > 1 ? '<button class="btn btn-play" data-act="next">Next channel</button>' : ''}
     </div>`;
     msg.hidden = false;
@@ -624,7 +689,7 @@
     video.pause(); video.removeAttribute('src'); video.load();
   }
 
-  async function play(item, list = []) {
+  async function play(item, list = [], force = false) {
     stopHero();
     teardown();
     current = item;
@@ -639,7 +704,7 @@
     pushHistory(item);
     wakeControls();
 
-    if (item.type === 'live' && !isPlayable(item)) {
+    if (item.type === 'live' && !force && !isPlayable(item)) {
       showPlayerMsg('Plays in VLC only', item.needsHeaders
         ? 'This channel needs special HTTP headers that web browsers can’t send.'
         : 'This channel streams over insecure http://, which browsers block on secure sites.', item);
@@ -781,16 +846,7 @@
       mylist: myList(), history: store.get('history', []),
       settings: { showAll: settings.showAll, sources: settings.sources, guides: settings.guides, ...($('#optExportKey')?.checked ? { tmdbKey: settings.tmdbKey } : {}) },
     };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const file = new File([blob], 'streambox-backup.json', { type: 'application/json' });
-    if (navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: 'StreamBox backup' }); return; }
-      catch (e) { if (e.name === 'AbortError') return; }
-    }
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'streambox-backup.json' });
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast('Backup downloaded');
+    await saveFile('streambox-backup.json', 'application/json', JSON.stringify(data, null, 2));
   }
 
   async function importData(file) {
@@ -827,21 +883,25 @@
   }
 
   function showChannel(item) {
-    const v = vlcLinks(item.url);
+    const reason = item.needsHeaders
+      ? 'it needs custom HTTP headers (a user-agent or referrer) that web browsers can’t send'
+      : 'it streams over insecure http://, which browsers block on secure sites';
     openModal(`
-      <div class="modal-hero" style="--tile:${tileColor(item.name)}"><div class="inner">
-        <h2>${esc(item.name)}</h2>
-        <div class="hero-actions">
-          <a class="btn btn-red" href="${/Android/.test(navigator.userAgent) ? v.android : v.ios}">Open in VLC</a>
-          <button class="btn btn-more" data-act="fav" data-key="${esc(item.key)}">${inMyList(item.key) ? '✓ In My List' : '+ My List'}</button>
-        </div>
-      </div></div>
+      <div class="modal-hero" style="--tile:${tileColor(item.name)}"><div class="inner"><h2>${esc(item.name)}</h2></div></div>
       <div class="modal-body">
-        <div class="facts"><span>${esc(item.cat)}</span>${item.quality ? `<span>${esc(item.quality)}</span>` : ''}</div>
-        <p>This channel can’t play inside a web browser (${item.needsHeaders ? 'it needs custom HTTP headers' : 'it uses insecure http://'}). Open it in the free VLC app instead.</p>
-        <p style="margin-top:10px"><code>${esc(item.url)}</code></p>
+        <div class="facts"><span>${esc(item.cat)}</span>${item.quality ? `<span>${esc(item.quality)}</span>` : ''}${item.source ? `<span>${esc(item.source)}</span>` : ''}</div>
+        <p>This channel can’t play inside a browser: ${reason}. VLC can play it.</p>
+        <div class="hero-actions" style="margin:14px 0">${vlcButtons(item)}</div>
+        ${item.ua || item.rf ? '<p style="color:var(--muted);font-size:13px">The .m3u file includes the headers this channel needs, so use it if the direct link fails.</p>' : ''}
+        <div class="hero-actions" style="margin-top:12px">
+          ${item.needsHeaders && item.url.startsWith('https://') ? `<button class="btn btn-more" data-act="tryweb" data-key="${esc(item.key)}" style="font-size:13px;padding:6px 12px">Try in browser anyway</button>` : ''}
+          <button class="btn btn-more" data-act="fav" data-key="${esc(item.key)}" style="font-size:13px;padding:6px 12px">${inMyList(item.key) ? '✓ In My List' : '+ My List'}</button>
+        </div>
+        <h3>Don’t have VLC?</h3>
+        <p><a href="${VLC_STORES.ios}" target="_blank" rel="noopener noreferrer" style="color:var(--gold)">iPhone / iPad</a> ·
+           <a href="${VLC_STORES.android}" target="_blank" rel="noopener noreferrer" style="color:var(--gold)">Android</a> ·
+           <a href="${VLC_STORES.desktop}" target="_blank" rel="noopener noreferrer" style="color:var(--gold)">Windows / Mac / Linux</a></p>
       </div>`);
-    modalCard.dataset.url = item.url;
   }
 
   function showSettings() {
@@ -850,6 +910,7 @@
         <h2 style="font-size:24px;margin-bottom:6px">Settings</h2>
         <h3>Channels</h3>
         <label><input type="checkbox" id="optShowAll" ${settings.showAll ? 'checked' : ''}> Show channels that only play in VLC (http:// or header-protected)</label>
+        <label><input type="checkbox" id="optAutoVlc" ${settings.autoVlc ? 'checked' : ''}> On iPhone/Android, open those channels in VLC automatically</label>
         <h3>TMDB: posters, trailers &amp; where to watch</h3>
         <p style="color:var(--muted)">${hasTmdb() ? `Key saved (ends …${esc(settings.tmdbKey.slice(-4))}). It's stored only on this device.` : 'Paste your free API key from themoviedb.org → Settings → API. It is stored only on this device.'}</p>
         <div class="form-row"><input type="text" id="tmdbInput" placeholder="TMDB API key (v3)" autocomplete="off" spellcheck="false"><button class="btn btn-red" data-act="savetmdb" style="padding:8px 16px">Save</button>${hasTmdb() ? '<button class="btn btn-more" data-act="cleartmdb" style="padding:8px 16px">Remove</button>' : ''}</div>
@@ -858,7 +919,7 @@
         <p style="color:var(--muted)">Add any M3U/M3U8 playlist URL. It must be https and allow cross-origin requests.</p>
         <ul class="src-list">${settings.sources.map((s, i) => `<li><span>${esc(s)}</span><button class="btn btn-more" style="padding:4px 10px;font-size:12px" data-act="rmsrc" data-i="${i}">Remove</button></li>`).join('') || '<li><span style="color:var(--muted)">No extra playlists.</span></li>'}</ul>
         <div class="form-row"><input type="url" id="srcInput" placeholder="https://example.com/playlist.m3u"><button class="btn btn-red" data-act="addsrc" style="padding:8px 16px">Add</button></div>
-        <button class="btn btn-more" data-act="addiptv" style="margin-top:10px;font-size:13px;padding:6px 12px">+ Add iptv-org full list</button>
+        <p style="color:var(--muted);font-size:13px;margin-top:8px">The iptv-org list is already built in and is refreshed every time the site is deployed.</p>
         <h3>TV guide (XMLTV)</h3>
         <p style="color:var(--muted)">Adds “Now / Next” to channels. Guides listed in your M3U playlists are picked up automatically. ${guide.byId.size ? `<b>${guide.byId.size}</b> channels with guide data loaded.` : ''} URLs must be https and allow cross-origin requests; .xml and .xml.gz both work.</p>
         <ul class="src-list">${settings.guides.map((s, i) => `<li><span>${esc(s)}</span><button class="btn btn-more" style="padding:4px 10px;font-size:12px" data-act="rmguide" data-i="${i}">Remove</button></li>`).join('') || '<li><span style="color:var(--muted)">No guide URLs added.</span></li>'}</ul>
@@ -904,9 +965,11 @@
       else if (a === 'play' && item) { closeModal(); play(item); }
       else if (a === 'fav' && item) { toggleMyList(item); act.textContent = inMyList(item.key) ? '✓ In My List' : '+ My List'; }
       else if (a === 'next') step(1);
-      else if (a === 'copy') navigator.clipboard?.writeText(current?.url || modalCard.dataset.url || '').then(() => toast('Stream URL copied'));
+      else if (a === 'copy') navigator.clipboard?.writeText(item?.url || current?.url || '').then(() => toast('Stream URL copied'));
+      else if (a === 'vlcfile' && item) saveFile(`${oneLine(item.name).replace(/[^\w.-]+/g, '_')}.m3u`, 'audio/x-mpegurl', buildM3U([item]));
+      else if (a === 'tryweb' && item) { closeModal(); play(item, [], true); }
+      else if (a === 'vlcpl') exportVlcList();
       else if (a === 'addsrc') addSource($('#srcInput').value.trim());
-      else if (a === 'addiptv') addSource('https://iptv-org.github.io/iptv/index.m3u');
       else if (a === 'rmsrc') { settings.sources.splice(+act.dataset.i, 1); saveSettings(); location.reload(); }
       else if (a === 'clearhist') { store.set('history', []); toast('History cleared'); }
       else if (a === 'opensettings') showSettings();
@@ -927,7 +990,7 @@
       if (item.type === 'vod') return showMovie(item);
       if (item.type === 'tmdb') return showTmdb(item);
       if (item.isPlaylist) return addSource(item.url.replace(/^http:/, 'https:'));
-      if (!isPlayable(item)) return showChannel(item);
+      if (!isPlayable(item)) return openVlcChannel(item);
       const siblings = [...card.parentElement.querySelectorAll('[data-key]')].map(el => items.get(el.dataset.key)).filter(i => i?.type === 'live');
       return play(item, siblings);
     }
@@ -942,6 +1005,7 @@
   modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
   modal.addEventListener('change', e => {
     if (e.target.id === 'optShowAll') { settings.showAll = e.target.checked; saveSettings(); route(); }
+    else if (e.target.id === 'optAutoVlc') { settings.autoVlc = e.target.checked; saveSettings(); }
     else if (e.target.id === 'importFile' && e.target.files[0]) importData(e.target.files[0]);
   });
 

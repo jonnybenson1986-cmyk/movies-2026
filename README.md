@@ -6,7 +6,7 @@ A Netflix-style player for live TV, sports and free movies. It's a static Progre
 
 | Section | Source |
 |---|---|
-| **Live TV** (~10,000 channels) | `playlists/VLC_TV_IPTV.xspf` (iptv-org, Pluto TV, Samsung TV Plus, Tubi…), converted to `public/data/channels.json` |
+| **Live TV** (~11,600 channels) | The [iptv-org](https://github.com/iptv-org/iptv) playlist (`playlists/iptv-org.m3u`) plus your VLC playlist (`playlists/VLC_TV_IPTV.xspf`: Pluto TV, Samsung TV Plus, Tubi…), merged into `public/data/channels.json` with logos and TV-guide IDs |
 | **Sports** | SKY Racing 1 & 2 (from `playlists/Sports_App_2026.html`) plus every sports channel in the playlist |
 | **Movies (TMDB)** | Trending, popular, top-rated, in-cinemas and genre rows with posters, ratings, trailers and "where to watch" in Australia. Needs a free TMDB API key (see below). |
 | **Movies (public domain)** | Feature films from the Internet Archive (noir, comedy, westerns, horror, sci-fi, silent, cartoons) |
@@ -46,18 +46,27 @@ It then opens full-screen with its own icon, like a native app.
 
 ## Updating channels
 
-Replace or add `.xspf` files in `playlists/`, then run:
+Every Netlify deploy runs `node scripts/build-channels.mjs --fetch`, which downloads the latest iptv-org list and rebuilds `public/data/channels.json`. If iptv-org can't be reached, the build uses the copy in `playlists/`. To rebuild locally, or after adding `.m3u` / `.xspf` files to `playlists/`:
 
 ```bash
-node scripts/build-channels.mjs
+node scripts/build-channels.mjs          # use the playlists in the repo
+node scripts/build-channels.mjs --fetch  # refresh iptv-org first
 ```
 
-Commit the updated `public/data/channels.json` and Netlify redeploys.
+## Playing VLC-only channels
+
+About 770 channels can't play in a browser: they use plain `http://`, or they need a custom user-agent/referrer. Browsers can't embed VLC or send those headers, so StreamBox hands them to the VLC app:
+
+- **Open in VLC** (iPhone/Android): opens the channel straight in the VLC app. This is automatic when you tap one, unless you turn it off in Settings.
+- **Open in VLC (.m3u file):** a playlist that carries each channel's required headers. It uses the share sheet on phones and downloads on a computer. Use it if the direct link fails or on Windows/Mac/Linux.
+- **Play this list in VLC** (Live TV and My List pages): exports the current list (up to 3,000 channels) as one `.m3u`.
+- **Try in browser anyway** for header-protected https channels that might work without the headers.
+- The Live TV **VLC only** chip lists just these channels (turn on *Show channels that only play in VLC* in Settings).
 
 ## Notes and limits
 
 - **More like this:** every TMDB movie page ends with a row of similar films from TMDB's recommendations (needs your TMDB key).
-- **Some channels only play in VLC.** About 2,100 channels use plain `http://` or need custom headers. Browsers block both on a secure (https) site. These channels are hidden by default. Turn on **Settings → Show channels that only play in VLC** to list them; each one gets an **Open in VLC** button.
+- **Some channels only play in VLC.** About 770 channels use plain `http://` or need custom headers. Browsers block both on a secure (https) site. These channels are hidden by default. Turn on **Settings → Show channels that only play in VLC** to list them (see *Playing VLC-only channels*).
 - **Geo-blocking:** SKY Racing only plays from Australia. Many other channels are region-locked too. If a stream fails, the player shows an error and offers the next channel.
 - Free IPTV channels go up and down all the time. A channel that's offline today may work tomorrow.
 

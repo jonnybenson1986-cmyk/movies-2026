@@ -87,6 +87,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .page-head { padding: 0 var(--gutter) 8px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
 .page-head h1 { font-size: clamp(26px, 3.5vw, 40px); font-weight: 800; }
 .page-head .count { color: var(--muted); font-size: 14px; }
+.page-btn { margin-left: auto; font-size: 13px; padding: 7px 14px; }
 .chips { display: flex; gap: 8px; overflow-x: auto; padding: 8px var(--gutter) 4px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
 .chip { flex: none; padding: 7px 16px; border: 1px solid #555; border-radius: 999px; font-size: 13px; color: #ddd; background: transparent; }

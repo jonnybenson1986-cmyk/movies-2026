@@ -1,8 +1,12 @@
-# No build step needed: the site is static and lives in /public.
-# To regenerate channel data after editing playlists/*.xspf run: node scripts/build-channels.mjs
+# The site is static and lives in /public. Each deploy refreshes the channel list from iptv-org
+# (falls back to the copy in playlists/ if iptv-org can't be reached).
+# To rebuild locally after editing playlists/: node scripts/build-channels.mjs [--fetch]
 [build]
   publish = "public"
-  command = ""
+  command = "node scripts/build-channels.mjs --fetch"
+
+[build.environment]
+  NODE_VERSION = "20"
 
 [[headers]]
   for = "/sw.js"
