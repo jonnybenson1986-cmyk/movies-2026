@@ -1,6 +1,6 @@
 // App-shell cache so StreamBox opens instantly when installed. Streams are never cached.
-const CACHE = 'streambox-v6';
-const SHELL = ['/', '/index.html', '/css/app.css', '/js/app.js', '/js/movies-ui.js', '/js/movie-catalog.js', '/js/movy-ui.js', '/js/movie-playback.js', '/data/movies.json', '/manifest.webmanifest', '/icons/icon-192.png'];
+const CACHE = 'streambox-v7';
+const SHELL = ['/', '/index.html', '/css/app.css', '/js/app.js', '/js/movies-ui.js', '/js/movie-catalog.js', '/js/movy-ui.js', '/js/movie-playback.js', '/data/movies.json', '/data/australia.json', '/js/australia-ui.js', '/manifest.webmanifest', '/icons/icon-192.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

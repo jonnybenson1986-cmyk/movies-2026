@@ -8,7 +8,8 @@
     "build": "node scripts/build-channels.mjs",
     "build:extension": "python3 scripts/build-extension.py",
     "build:movies": "node scripts/build-movies.mjs",
-    "probe": "node scripts/probe-streams.mjs"
+    "probe": "node scripts/probe-streams.mjs",
+    "build:australia": "python3 scripts/build-australia.py"
   },
   "engines": { "node": ">=18" }
 }

@@ -280,3 +280,9 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 
 .movy-downloads { margin: 16px var(--gutter); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .movy-downloads a:not(.btn) { text-decoration: underline; }
+
+.australia-note { margin: 16px var(--gutter); color: var(--muted); line-height: 1.6; }
+.australia-channel { padding: 16px; background: var(--bg-2); border-radius: 8px; min-width: 0; overflow-wrap: anywhere; }
+.australia-channel h2 { font-size: 17px; margin-bottom: 8px; }
+.australia-channel p { font-size: 13px; line-height: 1.5; color: var(--muted); }
+.australia-channel .card { width: 100%; margin-top: 12px; }

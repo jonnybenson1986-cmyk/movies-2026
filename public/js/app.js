@@ -353,6 +353,7 @@
         ${rowHTML('My List', mine.slice(0, ROW_LIMIT), '#mylist')}
         ${rowHTML('New Movies', movies.newMovies.slice(0, ROW_LIMIT), '#movies/new')}
         ${rowHTML('Movies', movies.all.slice(0, ROW_LIMIT), '#movies')}
+        <section class="row"><div class="row-head"><h2>Australia</h2><a class="see-all" href="#australia">${window.StreamBoxAustralia.count} guide channels ›</a></div></section>
         <section class="row"><div class="row-head"><h2>Movy</h2></div><div class="chips"><a class="chip" href="#movy/movie">Movies</a><a class="chip" href="#movy/tv">TV Shows</a><a class="chip" href="#movy/anime">Anime</a><a class="chip" href="#movy/4k">4K Library</a></div></section>
         ${rowHTML('Live Sports', byCat('Sports').slice(0, ROW_LIMIT), '#sports')}
         ${rowHTML('Pluto TV Channels', all.filter(c => c.source === 'Pluto TV').slice(0, ROW_LIMIT), '#live/Pluto TV')}
@@ -382,7 +383,7 @@
     view.innerHTML = `<div class="page">
       <div class="page-head"><h1>Live TV</h1><span class="count">${list.length.toLocaleString()} channels${settings.showAll ? '' : ` · ${channels.filter(c => !c.isPlaylist && !c.dead && !isPlayable(c)).length.toLocaleString()} more need VLC or a proxy (Settings)`}</span>
         <button class="btn btn-more page-btn" data-act="vlcpl">Play this list in VLC</button></div>
-      <div class="chips">${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
+      <div class="chips"><a class="chip" href="#australia">Australia · ${window.StreamBoxAustralia.count} guide channels</a>${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
       <div id="gridMount"></div>
     </div>`;
     mountGrid($('#gridMount'), list);
@@ -439,13 +440,14 @@
     const [name, ...rest] = decodeURIComponent(location.hash.slice(1) || 'home').split('/');
     const arg = rest.join('/');
     document.querySelectorAll('[data-route]').forEach(a => a.classList.toggle('active', a.dataset.route === name));
-    await Promise.all([channelsReady, movies.ready]);
+    await Promise.all([channelsReady, movies.ready, window.StreamBoxAustralia.ready]);
     if (version !== routeVersion) return;
     movies.all.forEach(register);
     window.scrollTo(0, 0);
     switch (name) {
       case 'live': renderLive(arg); break;
       case 'sports': renderSports(); break;
+      case 'australia': window.StreamBoxAustralia.render(view, arg, { streams: channels.filter(c => !(settings.hideBad && isBad(c))), card: cardHTML }); break;
       case 'movies': movies.render(view, arg); break;
       case 'movy': await movy.render(view, location.hash.slice(1).split('/').slice(1).join('/'), { register, isSaved: inMyList, retry: route, play }); break;
       case 'mylist': renderMyList(); break;

@@ -119,3 +119,11 @@ The extension blocks known advertising hosts, popups and top-level diversions or
 Run `npm test` for catalog validation, stale-request cancellation and protection component checks. These checks do not prove external video playback or replace installing and testing the extension in a supported browser.
 
 After editing the extension, run `npm run build:extension` (Python 3 standard library) to refresh the downloadable ZIP served by the app.
+
+## Australian channel directory
+
+**Home → Australia** or **Live TV → Australia** lists all 391 entries from [WebGrab+Plus’s OzTiVo configuration](https://github.com/awiouy/webgrabplus/blob/master/config/siteini.pack/Australia/oztivo.net.channels.xml), including regional feeds and historical names. Search by name, region or guide ID and download the imported directory.
+
+This source contains channel names and guide IDs, with no video URLs or programme schedules. Entries display **Stream not supplied** until a bundled or added playlist has a stream with an exact matching `tvg-id` (the entry’s guide ID or site ID). The app does not infer regional streams from similar names. Add M3U playlists and a separate XMLTV schedule through Settings. Existing stream/proxy/VLC handling applies to matched streams.
+
+The source XML is bundled in `channel-sources/`, pinned to upstream commit `30c4f48f5b92d699d189133fcc8de4f4db952177`. Run `npm run build:australia` (Python 3 standard library) to regenerate `public/data/australia.json`; site builds retain this bundled directory.

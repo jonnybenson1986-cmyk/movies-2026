@@ -1,0 +1,1963 @@
+{
+  "country": "Australia",
+  "site": "oztivo.net",
+  "source": "https://raw.githubusercontent.com/awiouy/webgrabplus/30c4f48f5b92d699d189133fcc8de4f4db952177/config/siteini.pack/Australia/oztivo.net.channels.xml",
+  "revision": "30c4f48f5b92d699d189133fcc8de4f4db952177",
+  "channels": [
+    {
+      "siteId": "SHW2",
+      "guideId": "Showtime 2",
+      "name": "Showtime 2"
+    },
+    {
+      "siteId": "Prime-Can",
+      "guideId": "Prime Canberra",
+      "name": "Prime Canberra"
+    },
+    {
+      "siteId": "ABC2",
+      "guideId": "ABC2",
+      "name": "ABC2"
+    },
+    {
+      "siteId": "Nine-Syd",
+      "guideId": "Nine Sydney",
+      "name": "Nine Sydney"
+    },
+    {
+      "siteId": "GEM-NSW",
+      "guideId": "GEM NSW",
+      "name": "GEM NSW"
+    },
+    {
+      "siteId": "SBS-NSW",
+      "guideId": "SBS NSW",
+      "name": "SBS NSW"
+    },
+    {
+      "siteId": "NBN",
+      "guideId": "NBN NSW",
+      "name": "NBN NSW"
+    },
+    {
+      "siteId": "GEM-Vic",
+      "guideId": "GEM Vic",
+      "name": "GEM Vic"
+    },
+    {
+      "siteId": "ABC-HD",
+      "guideId": "ABC HD",
+      "name": "ABC HD"
+    },
+    {
+      "siteId": "7TWO-ACT",
+      "guideId": "7TWO ACT",
+      "name": "7TWO ACT"
+    },
+    {
+      "siteId": "7TWO-Qld",
+      "guideId": "7TWO Queensland",
+      "name": "7TWO Queensland"
+    },
+    {
+      "siteId": "7TWO-WA",
+      "guideId": "7TWO West Aus",
+      "name": "7TWO West Aus"
+    },
+    {
+      "siteId": "7TWO-Tas",
+      "guideId": "7TWO Tasmania",
+      "name": "7TWO Tasmania"
+    },
+    {
+      "siteId": "ABC-Qld",
+      "guideId": "ABC Qld",
+      "name": "ABC Qld"
+    },
+    {
+      "siteId": "Nine-Qld",
+      "guideId": "Nine Qld",
+      "name": "Nine Qld"
+    },
+    {
+      "siteId": "GEM-Qld",
+      "guideId": "GEM Qld",
+      "name": "GEM Qld"
+    },
+    {
+      "siteId": "BRIZ",
+      "guideId": "Briz 31",
+      "name": "Briz 31"
+    },
+    {
+      "siteId": "Nine-SA",
+      "guideId": "Nine SA",
+      "name": "Nine SA"
+    },
+    {
+      "siteId": "GEM-SA",
+      "guideId": "GEM SA",
+      "name": "GEM SA"
+    },
+    {
+      "siteId": "31-Adl",
+      "guideId": "Ch31 Adelaide",
+      "name": "Ch31 Adelaide"
+    },
+    {
+      "siteId": "WIN7-SA",
+      "guideId": "WIN-7 SA",
+      "name": "WIN-7 SA"
+    },
+    {
+      "siteId": "ABC-WA",
+      "guideId": "ABC WA",
+      "name": "ABC WA"
+    },
+    {
+      "siteId": "GEM-WA",
+      "guideId": "GEM WA",
+      "name": "GEM WA"
+    },
+    {
+      "siteId": "Ten-WA",
+      "guideId": "Ten WA",
+      "name": "Ten WA"
+    },
+    {
+      "siteId": "GWN-WA",
+      "guideId": "Golden West Network",
+      "name": "Golden West Network"
+    },
+    {
+      "siteId": "SC-Tas",
+      "guideId": "Southern Cross Tas",
+      "name": "Southern Cross Tas"
+    },
+    {
+      "siteId": "TDT-Tas",
+      "guideId": "Tasmanian Digital Television",
+      "name": "Tasmanian Digital Television"
+    },
+    {
+      "siteId": "GEM-Tas",
+      "guideId": "GEM Tas",
+      "name": "GEM Tas"
+    },
+    {
+      "siteId": "ABC-NT",
+      "guideId": "ABC NT",
+      "name": "ABC NT"
+    },
+    {
+      "siteId": "Nine-NT",
+      "guideId": "Nine NT",
+      "name": "Nine NT"
+    },
+    {
+      "siteId": "DISC+2",
+      "guideId": "Discovery Channel +2",
+      "name": "Discovery Channel +2"
+    },
+    {
+      "siteId": "FOX8",
+      "guideId": "Fox8",
+      "name": "Fox8"
+    },
+    {
+      "siteId": "FS1",
+      "guideId": "Fox Sports One",
+      "name": "Fox Sports One"
+    },
+    {
+      "siteId": "FS2",
+      "guideId": "Fox Sports Two",
+      "name": "Fox Sports Two"
+    },
+    {
+      "siteId": "W+2",
+      "guideId": "W for Women +2",
+      "name": "W for Women +2"
+    },
+    {
+      "siteId": "NGEO+2",
+      "guideId": "National Geographic Channel +2",
+      "name": "National Geographic Channel +2"
+    },
+    {
+      "siteId": "NICK",
+      "guideId": "Nickelodeon",
+      "name": "Nickelodeon"
+    },
+    {
+      "siteId": "V",
+      "guideId": "Channel V",
+      "name": "Channel V"
+    },
+    {
+      "siteId": "ANIMAL",
+      "guideId": "Animal Planet",
+      "name": "Animal Planet"
+    },
+    {
+      "siteId": "OVAT",
+      "guideId": "Ovation",
+      "name": "Ovation"
+    },
+    {
+      "siteId": "CART",
+      "guideId": "Cartoon Network",
+      "name": "Cartoon Network"
+    },
+    {
+      "siteId": "ALJA",
+      "guideId": "Al Jazeera",
+      "name": "Al Jazeera"
+    },
+    {
+      "siteId": "ANT",
+      "guideId": "Antenna",
+      "name": "Antenna"
+    },
+    {
+      "siteId": "FFC",
+      "guideId": "Fox Footy Channel",
+      "name": "Fox Footy Channel"
+    },
+    {
+      "siteId": "MAIN",
+      "guideId": "Main Event",
+      "name": "Main Event"
+    },
+    {
+      "siteId": "TVSN",
+      "guideId": "Television Shopping Network",
+      "name": "Television Shopping Network"
+    },
+    {
+      "siteId": "FB03",
+      "guideId": "Foxtel Box Office 3",
+      "name": "Foxtel Box Office 3"
+    },
+    {
+      "siteId": "FB04",
+      "guideId": "Foxtel Box Office 4",
+      "name": "Foxtel Box Office 4"
+    },
+    {
+      "siteId": "FB06",
+      "guideId": "Foxtel Box Office 6",
+      "name": "Foxtel Box Office 6"
+    },
+    {
+      "siteId": "FB13",
+      "guideId": "Foxtel Box Office 13",
+      "name": "Foxtel Box Office 13"
+    },
+    {
+      "siteId": "FB14",
+      "guideId": "Foxtel Box Office 14",
+      "name": "Foxtel Box Office 14"
+    },
+    {
+      "siteId": "FB18",
+      "guideId": "Foxtel Box Office 18",
+      "name": "Foxtel Box Office 18"
+    },
+    {
+      "siteId": "FB20",
+      "guideId": "Foxtel Box Office 20",
+      "name": "Foxtel Box Office 20"
+    },
+    {
+      "siteId": "FB21",
+      "guideId": "Foxtel Box Office 21",
+      "name": "Foxtel Box Office 21"
+    },
+    {
+      "siteId": "FB22",
+      "guideId": "Foxtel Box Office 22",
+      "name": "Foxtel Box Office 22"
+    },
+    {
+      "siteId": "FB27",
+      "guideId": "Foxtel Box Office 27",
+      "name": "Foxtel Box Office 27"
+    },
+    {
+      "siteId": "LHOME",
+      "guideId": "Lifestyle Home",
+      "name": "Lifestyle Home"
+    },
+    {
+      "siteId": "CMDY+2",
+      "guideId": "thecomedychannel +2",
+      "name": "thecomedychannel +2"
+    },
+    {
+      "siteId": "FUEL",
+      "guideId": "Fuel",
+      "name": "Fuel"
+    },
+    {
+      "siteId": "BIOG",
+      "guideId": "The Biography Channel",
+      "name": "The Biography Channel"
+    },
+    {
+      "siteId": "MTVC",
+      "guideId": "MTVC",
+      "name": "MTVC"
+    },
+    {
+      "siteId": "ADULT1",
+      "guideId": "Adults Only Select",
+      "name": "Adults Only Select"
+    },
+    {
+      "siteId": "LNTV",
+      "guideId": "Liaoning TV",
+      "name": "Liaoning TV"
+    },
+    {
+      "siteId": "STC",
+      "guideId": "Soundtrack Channel",
+      "name": "Soundtrack Channel"
+    },
+    {
+      "siteId": "MCMTop",
+      "guideId": "MCM Top",
+      "name": "MCM Top"
+    },
+    {
+      "siteId": "CMTE",
+      "guideId": "Parliamentary Committees",
+      "name": "Parliamentary Committees"
+    },
+    {
+      "siteId": "HOUSE",
+      "guideId": "House of Representatives",
+      "name": "House of Representatives"
+    },
+    {
+      "siteId": "DIG",
+      "guideId": "air: dig",
+      "name": "air: dig"
+    },
+    {
+      "siteId": "Digital4",
+      "guideId": "Sydney Digital Datacast 4",
+      "name": "Sydney Digital Datacast 4"
+    },
+    {
+      "siteId": "Cinemax",
+      "guideId": "Cinemax",
+      "name": "Cinemax"
+    },
+    {
+      "siteId": "ABC-LOC",
+      "guideId": "ABC Local Radio",
+      "name": "ABC Local Radio"
+    },
+    {
+      "siteId": "ABC-STAT",
+      "guideId": "ABC State Radio",
+      "name": "ABC State Radio"
+    },
+    {
+      "siteId": "FSN",
+      "guideId": "Fox Sports News",
+      "name": "Fox Sports News"
+    },
+    {
+      "siteId": "AIRACT",
+      "guideId": "air: Active",
+      "name": "air: Active"
+    },
+    {
+      "siteId": "RMTV",
+      "guideId": "RMTV",
+      "name": "RMTV"
+    },
+    {
+      "siteId": "STV1",
+      "guideId": "SelectTV 1",
+      "name": "SelectTV 1"
+    },
+    {
+      "siteId": "WEIN",
+      "guideId": "Wine TV German",
+      "name": "Wine TV German"
+    },
+    {
+      "siteId": "LEONARDO",
+      "guideId": "Leonardo World",
+      "name": "Leonardo World"
+    },
+    {
+      "siteId": "TVE",
+      "guideId": "TV Educativa",
+      "name": "TV Educativa"
+    },
+    {
+      "siteId": "SYRIATV",
+      "guideId": "Syria TV",
+      "name": "Syria TV"
+    },
+    {
+      "siteId": "CANALSUR",
+      "guideId": "TV Canal Sur",
+      "name": "TV Canal Sur"
+    },
+    {
+      "siteId": "ENEWS-SP",
+      "guideId": "EuroNews Spanish",
+      "name": "EuroNews Spanish"
+    },
+    {
+      "siteId": "DISCRT",
+      "guideId": "Discovery Real Time",
+      "name": "Discovery Real Time"
+    },
+    {
+      "siteId": "D4NEWS",
+      "guideId": "D4 News",
+      "name": "D4 News"
+    },
+    {
+      "siteId": "CMTER1",
+      "guideId": "Parliamentary Committee RM1",
+      "name": "Parliamentary Committee RM1"
+    },
+    {
+      "siteId": "CMTER3",
+      "guideId": "Parliamentary Committee RM3",
+      "name": "Parliamentary Committee RM3"
+    },
+    {
+      "siteId": "GO",
+      "guideId": "GO!",
+      "name": "GO!"
+    },
+    {
+      "siteId": "LYOU",
+      "guideId": "LifeStyle YOU",
+      "name": "LifeStyle YOU"
+    },
+    {
+      "siteId": "LYOU+2",
+      "guideId": "LifeStyle YOU +2",
+      "name": "LifeStyle YOU +2"
+    },
+    {
+      "siteId": "STYLE",
+      "guideId": "The Style Network",
+      "name": "The Style Network"
+    },
+    {
+      "siteId": "OLY1",
+      "guideId": "Olympics 1",
+      "name": "Olympics 1"
+    },
+    {
+      "siteId": "OLY4",
+      "guideId": "Olympics 4",
+      "name": "Olympics 4"
+    },
+    {
+      "siteId": "OLY5",
+      "guideId": "Olympics 5",
+      "name": "Olympics 5"
+    },
+    {
+      "siteId": "OLY6",
+      "guideId": "Olympics 6",
+      "name": "Olympics 6"
+    },
+    {
+      "siteId": "OLY7",
+      "guideId": "Olympics 7",
+      "name": "Olympics 7"
+    },
+    {
+      "siteId": "OLY8",
+      "guideId": "Olympics 8",
+      "name": "Olympics 8"
+    },
+    {
+      "siteId": "SPEED",
+      "guideId": "SPEED",
+      "name": "SPEED"
+    },
+    {
+      "siteId": "SBS-Can",
+      "guideId": "SBS Canberra",
+      "name": "SBS Canberra"
+    },
+    {
+      "siteId": "WIN-Can",
+      "guideId": "WIN Canberra",
+      "name": "WIN Canberra"
+    },
+    {
+      "siteId": "GEM-ACT",
+      "guideId": "GEM ACT",
+      "name": "GEM ACT"
+    },
+    {
+      "siteId": "SHOW",
+      "guideId": "Showtime",
+      "name": "Showtime"
+    },
+    {
+      "siteId": "Seven-Mel",
+      "guideId": "Seven Melbourne",
+      "name": "Seven Melbourne"
+    },
+    {
+      "siteId": "Nine-Mel",
+      "guideId": "Nine Melbourne",
+      "name": "Nine Melbourne"
+    },
+    {
+      "siteId": "Prime-Vic",
+      "guideId": "Prime Victoria",
+      "name": "Prime Victoria"
+    },
+    {
+      "siteId": "WIN-Vic",
+      "guideId": "WIN Victoria",
+      "name": "WIN Victoria"
+    },
+    {
+      "siteId": "ABCHD-Vic",
+      "guideId": "ABC HD Victoria",
+      "name": "ABC HD Victoria"
+    },
+    {
+      "siteId": "SCOM",
+      "guideId": "Showtime Comedy",
+      "name": "Showtime Comedy"
+    },
+    {
+      "siteId": "7mate",
+      "guideId": "7mate",
+      "name": "7mate"
+    },
+    {
+      "siteId": "7TWO-Vic",
+      "guideId": "7TWO Victoria",
+      "name": "7TWO Victoria"
+    },
+    {
+      "siteId": "7TWO-NSW",
+      "guideId": "7TWO NSW",
+      "name": "7TWO NSW"
+    },
+    {
+      "siteId": "7TWO-SA",
+      "guideId": "7TWO South Aus",
+      "name": "7TWO South Aus"
+    },
+    {
+      "siteId": "7TWO-NT",
+      "guideId": "7TWO NT",
+      "name": "7TWO NT"
+    },
+    {
+      "siteId": "One-Dar",
+      "guideId": "One Darwin",
+      "name": "One Darwin"
+    },
+    {
+      "siteId": "One-Qld",
+      "guideId": "One QLD",
+      "name": "One QLD"
+    },
+    {
+      "siteId": "One-Vic",
+      "guideId": "One Vic",
+      "name": "One Vic"
+    },
+    {
+      "siteId": "One-WA",
+      "guideId": "One WA",
+      "name": "One WA"
+    },
+    {
+      "siteId": "One-Newc",
+      "guideId": "One SC Newcastle",
+      "name": "One SC Newcastle"
+    },
+    {
+      "siteId": "SBS-Qld",
+      "guideId": "SBS Qld",
+      "name": "SBS Qld"
+    },
+    {
+      "siteId": "NBN-GC",
+      "guideId": "NBN Gold Coast",
+      "name": "NBN Gold Coast"
+    },
+    {
+      "siteId": "Prime-GC",
+      "guideId": "Prime Gold Coast",
+      "name": "Prime Gold Coast"
+    },
+    {
+      "siteId": "ABC-SA",
+      "guideId": "ABC SA",
+      "name": "ABC SA"
+    },
+    {
+      "siteId": "SBS-WA",
+      "guideId": "SBS WA",
+      "name": "SBS WA"
+    },
+    {
+      "siteId": "WTV",
+      "guideId": "WTV",
+      "name": "WTV"
+    },
+    {
+      "siteId": "WIN-WA",
+      "guideId": "WIN WA",
+      "name": "WIN WA"
+    },
+    {
+      "siteId": "Seven-Dar",
+      "guideId": "Seven Darwin",
+      "name": "Seven Darwin"
+    },
+    {
+      "siteId": "Ten-Dar",
+      "guideId": "Ten Darwin",
+      "name": "Ten Darwin"
+    },
+    {
+      "siteId": "IMP",
+      "guideId": "Imparja",
+      "name": "Imparja"
+    },
+    {
+      "siteId": "CMDY",
+      "guideId": "thecomedychannel",
+      "name": "thecomedychannel"
+    },
+    {
+      "siteId": "DISC",
+      "guideId": "Discovery Channel",
+      "name": "Discovery Channel"
+    },
+    {
+      "siteId": "CLAS",
+      "guideId": "Fox Classics",
+      "name": "Fox Classics"
+    },
+    {
+      "siteId": "FFC-Vic",
+      "guideId": "Fox Footy Channel Victoria ACT NT",
+      "name": "Fox Footy Channel Victoria ACT NT"
+    },
+    {
+      "siteId": "HITS+2",
+      "guideId": "TV Hits +2",
+      "name": "TV Hits +2"
+    },
+    {
+      "siteId": "W",
+      "guideId": "W for Women",
+      "name": "W for Women"
+    },
+    {
+      "siteId": "LIFE",
+      "guideId": "LifeStyle Channel",
+      "name": "LifeStyle Channel"
+    },
+    {
+      "siteId": "ACC",
+      "guideId": "Australian Christian Channel",
+      "name": "Australian Christian Channel"
+    },
+    {
+      "siteId": "ADV",
+      "guideId": "National Geographic Adventure",
+      "name": "National Geographic Adventure"
+    },
+    {
+      "siteId": "ADV+2",
+      "guideId": "National Geographic Adventure +2",
+      "name": "National Geographic Adventure +2"
+    },
+    {
+      "siteId": "ESPN",
+      "guideId": "ESPN",
+      "name": "ESPN"
+    },
+    {
+      "siteId": "ESPN2",
+      "guideId": "ESPN2",
+      "name": "ESPN2"
+    },
+    {
+      "siteId": "SKYR",
+      "guideId": "Sky Racing",
+      "name": "Sky Racing"
+    },
+    {
+      "siteId": "FOXN",
+      "guideId": "Fox News Channel",
+      "name": "Fox News Channel"
+    },
+    {
+      "siteId": "ART",
+      "guideId": "ART",
+      "name": "ART"
+    },
+    {
+      "siteId": "TWC",
+      "guideId": "Weather Channel",
+      "name": "Weather Channel"
+    },
+    {
+      "siteId": "DWTV",
+      "guideId": "Deutsche Welle",
+      "name": "Deutsche Welle"
+    },
+    {
+      "siteId": "FB07",
+      "guideId": "Foxtel Box Office 7",
+      "name": "Foxtel Box Office 7"
+    },
+    {
+      "siteId": "FB26",
+      "guideId": "Foxtel Box Office 26",
+      "name": "Foxtel Box Office 26"
+    },
+    {
+      "siteId": "CLAS+2",
+      "guideId": "Fox Classics +2",
+      "name": "Fox Classics +2"
+    },
+    {
+      "siteId": "FOOD",
+      "guideId": "LifeStyle Food",
+      "name": "LifeStyle Food"
+    },
+    {
+      "siteId": "FOOD+2",
+      "guideId": "LifeStyle Food +2",
+      "name": "LifeStyle Food +2"
+    },
+    {
+      "siteId": "E!",
+      "guideId": "Entertainment Channel",
+      "name": "Entertainment Channel"
+    },
+    {
+      "siteId": "ARNA+2",
+      "guideId": "Arena +2",
+      "name": "Arena +2"
+    },
+    {
+      "siteId": "UKTV+2",
+      "guideId": "UK.TV +2",
+      "name": "UK.TV +2"
+    },
+    {
+      "siteId": "TLC",
+      "guideId": "TLC",
+      "name": "TLC"
+    },
+    {
+      "siteId": "TLC+2",
+      "guideId": "TLC+2",
+      "name": "TLC+2"
+    },
+    {
+      "siteId": "ADULT2",
+      "guideId": "Adults Only Select 2",
+      "name": "Adults Only Select 2"
+    },
+    {
+      "siteId": "GUIDE",
+      "guideId": "Foxtel Digital Guide",
+      "name": "Foxtel Digital Guide"
+    },
+    {
+      "siteId": "NoNag",
+      "guideId": "No Nag Channel",
+      "name": "No Nag Channel"
+    },
+    {
+      "siteId": "EWTN",
+      "guideId": "Eternal Word Television Network",
+      "name": "Eternal Word Television Network"
+    },
+    {
+      "siteId": "SBS-AM",
+      "guideId": "air: SBS AM",
+      "name": "air: SBS AM"
+    },
+    {
+      "siteId": "SBS-FM",
+      "guideId": "air: SBS FM",
+      "name": "air: SBS FM"
+    },
+    {
+      "siteId": "ARCADE",
+      "guideId": "Arcade Games",
+      "name": "Arcade Games"
+    },
+    {
+      "siteId": "ServiceNSW",
+      "guideId": "NSW Government Info",
+      "name": "NSW Government Info"
+    },
+    {
+      "siteId": "GWORLD",
+      "guideId": "Gamesworld",
+      "name": "Gamesworld"
+    },
+    {
+      "siteId": "AV",
+      "guideId": "AV Channel",
+      "name": "AV Channel"
+    },
+    {
+      "siteId": "AUR",
+      "guideId": "Aurora Community Television",
+      "name": "Aurora Community Television"
+    },
+    {
+      "siteId": "SBSTWO-NSW",
+      "guideId": "SBS Two NSW",
+      "name": "SBS Two NSW"
+    },
+    {
+      "siteId": "SBSTWO-NT",
+      "guideId": "SBS TWO NT",
+      "name": "SBS TWO NT"
+    },
+    {
+      "siteId": "SBSTWO-Qld",
+      "guideId": "SBS TWO QLD",
+      "name": "SBS TWO QLD"
+    },
+    {
+      "siteId": "SBSTWO-SA",
+      "guideId": "SBS TWO SA",
+      "name": "SBS TWO SA"
+    },
+    {
+      "siteId": "SBSTWO-Tas",
+      "guideId": "SBS TWO Tas",
+      "name": "SBS TWO Tas"
+    },
+    {
+      "siteId": "SBSTWO-WA",
+      "guideId": "SBS TWO WA",
+      "name": "SBS TWO WA"
+    },
+    {
+      "siteId": "ABC-CLS",
+      "guideId": "ABC Classic FM",
+      "name": "ABC Classic FM"
+    },
+    {
+      "siteId": "JJJ",
+      "guideId": "Triple J",
+      "name": "Triple J"
+    },
+    {
+      "siteId": "Test",
+      "guideId": "Test Station",
+      "name": "Test Station"
+    },
+    {
+      "siteId": "SPORTSEL",
+      "guideId": "Fox Sports Selector",
+      "name": "Fox Sports Selector"
+    },
+    {
+      "siteId": "V2",
+      "guideId": "Channel V2",
+      "name": "Channel V2"
+    },
+    {
+      "siteId": "ISHTAR",
+      "guideId": "Ishtar TV",
+      "name": "Ishtar TV"
+    },
+    {
+      "siteId": "DAAI",
+      "guideId": "Da Ai TV2",
+      "name": "Da Ai TV2"
+    },
+    {
+      "siteId": "WINE",
+      "guideId": "Wine TV",
+      "name": "Wine TV"
+    },
+    {
+      "siteId": "TVCHILE",
+      "guideId": "TV Chille",
+      "name": "TV Chille"
+    },
+    {
+      "siteId": "CMTER2",
+      "guideId": "Parliamentary Committee RM2",
+      "name": "Parliamentary Committee RM2"
+    },
+    {
+      "siteId": "ERITV",
+      "guideId": "Eritrea TV",
+      "name": "Eritrea TV"
+    },
+    {
+      "siteId": "BETHTV",
+      "guideId": "Bethel TV",
+      "name": "Bethel TV"
+    },
+    {
+      "siteId": "NITV",
+      "guideId": "National Indigenous TV",
+      "name": "National Indigenous TV"
+    },
+    {
+      "siteId": "MTVN",
+      "guideId": "MTVN Live",
+      "name": "MTVN Live"
+    },
+    {
+      "siteId": "ENEWSS",
+      "guideId": "EuroNews Spanish",
+      "name": "EuroNews Spanish"
+    },
+    {
+      "siteId": "CVISION",
+      "guideId": "Channelvision",
+      "name": "Channelvision"
+    },
+    {
+      "siteId": "ERTW",
+      "guideId": "ERT World",
+      "name": "ERT World"
+    },
+    {
+      "siteId": "RTPI",
+      "guideId": "RTP International",
+      "name": "RTP International"
+    },
+    {
+      "siteId": "HITS",
+      "guideId": "TV Hits",
+      "name": "TV Hits"
+    },
+    {
+      "siteId": "BBCK",
+      "guideId": "BBC Knowledge",
+      "name": "BBC Knowledge"
+    },
+    {
+      "siteId": "13THST+2",
+      "guideId": "13th Street +2",
+      "name": "13th Street +2"
+    },
+    {
+      "siteId": "DTM",
+      "guideId": "Discovery Turbo Max",
+      "name": "Discovery Turbo Max"
+    },
+    {
+      "siteId": "NGW",
+      "guideId": "National Geographic Wild",
+      "name": "National Geographic Wild"
+    },
+    {
+      "siteId": "OLY2",
+      "guideId": "Olympics 2",
+      "name": "Olympics 2"
+    },
+    {
+      "siteId": "OLY3",
+      "guideId": "Olympics 3",
+      "name": "Olympics 3"
+    },
+    {
+      "siteId": "MTVH",
+      "guideId": "MTV Hits",
+      "name": "MTV Hits"
+    },
+    {
+      "siteId": "ABC3",
+      "guideId": "ABC3",
+      "name": "ABC3"
+    },
+    {
+      "siteId": "Ten-NSW",
+      "guideId": "Ten NSW",
+      "name": "Ten NSW"
+    },
+    {
+      "siteId": "PrimeS",
+      "guideId": "Prime South",
+      "name": "Prime South"
+    },
+    {
+      "siteId": "PrimeN",
+      "guideId": "Prime North",
+      "name": "Prime North"
+    },
+    {
+      "siteId": "SACT",
+      "guideId": "Showtime Action",
+      "name": "Showtime Action"
+    },
+    {
+      "siteId": "WIN-Grif",
+      "guideId": "WIN Griffith",
+      "name": "WIN Griffith"
+    },
+    {
+      "siteId": "FMC",
+      "guideId": "Family Movie Channel",
+      "name": "Family Movie Channel"
+    },
+    {
+      "siteId": "31-Mel",
+      "guideId": "Ch31 Melbourne",
+      "name": "Ch31 Melbourne"
+    },
+    {
+      "siteId": "SDRA",
+      "guideId": "Showtime Drama",
+      "name": "Showtime Drama"
+    },
+    {
+      "siteId": "ABC-News24",
+      "guideId": "ABC News 24",
+      "name": "ABC News 24"
+    },
+    {
+      "siteId": "SBSHD-Vic",
+      "guideId": "SBS HD Victoria",
+      "name": "SBS HD Victoria"
+    },
+    {
+      "siteId": "One-SA",
+      "guideId": "One SA",
+      "name": "One SA"
+    },
+    {
+      "siteId": "MOV1+2",
+      "guideId": "Movie One Take Two",
+      "name": "Movie One Take Two"
+    },
+    {
+      "siteId": "One-Tas",
+      "guideId": "One Tas",
+      "name": "One Tas"
+    },
+    {
+      "siteId": "MOVX",
+      "guideId": "Movie Extra",
+      "name": "Movie Extra"
+    },
+    {
+      "siteId": "ELEVEN",
+      "guideId": "ELEVEN",
+      "name": "ELEVEN"
+    },
+    {
+      "siteId": "Seven-Bris",
+      "guideId": "Seven Qld",
+      "name": "Seven Qld"
+    },
+    {
+      "siteId": "Seven-Qld",
+      "guideId": "Seven Regional Qld",
+      "name": "Seven Regional Qld"
+    },
+    {
+      "siteId": "Seven-SA",
+      "guideId": "Seven SA",
+      "name": "Seven SA"
+    },
+    {
+      "siteId": "Ten-SA",
+      "guideId": "Ten SA",
+      "name": "Ten SA"
+    },
+    {
+      "siteId": "Seven-WA",
+      "guideId": "Seven WA",
+      "name": "Seven WA"
+    },
+    {
+      "siteId": "Nine-WA",
+      "guideId": "Nine WA",
+      "name": "Nine WA"
+    },
+    {
+      "siteId": "ABC-Tas",
+      "guideId": "ABC Tas",
+      "name": "ABC Tas"
+    },
+    {
+      "siteId": "SBS-Tas",
+      "guideId": "SBS Tas",
+      "name": "SBS Tas"
+    },
+    {
+      "siteId": "WIN-Tas",
+      "guideId": "WIN Tas",
+      "name": "WIN Tas"
+    },
+    {
+      "siteId": "7CEN",
+      "guideId": "Seven Central",
+      "name": "Seven Central"
+    },
+    {
+      "siteId": "SBS-NT",
+      "guideId": "SBS NT",
+      "name": "SBS NT"
+    },
+    {
+      "siteId": "ARNA",
+      "guideId": "Arena",
+      "name": "Arena"
+    },
+    {
+      "siteId": "FFC-NSW",
+      "guideId": "Fox Footy Channel NSW",
+      "name": "Fox Footy Channel NSW"
+    },
+    {
+      "siteId": "FFC-SA",
+      "guideId": "Fox Footy Channel SA",
+      "name": "Fox Footy Channel SA"
+    },
+    {
+      "siteId": "max",
+      "guideId": "musicMAX",
+      "name": "musicMAX"
+    },
+    {
+      "siteId": "NGEO",
+      "guideId": "National Geographic Channel",
+      "name": "National Geographic Channel"
+    },
+    {
+      "siteId": "TV1",
+      "guideId": "TV1",
+      "name": "TV1"
+    },
+    {
+      "siteId": "UKTV",
+      "guideId": "UKTV",
+      "name": "UKTV"
+    },
+    {
+      "siteId": "WMOV",
+      "guideId": "World Movies",
+      "name": "World Movies"
+    },
+    {
+      "siteId": "DISN",
+      "guideId": "Disney Channel",
+      "name": "Disney Channel"
+    },
+    {
+      "siteId": "MTV",
+      "guideId": "MTV",
+      "name": "MTV"
+    },
+    {
+      "siteId": "ODY",
+      "guideId": "Odyssey",
+      "name": "Odyssey"
+    },
+    {
+      "siteId": "BBC",
+      "guideId": "BBC World",
+      "name": "BBC World"
+    },
+    {
+      "siteId": "CNNI",
+      "guideId": "CNN International",
+      "name": "CNN International"
+    },
+    {
+      "siteId": "TVN",
+      "guideId": "Thoroughbred Racing",
+      "name": "Thoroughbred Racing"
+    },
+    {
+      "siteId": "CNBC",
+      "guideId": "CNBC Australia",
+      "name": "CNBC Australia"
+    },
+    {
+      "siteId": "ADULT",
+      "guideId": "Adults Only",
+      "name": "Adults Only"
+    },
+    {
+      "siteId": "BLM",
+      "guideId": "Bloomberg Television",
+      "name": "Bloomberg Television"
+    },
+    {
+      "siteId": "CNNfn",
+      "guideId": "CNN Financial Network",
+      "name": "CNN Financial Network"
+    },
+    {
+      "siteId": "EXPO",
+      "guideId": "Expo Channel",
+      "name": "Expo Channel"
+    },
+    {
+      "siteId": "FASH",
+      "guideId": "Fashion TV",
+      "name": "Fashion TV"
+    },
+    {
+      "siteId": "LBC",
+      "guideId": "Lebanese Broadcasting",
+      "name": "Lebanese Broadcasting"
+    },
+    {
+      "siteId": "RAI",
+      "guideId": "RAI International",
+      "name": "RAI International"
+    },
+    {
+      "siteId": "TV5",
+      "guideId": "TV5",
+      "name": "TV5"
+    },
+    {
+      "siteId": "CMC",
+      "guideId": "Country Music Channel",
+      "name": "Country Music Channel"
+    },
+    {
+      "siteId": "FB02",
+      "guideId": "Foxtel Box Office 2",
+      "name": "Foxtel Box Office 2"
+    },
+    {
+      "siteId": "FB05",
+      "guideId": "Foxtel Box Office 5",
+      "name": "Foxtel Box Office 5"
+    },
+    {
+      "siteId": "FB09",
+      "guideId": "Foxtel Box Office 9",
+      "name": "Foxtel Box Office 9"
+    },
+    {
+      "siteId": "FB12",
+      "guideId": "Foxtel Box Office 12",
+      "name": "Foxtel Box Office 12"
+    },
+    {
+      "siteId": "FB15",
+      "guideId": "Foxtel Box Office 15",
+      "name": "Foxtel Box Office 15"
+    },
+    {
+      "siteId": "FB16",
+      "guideId": "Foxtel Box Office 16",
+      "name": "Foxtel Box Office 16"
+    },
+    {
+      "siteId": "FB19",
+      "guideId": "Foxtel Box Office 19",
+      "name": "Foxtel Box Office 19"
+    },
+    {
+      "siteId": "FB23",
+      "guideId": "Foxtel Box Office 23",
+      "name": "Foxtel Box Office 23"
+    },
+    {
+      "siteId": "FB24",
+      "guideId": "Foxtel Box Office 24",
+      "name": "Foxtel Box Office 24"
+    },
+    {
+      "siteId": "FB25",
+      "guideId": "Foxtel Box Office 25",
+      "name": "Foxtel Box Office 25"
+    },
+    {
+      "siteId": "LIFE+2",
+      "guideId": "LifeStyle Channel +2",
+      "name": "LifeStyle Channel +2"
+    },
+    {
+      "siteId": "FOX8+2",
+      "guideId": "FOX8 +2",
+      "name": "FOX8 +2"
+    },
+    {
+      "siteId": "TV1+2",
+      "guideId": "TV1 +2",
+      "name": "TV1 +2"
+    },
+    {
+      "siteId": "HIST+2",
+      "guideId": "History Channel +2",
+      "name": "History Channel +2"
+    },
+    {
+      "siteId": "SCIENCE",
+      "guideId": "Discovery Science",
+      "name": "Discovery Science"
+    },
+    {
+      "siteId": "BOOM",
+      "guideId": "Boomerang",
+      "name": "Boomerang"
+    },
+    {
+      "siteId": "CLUBV",
+      "guideId": "Club V",
+      "name": "Club V"
+    },
+    {
+      "siteId": "H&L",
+      "guideId": "Discovery Home & Leisure",
+      "name": "Discovery Home & Leisure"
+    },
+    {
+      "siteId": "SENATE",
+      "guideId": "Senate",
+      "name": "Senate"
+    },
+    {
+      "siteId": "MINDGAMES",
+      "guideId": "Mindgames",
+      "name": "Mindgames"
+    },
+    {
+      "siteId": "ABC_RadioNSW",
+      "guideId": "News Sport Weather",
+      "name": "News Sport Weather"
+    },
+    {
+      "siteId": "TABNSW",
+      "guideId": "TAB NSW",
+      "name": "TAB NSW"
+    },
+    {
+      "siteId": "PREVIEW",
+      "guideId": "Box Office Preview",
+      "name": "Box Office Preview"
+    },
+    {
+      "siteId": "StarWorld",
+      "guideId": "Star World",
+      "name": "Star World"
+    },
+    {
+      "siteId": "HBOMovie",
+      "guideId": "HBO Movies",
+      "name": "HBO Movies"
+    },
+    {
+      "siteId": "SBSTWO-Vic",
+      "guideId": "SBS TWO Vic",
+      "name": "SBS TWO Vic"
+    },
+    {
+      "siteId": "ABC-RN",
+      "guideId": "ABC Radio National",
+      "name": "ABC Radio National"
+    },
+    {
+      "siteId": "ABC-NR",
+      "guideId": "air: ABC NewsRadio",
+      "name": "air: ABC NewsRadio"
+    },
+    {
+      "siteId": "FS3",
+      "guideId": "Fox Sports Three",
+      "name": "Fox Sports Three"
+    },
+    {
+      "siteId": "EUROSPORT",
+      "guideId": "EUROSPORT",
+      "name": "EUROSPORT"
+    },
+    {
+      "siteId": "EURONEWS",
+      "guideId": "European News",
+      "name": "European News"
+    },
+    {
+      "siteId": "BNTV",
+      "guideId": "Bosnia TV",
+      "name": "Bosnia TV"
+    },
+    {
+      "siteId": "ENEWS-IT",
+      "guideId": "EuroNews Italia",
+      "name": "EuroNews Italia"
+    },
+    {
+      "siteId": "ENEWS-GE",
+      "guideId": "EuroNews German",
+      "name": "EuroNews German"
+    },
+    {
+      "siteId": "OUT-TV",
+      "guideId": "OUTtv",
+      "name": "OUTtv"
+    },
+    {
+      "siteId": "WZONE",
+      "guideId": "Weatherzone",
+      "name": "Weatherzone"
+    },
+    {
+      "siteId": "SHWC",
+      "guideId": "Showcase",
+      "name": "Showcase"
+    },
+    {
+      "siteId": "SHWC+2",
+      "guideId": "Showcase +2",
+      "name": "Showcase +2"
+    },
+    {
+      "siteId": "SKYB",
+      "guideId": "Sky News Business",
+      "name": "Sky News Business"
+    },
+    {
+      "siteId": "CCTV4",
+      "guideId": "CCTV International Mandarin",
+      "name": "CCTV International Mandarin"
+    },
+    {
+      "siteId": "CCTV9",
+      "guideId": "CCTV International English",
+      "name": "CCTV International English"
+    },
+    {
+      "siteId": "CBEEB",
+      "guideId": "CBeebies",
+      "name": "CBeebies"
+    },
+    {
+      "siteId": "WLINK",
+      "guideId": "Westlink Network",
+      "name": "Westlink Network"
+    },
+    {
+      "siteId": "13THST",
+      "guideId": "13th Street",
+      "name": "13th Street"
+    },
+    {
+      "siteId": "DTM+2",
+      "guideId": "Discovery Turbo Max +2",
+      "name": "Discovery Turbo Max +2"
+    },
+    {
+      "siteId": "KIDSCO",
+      "guideId": "KidsCo",
+      "name": "KidsCo"
+    },
+    {
+      "siteId": "SPICS+2",
+      "guideId": "STARPICS +2",
+      "name": "STARPICS +2"
+    },
+    {
+      "siteId": "FX",
+      "guideId": "FX",
+      "name": "FX"
+    },
+    {
+      "siteId": "SOHO",
+      "guideId": "SoHo",
+      "name": "SoHo"
+    },
+    {
+      "siteId": "Seven-Syd",
+      "guideId": "Seven Sydney",
+      "name": "Seven Sydney"
+    },
+    {
+      "siteId": "TVS",
+      "guideId": "TVS Sydney",
+      "name": "TVS Sydney"
+    },
+    {
+      "siteId": "MOV1",
+      "guideId": "Movie One",
+      "name": "Movie One"
+    },
+    {
+      "siteId": "CMTER4",
+      "guideId": "Parliamentary Committee RM4",
+      "name": "Parliamentary Committee RM4"
+    },
+    {
+      "siteId": "STAS",
+      "guideId": "Setanta Sports",
+      "name": "Setanta Sports"
+    },
+    {
+      "siteId": "NASIA",
+      "guideId": "Channel NewsAsia",
+      "name": "Channel NewsAsia"
+    },
+    {
+      "siteId": "MCMTOP",
+      "guideId": "MCM Top Music",
+      "name": "MCM Top Music"
+    },
+    {
+      "siteId": "CCTVN",
+      "guideId": "CCTV News",
+      "name": "CCTV News"
+    },
+    {
+      "siteId": "ENEWSI",
+      "guideId": "EuroNews Italian",
+      "name": "EuroNews Italian"
+    },
+    {
+      "siteId": "FMFAM",
+      "guideId": "Foxtel Movies Family",
+      "name": "Foxtel Movies Family"
+    },
+    {
+      "siteId": "FMFAM+2",
+      "guideId": "Foxtel Movies Family",
+      "name": "Foxtel Movies Family"
+    },
+    {
+      "siteId": "SPICS",
+      "guideId": "STARPICS",
+      "name": "STARPICS"
+    },
+    {
+      "siteId": "STUDIO",
+      "guideId": "STUDIO",
+      "name": "STUDIO"
+    },
+    {
+      "siteId": "MTVM",
+      "guideId": "MTV Music",
+      "name": "MTV Music"
+    },
+    {
+      "siteId": "ABC-Can",
+      "guideId": "ABC Canberra",
+      "name": "ABC Canberra"
+    },
+    {
+      "siteId": "ABC-NSW",
+      "guideId": "ABC NSW",
+      "name": "ABC NSW"
+    },
+    {
+      "siteId": "SC10-NSW",
+      "guideId": "Southern Cross Ten NSW",
+      "name": "Southern Cross Ten NSW"
+    },
+    {
+      "siteId": "WIN-NSW",
+      "guideId": "WIN NSW",
+      "name": "WIN NSW"
+    },
+    {
+      "siteId": "ABC-Vic",
+      "guideId": "ABC Vic",
+      "name": "ABC Vic"
+    },
+    {
+      "siteId": "Ten-Vic",
+      "guideId": "Ten Melbourne",
+      "name": "Ten Melbourne"
+    },
+    {
+      "siteId": "SBS-Vic",
+      "guideId": "SBS Vic",
+      "name": "SBS Vic"
+    },
+    {
+      "siteId": "SC10-Vic",
+      "guideId": "Southern Cross Ten Victoria",
+      "name": "Southern Cross Ten Victoria"
+    },
+    {
+      "siteId": "One-NSW",
+      "guideId": "One NSW",
+      "name": "One NSW"
+    },
+    {
+      "siteId": "Ten-Qld",
+      "guideId": "Ten Brisbane",
+      "name": "Ten Brisbane"
+    },
+    {
+      "siteId": "WIN-Qld",
+      "guideId": "WIN Qld",
+      "name": "WIN Qld"
+    },
+    {
+      "siteId": "SC10-GC",
+      "guideId": "Southern Cross Ten Gold Coast",
+      "name": "Southern Cross Ten Gold Coast"
+    },
+    {
+      "siteId": "SBS-SA",
+      "guideId": "SBS SA",
+      "name": "SBS SA"
+    },
+    {
+      "siteId": "GTS-BKN",
+      "guideId": "Central GTS/BKN",
+      "name": "Central GTS/BKN"
+    },
+    {
+      "siteId": "SHWGRTS",
+      "guideId": "Showtime Greats",
+      "name": "Showtime Greats"
+    },
+    {
+      "siteId": "FFC-Qld",
+      "guideId": "Fox Footy Channel Qld",
+      "name": "Fox Footy Channel Qld"
+    },
+    {
+      "siteId": "FFC-WA",
+      "guideId": "Fox Footy Channel WA",
+      "name": "Fox Footy Channel WA"
+    },
+    {
+      "siteId": "FMPREM+2",
+      "guideId": "Foxtel Movies Premiere+2",
+      "name": "Foxtel Movies Premiere+2"
+    },
+    {
+      "siteId": "FB01",
+      "guideId": "Foxtel Box Office 1",
+      "name": "Foxtel Box Office 1"
+    },
+    {
+      "siteId": "FB10",
+      "guideId": "Foxtel Box Office 10",
+      "name": "Foxtel Box Office 10"
+    },
+    {
+      "siteId": "FB17",
+      "guideId": "Foxtel Box Office 17",
+      "name": "Foxtel Box Office 17"
+    },
+    {
+      "siteId": "FMMAST",
+      "guideId": "Foxtel Movies Masterpiece",
+      "name": "Foxtel Movies Masterpiece"
+    },
+    {
+      "siteId": "ESNEWS",
+      "guideId": "European Sports News",
+      "name": "European Sports News"
+    },
+    {
+      "siteId": "HEALTH",
+      "guideId": "Discovery Health",
+      "name": "Discovery Health"
+    },
+    {
+      "siteId": "NICKJR",
+      "guideId": "Nick Jr",
+      "name": "Nick Jr"
+    },
+    {
+      "siteId": "MPREVIEW",
+      "guideId": "Movies Preview",
+      "name": "Movies Preview"
+    },
+    {
+      "siteId": "MPREVIEW+2",
+      "guideId": "Movies Preview +2",
+      "name": "Movies Preview +2"
+    },
+    {
+      "siteId": "CRIME",
+      "guideId": "Crime & Investigation",
+      "name": "Crime & Investigation"
+    },
+    {
+      "siteId": "DIG-jazz",
+      "guideId": "dig jazz",
+      "name": "dig jazz"
+    },
+    {
+      "siteId": "DJNR",
+      "guideId": "Disney Junior",
+      "name": "Disney Junior"
+    },
+    {
+      "siteId": "FOXTUNES",
+      "guideId": "Foxtel Tunes",
+      "name": "Foxtel Tunes"
+    },
+    {
+      "siteId": "FS4",
+      "guideId": "Fox Sports Four",
+      "name": "Fox Sports Four"
+    },
+    {
+      "siteId": "Sci-Fi+2",
+      "guideId": "Sci Fi +2",
+      "name": "Sci Fi +2"
+    },
+    {
+      "siteId": "VHITS",
+      "guideId": "V Hits",
+      "name": "V Hits"
+    },
+    {
+      "siteId": "A&E",
+      "guideId": "A&E",
+      "name": "A&E"
+    },
+    {
+      "siteId": "HIST",
+      "guideId": "History Channel",
+      "name": "History Channel"
+    },
+    {
+      "siteId": "UNIV",
+      "guideId": "Universal Channel",
+      "name": "Universal Channel"
+    },
+    {
+      "siteId": "UNIV+2",
+      "guideId": "Universal Channel +2",
+      "name": "Universal Channel +2"
+    },
+    {
+      "siteId": "FMPREM",
+      "guideId": "Foxtel Movies Premiere",
+      "name": "Foxtel Movies Premiere"
+    },
+    {
+      "siteId": "FMACT",
+      "guideId": "Foxtel Movies Action/Adventure",
+      "name": "Foxtel Movies Action/Adventure"
+    },
+    {
+      "siteId": "FMACT+2",
+      "guideId": "Foxtel Movies Action/Adventure",
+      "name": "Foxtel Movies Action/Adventure"
+    },
+    {
+      "siteId": "FMCOM",
+      "guideId": "Foxtel Movies Comedy",
+      "name": "Foxtel Movies Comedy"
+    },
+    {
+      "siteId": "FMDRA",
+      "guideId": "Foxtel Movies Drama/Romance",
+      "name": "Foxtel Movies Drama/Romance"
+    },
+    {
+      "siteId": "NGP",
+      "guideId": "National Geographic People",
+      "name": "National Geographic People"
+    },
+    {
+      "siteId": "MOVG",
+      "guideId": "Movie Greats",
+      "name": "Movie Greats"
+    },
+    {
+      "siteId": "FMCRIM",
+      "guideId": "Foxtel Movies Thriller/Crime",
+      "name": "Foxtel Movies Thriller/Crime"
+    },
+    {
+      "siteId": "FX+2",
+      "guideId": "FX+2",
+      "name": "FX+2"
+    },
+    {
+      "siteId": "SKYN",
+      "guideId": "Sky News Australia",
+      "name": "Sky News Australia"
+    },
+    {
+      "siteId": "TCM",
+      "guideId": "Turner Classic Movies",
+      "name": "Turner Classic Movies"
+    },
+    {
+      "siteId": "SKYR2",
+      "guideId": "Sky Racing 2",
+      "name": "Sky Racing 2"
+    },
+    {
+      "siteId": "SKYRN",
+      "guideId": "Sky Racing News",
+      "name": "Sky Racing News"
+    },
+    {
+      "siteId": "SKYW",
+      "guideId": "Sky News Weather",
+      "name": "Sky News Weather"
+    },
+    {
+      "siteId": "FB08",
+      "guideId": "Foxtel Box Office 8",
+      "name": "Foxtel Box Office 8"
+    },
+    {
+      "siteId": "FB11",
+      "guideId": "Foxtel Box Office 11",
+      "name": "Foxtel Box Office 11"
+    },
+    {
+      "siteId": "StarMovies",
+      "guideId": "Star Movies",
+      "name": "Star Movies"
+    },
+    {
+      "siteId": "PHDISN",
+      "guideId": "Playhouse Disney",
+      "name": "Playhouse Disney"
+    },
+    {
+      "siteId": "FS5",
+      "guideId": "Fox Sports Five",
+      "name": "Fox Sports Five"
+    },
+    {
+      "siteId": "Sci-Fi",
+      "guideId": "Sci Fi",
+      "name": "Sci Fi"
+    },
+    {
+      "siteId": "Syfy",
+      "guideId": "Syfy",
+      "name": "Syfy"
+    },
+    {
+      "siteId": "Syfy+2",
+      "guideId": "Syfy +2",
+      "name": "Syfy +2"
+    },
+    {
+      "siteId": "VTV",
+      "guideId": "VTV Uruguay",
+      "name": "VTV Uruguay"
+    },
+    {
+      "siteId": "MACQD",
+      "guideId": "Macquarie Digital",
+      "name": "Macquarie Digital"
+    },
+    {
+      "siteId": "A-PAC",
+      "guideId": "Australia's Public Affairs Channel",
+      "name": "Australia's Public Affairs Channel"
+    },
+    {
+      "siteId": "STVDIO",
+      "guideId": "STVDIO",
+      "name": "STVDIO"
+    },
+    {
+      "siteId": "MTVD",
+      "guideId": "MTV Dance",
+      "name": "MTV Dance"
+    },
+    {
+      "siteId": "DISMOV",
+      "guideId": "Disney Movies",
+      "name": "Disney Movies"
+    },
+    {
+      "siteId": "BBCF",
+      "guideId": "BBC First",
+      "name": "BBC First"
+    },
+    {
+      "siteId": "DISXD",
+      "guideId": "Disney XD",
+      "name": "Disney XD"
+    },
+    {
+      "siteId": "SMOOTH",
+      "guideId": "Smooth",
+      "name": "Smooth"
+    },
+    {
+      "siteId": "HNKW",
+      "guideId": "HNK World",
+      "name": "HNK World"
+    },
+    {
+      "siteId": "BOXS",
+      "guideId": "BoxSets",
+      "name": "BoxSets"
+    },
+    {
+      "siteId": "DKIDS",
+      "guideId": "Discovery Kids",
+      "name": "Discovery Kids"
+    },
+    {
+      "siteId": "TVHITS",
+      "guideId": "TVHITS",
+      "name": "TVHITS"
+    },
+    {
+      "siteId": "TVHITS+2",
+      "guideId": "TVHITS +2",
+      "name": "TVHITS +2"
+    },
+    {
+      "siteId": "111G",
+      "guideId": "111 Greats",
+      "name": "111 Greats"
+    },
+    {
+      "siteId": "111G+2",
+      "guideId": "111 Greats +2",
+      "name": "111 Greats +2"
+    },
+    {
+      "siteId": "Ten-Can",
+      "guideId": "Ten Capital Canberra",
+      "name": "Ten Capital Canberra"
+    },
+    {
+      "siteId": "SC10-Qld",
+      "guideId": "Southern Cross Ten Qld",
+      "name": "Southern Cross Ten Qld"
+    },
+    {
+      "siteId": "AandE",
+      "guideId": "A&E",
+      "name": "A&E"
+    },
+    {
+      "siteId": "SOHO+2",
+      "guideId": "SoHo +2",
+      "name": "SoHo +2"
+    }
+  ]
+}
