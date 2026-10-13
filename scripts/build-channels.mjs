@@ -55,7 +55,9 @@ const channels = [];
 const seen = new Set();
 // URLs that scripts/probe-streams.mjs found loadable in a browser (manifest 200 + CORS); flagged `v: 1`
 const probePath = join(root, 'playlists/probe.json');
-const verified = new Set(existsSync(probePath) ? JSON.parse(readFileSync(probePath, 'utf8')) : []);
+const probe = existsSync(probePath) ? JSON.parse(readFileSync(probePath, 'utf8')) : {};
+const verified = new Set(Array.isArray(probe) ? probe : probe.verified || []);   // (older probe files were a plain list)
+const noCors = new Set(probe.noCors || []), dead = new Set(probe.dead || []);
 
 // Shared by both parsers. `raw` has name, url, group, quality?, tvgId?, logo?, ua?, rf?
 function add({ name, url, group = '', quality = '', tvgId = '', logo = '', ua, rf, isPlaylist = false }) {
@@ -73,6 +75,8 @@ function add({ name, url, group = '', quality = '', tvgId = '', logo = '', ua, r
     h: ua || rf ? 1 : 0,
     p: isPlaylist ? 1 : 0,
     ...(verified.has(url) && { v: 1 }),
+    ...(noCors.has(url) && { nc: 1 }),
+    ...(dead.has(url) && { dd: 1 }),
     ...(tvgId && { t: tvgId }),
     ...(logo && { l: logo }),
     // Header values are kept so "Open in VLC" playlists can send them (browsers can't)
@@ -125,4 +129,4 @@ for (const file of files.filter(f => f.endsWith('.xspf'))) {
 
 writeFileSync(join(root, 'public/data/channels.json'), JSON.stringify(channels));
 const counts = channels.reduce((a, c) => (a[c.c] = (a[c.c] || 0) + 1, a), {});
-console.log(`${channels.length} channels (${channels.filter(c => c.v).length} verified)`, counts);
+console.log(`${channels.length} channels (${channels.filter(c => c.v).length} verified, ${channels.filter(c => c.nc).length} need a proxy, ${channels.filter(c => c.dd).length} dead)`, counts);

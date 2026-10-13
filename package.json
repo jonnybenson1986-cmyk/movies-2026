@@ -1,0 +1,11 @@
+{
+  "name": "streambox",
+  "private": true,
+  "description": "Netflix-style live TV and sports player (static PWA)",
+  "scripts": {
+    "proxy": "node proxy/server.mjs",
+    "build": "node scripts/build-channels.mjs",
+    "probe": "node scripts/probe-streams.mjs"
+  },
+  "engines": { "node": ">=18" }
+}

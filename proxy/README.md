@@ -27,6 +27,12 @@ ALLOWED_ORIGINS=https://your-site.netlify.app PROXY_TOKEN=pick-a-secret node pro
 
 Then in StreamBox: **Settings → Stream proxy**, paste the proxy's **https** URL (and the token), and Save. StreamBox checks `/health`, and from then on every channel is playable in the app. It tries the direct route first and uses the proxy only when needed.
 
+### Quickest try-out (desktop)
+```bash
+npm run proxy            # or: node proxy/server.mjs
+```
+In StreamBox: **Settings → Stream proxy → This computer → Save**. An https site may call a proxy on `localhost`, so this works with the deployed Netlify site too, in the same browser.
+
 ### Using it from your phone
 The proxy has to be reachable from the internet over https. Easiest options:
 

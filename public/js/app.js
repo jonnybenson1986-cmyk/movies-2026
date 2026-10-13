@@ -56,7 +56,8 @@
 
   // A browser can load a stream directly unless it needs custom headers or is plain http:// on an https page.
   // With a StreamBox proxy configured (Settings), every channel can play in the app.
-  const directOK = ch => ch.type !== 'live' || (!ch.needsHeaders && (!PAGE_IS_HTTPS || ch.url.startsWith('https://')));
+  const CORS_EXEMPT = IS_IOS || IS_ANDROID;   // the phone's own HLS player ignores CORS; desktop hls.js can't
+  const directOK = ch => ch.type !== 'live' || (!ch.needsHeaders && (!PAGE_IS_HTTPS || ch.url.startsWith('https://')) && !(ch.noCors && !CORS_EXEMPT));
   const hasProxy = () => {
     try {
       const u = new URL(settings.proxyUrl);
@@ -85,6 +86,8 @@
       source: raw.s || '', logo: raw.l || '', needsHeaders: !!raw.h, isPlaylist: !!raw.p, tvgId: raw.t || '',
       ua: raw.ua || '', rf: raw.rf || '',   // HTTP headers the stream needs (sent via the VLC playlist / proxy)
       verified: !!raw.v,                    // manifest loaded with CORS when the build probed it
+      noCors: !!raw.nc,                     // live, but its server sends no CORS header (browsers can't read it)
+      dead: !!raw.dd,                       // manifest answered 404/410 when probed
     };
   }
 
@@ -150,7 +153,7 @@
   }
 
   const visibleChannels = () => channels
-    .filter(c => !c.isPlaylist && (settings.showAll || isPlayable(c)) && !(settings.hideBad && isBad(c)))
+    .filter(c => !c.isPlaylist && (settings.showAll || (isPlayable(c) && !c.dead)) && !(settings.hideBad && isBad(c)))
     .sort((a, b) => (b.verified | 0) - (a.verified | 0));   // verified streams first
 
   // ---------------------------------------------------------------- data: TV guide (XMLTV)
@@ -365,7 +368,7 @@
     const list = active === 'All' ? all : active === 'VLC only' ? vlcOnly : active === 'Verified' ? all.filter(c => c.verified) : all.filter(c => c.cat === active || c.source === active);
     vlcList = { name: `streambox-${active}`, items: list };
     view.innerHTML = `<div class="page">
-      <div class="page-head"><h1>Live TV</h1><span class="count">${list.length.toLocaleString()} channels${settings.showAll ? '' : ' · browser-playable only'}</span>
+      <div class="page-head"><h1>Live TV</h1><span class="count">${list.length.toLocaleString()} channels${settings.showAll ? '' : ` · ${channels.filter(c => !c.isPlaylist && !c.dead && !isPlayable(c)).length.toLocaleString()} more need VLC or a proxy (Settings)`}</span>
         <button class="btn btn-more page-btn" data-act="vlcpl">Play this list in VLC</button></div>
       <div class="chips">${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
       <div id="gridMount"></div>
@@ -499,10 +502,11 @@
     $('#playerSub').textContent = [base, g?.now && `Now: ${g.now.title}`, g?.next && `Next ${at(g.next.start)}: ${g.next.title}`].filter(Boolean).join(' · ');
   }
 
-  function showPlayerMsg(title, text, item) {
-    msg.innerHTML = `<h3>${esc(title)}</h3><p>${esc(text)}</p><div class="btns">
+  function showPlayerMsg(title, text, item, detail = '') {
+    msg.innerHTML = `<h3>${esc(title)}</h3><p>${esc(text)}</p>${detail ? `<p style="font-size:12px;color:#777;margin:-8px 0 14px">${esc(detail)}</p>` : ''}<div class="btns">
       ${item.type === 'live' ? vlcButtons(item) : ''}
-      ${item.type === 'live' && currentList.length > 1 ? '<button class="btn btn-play" data-act="next">Next channel</button>' : ''}
+      ${item.type === 'live' && !hasProxy() ? '<button class="btn btn-more" data-act="proxysetup">Set up proxy</button>' : ''}
+      ${item.type === 'live' && currentList.length > 1 ? '<button class="btn btn-play" data-act="next">Next working channel</button>' : ''}
     </div>`;
     msg.hidden = false;
   }
@@ -540,8 +544,10 @@
     const hlsJs = !IS_IOS && !!window.Hls?.isSupported();
     const plan = [];
     if (directOK(item) || force) {
-      plan.push({ url, native: !hlsJs, label: 'direct' });
-      if (hlsJs && video.canPlayType('application/vnd.apple.mpegurl')) plan.push({ url, native: true, label: 'native' });
+      const direct = { url, native: !hlsJs, label: 'direct' }, native = { url, native: true, label: 'native' };
+      const canNative = hlsJs && !!video.canPlayType('application/vnd.apple.mpegurl');
+      if (item.noCors && canNative) plan.push(native, direct);   // hls.js would be blocked by CORS; the platform player isn't
+      else { plan.push(direct); if (canNative) plan.push(native); }
     }
     if (hasProxy()) plan.push({ url: proxiedUrl(item), native: !hlsJs, label: 'proxy' });
 
@@ -553,7 +559,8 @@
     }
     if (current !== item) return;
     markBad(item);
-    showPlayerMsg('Channel unavailable', explainFailure(reasons), item);
+    const why = explainFailure(reasons);
+    showPlayerMsg('Channel unavailable', why.text, item, why.detail);
   }
 
   // Resolves once the video is playing; rejects with a short reason otherwise.
@@ -598,11 +605,11 @@
   }
 
   function explainFailure(reasons) {
-    const text = reasons.join(' · ');
-    const cors = /CORS/.test(text);
-    return `${text}. ${hasProxy()
-      ? 'It may be offline or region-locked.'
-      : cors ? 'Its server doesn’t allow web players. Set up the StreamBox proxy in Settings, or open it in VLC.' : 'It may be offline or geo-blocked in your region.'}`;
+    const detail = reasons.join(' · ');
+    if (reasons.some(r => /CORS/.test(r)) && !hasProxy()) {
+      return { detail, text: 'This channel’s server doesn’t allow web players to read it, so a browser can’t play it directly. Set up the StreamBox proxy, or open it in VLC.' };
+    }
+    return { detail, text: hasProxy() ? 'It may be offline or region-locked.' : 'It may be offline or geo-blocked in your region.' };
   }
 
   function closePlayer() {
@@ -669,6 +676,7 @@
   function showChannel(item) {
     const reason = item.needsHeaders
       ? 'it needs custom HTTP headers (a user-agent or referrer) that web browsers can’t send'
+      : item.noCors ? 'its server doesn’t allow web pages to read it (it sends no CORS headers)'
       : 'it streams over insecure http://, which browsers block on secure sites';
     openModal(`
       <div class="modal-hero" style="--tile:${tileColor(item.name)}"><div class="inner"><h2>${esc(item.name)}</h2></div></div>
@@ -698,7 +706,7 @@
         <label><input type="checkbox" id="optAutoVlc" ${settings.autoVlc ? 'checked' : ''}> On iPhone/Android, open those channels in VLC automatically</label>
         <h3>Stream proxy (play every channel inside the app)</h3>
         <p style="color:var(--muted)">Some channels can’t load in a browser (no CORS headers, plain http://, or required headers). A StreamBox proxy that you host fixes that. See <code>proxy/</code> in the repo. ${hasProxy() ? `<b style="color:var(--green)">Proxy set.</b>` : ''}</p>
-        <div class="form-row"><input type="url" id="proxyInput" placeholder="https://your-proxy.example.com" value="${esc(settings.proxyUrl)}"></div>
+        <div class="form-row"><input type="url" id="proxyInput" placeholder="https://your-proxy.example.com" value="${esc(settings.proxyUrl)}"><button class="btn btn-more" data-act="localproxy" style="padding:8px 12px;font-size:13px" title="Run: npm run proxy">This computer</button></div>
         <div class="form-row"><input type="text" id="proxyToken" placeholder="Token (optional, if your proxy uses PROXY_TOKEN)" value="${esc(settings.proxyToken)}" autocomplete="off" spellcheck="false"><button class="btn btn-red" data-act="saveproxy" style="padding:8px 16px">Save</button>${hasProxy() ? '<button class="btn btn-more" data-act="clearproxy" style="padding:8px 16px">Remove</button>' : ''}</div>
         <label><input type="checkbox" id="optHideBad" ${settings.hideBad ? 'checked' : ''}> Hide channels that failed to play on this device (for 12 hours)</label>
         <button class="btn btn-more" data-act="resetbad" style="font-size:13px;padding:6px 12px">Show hidden channels again (${Object.keys(bad).length})</button>
@@ -773,6 +781,8 @@
       else if (a === 'rmsrc') { settings.sources.splice(+act.dataset.i, 1); saveSettings(); location.reload(); }
       else if (a === 'clearhist') { store.set('history', []); toast('History cleared'); }
       else if (a === 'opensettings') showSettings();
+      else if (a === 'proxysetup') { closePlayer(); showSettings(); }
+      else if (a === 'localproxy') $('#proxyInput').value = 'http://localhost:8787';
       else if (a === 'saveproxy') saveProxy($('#proxyInput').value.trim().replace(/\/+$/, ''), $('#proxyToken').value.trim());
       else if (a === 'clearproxy') { settings.proxyUrl = settings.proxyToken = ''; saveSettings(); toast('Proxy removed'); route(); showSettings(); }
       else if (a === 'resetbad') { Object.keys(bad).forEach(k => delete bad[k]); store.set('bad', bad); toast('Hidden channels restored'); route(); showSettings(); }

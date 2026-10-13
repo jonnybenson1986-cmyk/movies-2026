@@ -53,10 +53,11 @@ A browser is stricter than VLC. When a channel shows "Channel unavailable", the 
 | (VLC badge) | needs custom headers, or plain `http://` | the stream proxy, or open in VLC |
 
 What the app does to help:
-- **Playback fallback chain:** direct, then the browser's own HLS player, then your proxy, each only when needed.
-- **Verified first:** `scripts/probe-streams.mjs` checks each stream's manifest and CORS headers. Channels that loaded cleanly are flagged and listed first; the **Verified** chip on Live TV shows only those.
+- **Hides what can't play.** The probe (`scripts/probe-streams.mjs`) classifies every channel: *verified* (loads fine), *needs a proxy* (live, but its server sends no CORS header), or *dead* (404). Without a proxy, the Live TV lists show only channels that can play on your device and say how many more need VLC or a proxy. Dead channels are never listed. On phones (iOS/Android) the platform's own HLS player ignores CORS, so those "needs a proxy" channels are offered there.
+- **Verified first**, plus a **Verified** chip on Live TV.
+- **Playback fallback chain:** direct, then the browser's own HLS player, then your proxy, each only when needed. A CORS block now fails instantly with a plain explanation, a **Set up proxy** button and **Next working channel**.
 - **Learns on your device:** channels that fail are hidden for 12 hours (Settings → show them again).
-- **Stream proxy** (`proxy/`, see its README): the way to get *every* channel playing inside the app.
+- **Stream proxy** (`proxy/`, see its README): the way to get *every* channel playing inside the app. On a desktop, `npm run proxy` and **Settings → Stream proxy → This computer** is the quickest way to try it.
 
 For a native phone app, wrapping this site with [Capacitor](https://capacitorjs.com) lets it use the phone's own HTTP and HLS player, which ignore CORS entirely.
 
