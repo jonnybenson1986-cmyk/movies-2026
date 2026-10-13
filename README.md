@@ -1,6 +1,6 @@
 # StreamBox
 
-A Netflix-style player for live TV, sports and free movies. It's a static Progressive Web App (PWA), so it installs on iPhone, iPad and Android straight from the browser. You don't need an app store.
+A Netflix-style player for live TV and sports. It's a static Progressive Web App (PWA), so it installs on iPhone, iPad and Android straight from the browser. You don't need an app store.
 
 ## What's inside
 
@@ -8,10 +8,8 @@ A Netflix-style player for live TV, sports and free movies. It's a static Progre
 |---|---|
 | **Live TV** (~11,600 channels) | The [iptv-org](https://github.com/iptv-org/iptv) playlist (`playlists/iptv-org.m3u`) plus your VLC playlist (`playlists/VLC_TV_IPTV.xspf`: Pluto TV, Samsung TV Plus, Tubi…), merged into `public/data/channels.json` with logos and TV-guide IDs |
 | **Sports** | SKY Racing 1 & 2 (from `playlists/Sports_App_2026.html`) plus every sports channel in the playlist |
-| **Movies (TMDB)** | Trending, popular, top-rated, in-cinemas and genre rows with posters, ratings, trailers and "where to watch" in Australia. Needs a free TMDB API key (see below). |
-| **Movies (public domain)** | Feature films from the Internet Archive (noir, comedy, westerns, horror, sci-fi, silent, cartoons) |
 | **My List / Continue Watching** | Saved on the device |
-| **Settings → Playlists** | Add any extra M3U playlist URL, or the full iptv-org list in one tap |
+| **Settings → Playlists** | Add any extra M3U playlist URL |
 
 ## Deploy to Netlify
 
@@ -19,23 +17,13 @@ A Netflix-style player for live TV, sports and free movies. It's a static Progre
 2. Pick this repo. `netlify.toml` fills in the settings automatically (publish directory `public`, no build command).
 3. Click **Deploy**. You'll get a URL like `https://your-site.netlify.app`.
 
-## Add your TMDB key (movie posters, trailers, "where to watch")
-
-1. Create a free account at [themoviedb.org](https://www.themoviedb.org) and go to **Settings → API**. Request a key (choose "Personal", and "Website" for the URL).
-2. Copy the **API Key (v3 auth)**, the 32-character one. Don't use the "Read Access Token".
-3. In StreamBox, tap the ⚙ icon → **TMDB** → paste the key → **Save**.
-
-The key is saved only on that device (browser storage). It is never written into this repo. TMDB titles link out to the services that carry them; StreamBox doesn't play them.
-
-This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming data by JustWatch via TMDB.
-
 ## TV guide ("Now / Next")
 
 Settings → **TV guide (XMLTV)** → add the URL of an XMLTV guide (`.xml` or `.xml.gz`, https, and it must allow cross-origin requests). Channels then show "Now: …" on their card, and the player shows "Now … · Next 8:45 PM: …". Channels match a guide by their playlist `tvg-id`, or by name. If a playlist you add declares a guide in its `#EXTM3U url-tvg="…"` header, that guide is picked up automatically. Only the next ~36 hours are kept, and guide files over 80 MB are skipped.
 
 ## Backup & restore
 
-Settings → **Backup & restore** → **Export backup** saves a `streambox-backup.json` with My List, watch history and your playlist and guide URLs. Your TMDB key is left out unless you tick the box. **Import backup** merges a backup into the current device. Imports are filtered, so only known item types with http(s) streams are kept.
+Settings → **Backup & restore** → **Export backup** saves a `streambox-backup.json` with My List, watch history and your playlist and guide URLs. **Import backup** merges a backup into the current device. Imports are filtered, so only known item types with http(s) streams are kept.
 
 ## Install on your phone
 
@@ -84,7 +72,6 @@ About 770 channels can't play in a browser: they use plain `http://`, or they ne
 
 ## Notes and limits
 
-- **More like this:** every TMDB movie page ends with a row of similar films from TMDB's recommendations (needs your TMDB key).
 - **Some channels only play in VLC.** About 770 channels use plain `http://` or need custom headers. Browsers block both on a secure (https) site. These channels are hidden by default. Turn on **Settings → Show channels that only play in VLC** to list them (see *Playing VLC-only channels*).
 - **Geo-blocking:** SKY Racing only plays from Australia. Many other channels are region-locked too. If a stream fails, the player shows an error and offers the next channel.
 - Free IPTV channels go up and down all the time. A channel that's offline today may work tomorrow.
