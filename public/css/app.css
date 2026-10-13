@@ -282,7 +282,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .country-head { align-items: center; }
 .country-row { gap: 10px; }
 .country-row .country-tile { flex: none; width: clamp(170px, 18vw, 230px); scroll-snap-align: start; }
-.card-flag { position: absolute; right: 8px; bottom: 8px; width: 22px; height: 16px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,.3); z-index: 1; }
+.card img.card-flag { position: absolute; inset: auto 8px 8px auto; width: 22px; height: 16px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,.3); z-index: 2; pointer-events: none; }
 @media (max-width: 820px) { .country-row .country-tile { width: 62vw; } .country-filter { width: 100%; margin-left: 0; } }
 =======
 .movy-filters { padding: 16px var(--gutter); display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
