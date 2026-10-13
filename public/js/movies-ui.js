@@ -1,7 +1,20 @@
-/* StreamBox Movies — curated lists from KiduyuTv */
+/* StreamBox Movies — curated lists from KiduyuTv (loaded live from GitHub) */
 (function () {
   'use strict';
   const TMDB = 'https://image.tmdb.org/t/p';
+  const LISTS = [
+    { id: 'oscar', title: 'Oscar Contenders 2026', file: 'oscar_winners_2026.json', limit: 20 },
+    { id: 'hp', title: 'Harry Potter', file: 'harry_potter_collection.json', limit: 0 },
+    { id: 'mcu', title: 'Marvel Cinematic Universe', file: 'marvel_cinematic_universe.json', limit: 30 },
+    { id: 'bond', title: 'James Bond', file: 'james_bond_collection.json', limit: 25 },
+    { id: 'pirates', title: 'Pirates of the Caribbean', file: 'pirates_of_the_caribbean.json', limit: 0 },
+    { id: 'statham', title: 'Jason Statham', file: 'jason_statham_movies.json', limit: 25 },
+    { id: 'time_travel', title: 'Time Travel', file: 'time_travel_movies.json', limit: 25 },
+    { id: 'horror', title: 'Popular Horror', file: 'popular_horror.json', limit: 30 },
+    { id: 'classics', title: 'Classic Cinema', file: 'best_classics.json', limit: 30 },
+    { id: 'must_watch', title: 'Must Watch', file: 'shut_up_and_watch.json', limit: 25 }
+  ];
+  const BASE = 'https://raw.githubusercontent.com/kiduyu-klaus/KiduyuTv_final/main/lists/';
   let collections = [];
   const map = new Map();
 
@@ -11,26 +24,36 @@
   function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
   function tileColor(name) { const h = hash(name) % 360; return 'linear-gradient(135deg, hsl(' + h + ' 55% 32%), hsl(' + ((h + 40) % 360) + ' 60% 14%))'; }
 
+  function mapMovie(m, colTitle, ci) {
+    const it = {
+      key: 'm:' + m.id + ':' + ci, type: 'movie', id: m.id,
+      name: m.title || m.name || 'Untitled',
+      overview: (m.overview || '').slice(0, 280),
+      poster: m.posterPath || m.poster || '',
+      backdrop: m.backdropPath || m.backdrop || '',
+      vote: Math.round((m.voteAverage || m.vote || 0) * 10) / 10,
+      year: String(m.releaseDate || m.year || '').slice(0, 4),
+      collection: colTitle
+    };
+    map.set(it.key, it);
+    return it;
+  }
+
   async function load() {
     try {
-      const cols = [
-        ...(await (await fetch('/data/movies-a.json')).json()),
-        ...(await (await fetch('/data/movies-b.json')).json()),
-        ...(await (await fetch('/data/movies-c.json')).json()),
-        ...(await (await fetch('/data/movies-d.json')).json())
-      ];
-      collections = cols.map((col, ci) => ({
-        id: col.id, title: col.title,
-        movies: (col.movies || []).map(m => {
-          const it = {
-            key: 'm:' + m.id + ':' + ci, type: 'movie', id: m.id, name: m.title,
-            overview: m.overview || '', poster: m.poster || '', backdrop: m.backdrop || '',
-            vote: m.vote || 0, year: m.year || '', collection: col.title
-          };
-          map.set(it.key, it);
-          return it;
-        })
+      const results = await Promise.all(LISTS.map(async (spec, ci) => {
+        try {
+          const data = await (await fetch(BASE + spec.file)).json();
+          let list = Array.isArray(data) ? data : [];
+          list = list.slice().sort((a, b) => ((b.popularity || 0) - (a.popularity || 0)) || ((b.voteAverage || 0) - (a.voteAverage || 0)));
+          if (spec.limit > 0) list = list.slice(0, spec.limit);
+          return { id: spec.id, title: spec.title, movies: list.map(m => mapMovie(m, spec.title, ci)) };
+        } catch (e) {
+          console.warn('list failed', spec.file, e);
+          return { id: spec.id, title: spec.title, movies: [] };
+        }
       }));
+      collections = results.filter(c => c.movies.length);
     } catch (e) { console.warn('movies', e); collections = []; }
   }
 
