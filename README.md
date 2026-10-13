@@ -8,6 +8,7 @@ A Netflix-style player for live TV, sports and movies. It's a static Progressive
 |---|---|
 | **Live TV** (~11,600 channels) | The [iptv-org](https://github.com/iptv-org/iptv) playlist (`playlists/iptv-org.m3u`) plus your VLC playlist (`playlists/VLC_TV_IPTV.xspf`: Pluto TV, Samsung TV Plus, Tubi…), merged into `public/data/channels.json` with logos and TV-guide IDs |
 | **Movies** | Curated collections (MCU, Bond, Oscar contenders, Horror, Classics, Hallmark, …) from [KiduyuTv](https://github.com/kiduyu-klaus/KiduyuTv_final) lists — local catalog, Play buttons and switchable video sources |
+| **Movy** | Live movies, TV shows, anime and 4K catalog browsing, with Vidy embeds protected by the companion browser extension |
 | **Sports** | SKY Racing 1 & 2 (from `playlists/Sports_App_2026.html`) plus every sports channel in the playlist |
 | **My List / Continue Watching** | Saved on the device (channels and movies) |
 | **Settings → Playlists** | Add any extra M3U playlist URL |
@@ -97,6 +98,20 @@ cd public && python3 -m http.server 8080
 
 The **Movies** tab includes 13 movie collections from [KiduyuTv](https://github.com/kiduyu-klaus/KiduyuTv_final), bundled in `public/data/movies.json`. Browsing uses local title artwork and descriptions, with no TMDB API, images or detail links. TV entries and unreleased movies are excluded. Search finds movies as well as channels; movies can be saved to **My List** and recently opened titles appear in **Continue Watching**.
 
-Open a movie and tap **Play** to load a video provider inside StreamBox. **Source** switches between VidLink, MoviesAPI, Videasy and VidNest, using the movie URL templates declared by KiduyuTv. **Open source** opens the selected provider in another tab if it cannot be embedded. These are external services: availability varies by title, region and browser, and a catalog entry does not guarantee a working video. StreamBox does not host film files. Playback position inside a provider is controlled by that provider.
+Open a movie and tap **Play** to load a video provider inside StreamBox. **Source** switches between VidLink, MoviesAPI, Videasy and VidNest, using the movie URL templates declared by KiduyuTv. Detected missing titles, video errors and stalled playback advance to the next untried source. **Try next source** lets you report an unavailable player manually; **Retry sources** appears after the list is exhausted. The updated companion helper (v1.1+) observes cross-origin native video failures and requests autoplay once when ready; browser policies may still require pressing Play. Paused/seeking videos are preserved. VidLink also supplies progress events directly; other providers require the helper for automatic detection. An unsupported nested player requires manual switching. **Playing** is shown only when video time advances. **Open source** opens the selected provider in another tab if it cannot be embedded. These are external services: availability varies by title, region and browser, and a catalog entry does not guarantee a working video. StreamBox does not host film files. Playback position inside a provider is controlled by that provider.
 
 To regenerate the catalog, run `npm run build:movies`. The importer fetches the pinned upstream revision recorded in the script and catalog; normal site builds use the bundled catalog. For a local checkout of that revision, run `node scripts/build-movies.mjs --source /path/to/KiduyuTv_final`.
+
+## Movy and protected Vidy playback
+
+The **Movy** tab brings the public Movy catalogs into StreamBox: movies, TV shows, anime and the 4K library. Search, genres, sorting and pagination fetch live metadata; details include TV seasons and anime episodes. Titles can be saved to My List. The 4K search filters the current page; movie/TV APIs limit browsing to 500 pages. Anime starts with trending/airing titles and offers search and genres. Two upstream anime genres with unavailable endpoints are omitted.
+
+Catalog pages use StreamBox controls and local title artwork, without loading Movy's page scripts. Metadata comes from Movy's public services (including TMDB-compatible identifiers), with AniList used to map anime playback IDs. Film files are streamed by external providers, not copied into this repository. Availability and successful playback depend on those providers.
+
+**Vidy Play requires the companion Chrome/Edge desktop extension (v1.1+).** In the app, open **Download & install playback protection**, download and extract the archive, enable Developer mode in `chrome://extensions` or `edge://extensions`, and choose **Load unpacked**. Select the extracted folder containing `manifest.json`, then reload StreamBox. See [extension instructions](browser-extension/README.md) for custom domains and supported browsers.
+
+The extension blocks known advertising hosts, popups and top-level diversions originating from Movy/Vidy and the four movie providers while allowing playback API/media/subtitle traffic. Its observer reports playback state locally to help find a working source. Movy movies try Vidy followed by those four movie sources; TV/anime retain their Vidy embeds. Vidy rejects iframe sandboxing. The app therefore checks the extension before enabling Play and again before opening a player. These bounded rules cannot guarantee blocking every future ad or an ad embedded in a video. Desktop Chrome/Edge is supported; mobile browsers without extension support can browse the catalog but cannot use protected Vidy playback.
+
+Run `npm test` for catalog validation, stale-request cancellation and protection component checks. These checks do not prove external video playback or replace installing and testing the extension in a supported browser.
+
+After editing the extension, run `npm run build:extension` (Python 3 standard library) to refresh the downloadable ZIP served by the app.

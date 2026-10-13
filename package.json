@@ -3,8 +3,10 @@
   "private": true,
   "description": "Netflix-style live TV and sports player (static PWA)",
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
     "proxy": "node proxy/server.mjs",
     "build": "node scripts/build-channels.mjs",
+    "build:extension": "python3 scripts/build-extension.py",
     "build:movies": "node scripts/build-movies.mjs",
     "probe": "node scripts/probe-streams.mjs"
   },

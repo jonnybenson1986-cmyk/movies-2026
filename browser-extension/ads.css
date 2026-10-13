@@ -1,0 +1,5 @@
+/* Specific advertising containers; playback controls and media are left visible. */
+.ad-banner, .ad-container, [data-ad-slot], [id^="ad-container"],
+iframe[src*="amselvex.com"], iframe[src*="nablescatch.com"], iframe[src*="doubleclick.net"] {
+  display: none !important;
+}

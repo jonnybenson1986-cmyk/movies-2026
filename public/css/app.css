@@ -253,10 +253,11 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .movie-tools span { color: var(--muted); font-size: 12px; }
 @media (max-width: 600px) {
   .movie-tools { gap: 8px; flex-wrap: wrap; }
-  .movie-tools span { display: none; }
+  .movie-tools span { flex-basis: 100%; }
   .player.movie-mode .player-title small { display: none; }
 }
 
+<<<<<<< HEAD
 /* ---------- Countries ---------- */
 .chip-accent { border-color: var(--gold); color: var(--gold); }
 .country-filter { margin-left: auto; width: min(100%, 220px); padding: 7px 12px; border-radius: 999px; border: 1px solid #555; background: #000; color: #fff; font-size: 13px; }
@@ -278,3 +279,25 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .country-row .country-tile { flex: none; width: clamp(170px, 18vw, 230px); scroll-snap-align: start; }
 .card-flag { position: absolute; right: 8px; bottom: 8px; width: 22px; height: 16px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,.3); z-index: 1; }
 @media (max-width: 820px) { .country-row .country-tile { width: 62vw; } .country-filter { width: 100%; margin-left: 0; } }
+=======
+.movy-filters { padding: 16px var(--gutter); display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.movy-filters label, .movy-detail label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 13px; }
+.movy-filters input, .movy-filters select, .movy-detail select { color: #fff; background: var(--bg-2); border: 1px solid #555; border-radius: 4px; padding: 10px; max-width: 100%; }
+.movy-filters input { width: min(65vw, 300px); }
+.movy-pages { display: flex; gap: 12px; padding: 20px var(--gutter) 40px; }
+.movy-count { text-align: left; padding: 12px var(--gutter); }
+.movy-detail { max-width: 1000px; padding: 20px var(--gutter) 40px; line-height: 1.6; }
+.movy-detail .btns { margin: 20px 0; }
+.movy-episodes { display: grid; gap: 10px; margin-top: 16px; }
+.movy-episode { background: var(--bg-2); padding: 12px 16px; border-radius: 5px; }
+.chip.active { border-color: var(--red); background: #451519; }
+@media (max-width: 820px) { .tabbar a { min-width: 0; } }
+
+.movie-tools { flex-wrap: wrap; }
+.movie-tools #movieSourceStatus { flex: 1 1 180px; }
+.movie-tools button:disabled { opacity: .5; cursor: default; }
+
+.player.movie-mode { display: grid; grid-template-rows: 76px minmax(0, 1fr) auto; }
+.player.movie-mode #movieFrame { position: static; grid-row: 2; height: 100%; min-height: 0; }
+.player.movie-mode .movie-tools { position: static; grid-row: 3; padding-bottom: calc(10px + var(--safe-bottom)); }
+>>>>>>> origin/claude/wonderful-keller-94obao
