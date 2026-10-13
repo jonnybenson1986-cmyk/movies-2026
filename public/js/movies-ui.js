@@ -1,18 +1,27 @@
-/* StreamBox Movies — curated lists from KiduyuTv (loaded live from GitHub) */
+/* StreamBox Movies — ALL curated lists from KiduyuTv (loaded live) */
 (function () {
   'use strict';
   const TMDB = 'https://image.tmdb.org/t/p';
   const LISTS = [
-    { id: 'oscar', title: 'Oscar Contenders 2026', file: 'oscar_winners_2026.json', limit: 20 },
+    { id: 'oscar', title: 'Oscar Contenders 2026', file: 'oscar_winners_2026.json', limit: 0 },
     { id: 'hp', title: 'Harry Potter', file: 'harry_potter_collection.json', limit: 0 },
-    { id: 'mcu', title: 'Marvel Cinematic Universe', file: 'marvel_cinematic_universe.json', limit: 30 },
-    { id: 'bond', title: 'James Bond', file: 'james_bond_collection.json', limit: 25 },
+    { id: 'mcu', title: 'Marvel Cinematic Universe', file: 'marvel_cinematic_universe.json', limit: 0 },
+    { id: 'bond', title: 'James Bond', file: 'james_bond_collection.json', limit: 0 },
     { id: 'pirates', title: 'Pirates of the Caribbean', file: 'pirates_of_the_caribbean.json', limit: 0 },
-    { id: 'statham', title: 'Jason Statham', file: 'jason_statham_movies.json', limit: 25 },
-    { id: 'time_travel', title: 'Time Travel', file: 'time_travel_movies.json', limit: 25 },
-    { id: 'horror', title: 'Popular Horror', file: 'popular_horror.json', limit: 30 },
-    { id: 'classics', title: 'Classic Cinema', file: 'best_classics.json', limit: 30 },
-    { id: 'must_watch', title: 'Must Watch', file: 'shut_up_and_watch.json', limit: 25 }
+    { id: 'statham', title: 'Jason Statham', file: 'jason_statham_movies.json', limit: 0 },
+    { id: 'time_travel', title: 'Time Travel', file: 'time_travel_movies.json', limit: 0 },
+    { id: 'horror', title: 'Popular Horror', file: 'popular_horror.json', limit: 0 },
+    { id: 'classics', title: 'Classic Cinema', file: 'best_classics.json', limit: 0 },
+    { id: 'must_watch', title: 'Must Watch', file: 'shut_up_and_watch.json', limit: 0 },
+    { id: 'hallmark', title: 'Hallmark', file: 'hallmark_movies.json', limit: 0 },
+    { id: 'christian', title: 'Christian Movies', file: 'christian_movies.json', limit: 0 },
+    { id: 'bible', title: 'Movies from the Bible', file: 'movies_from_the_bible.json', limit: 0 },
+    { id: 'true_story', title: 'True Story Movies', file: 'true_story_movies.json', limit: 0 },
+    { id: 'anime', title: 'Anime to Watch Before You Die', file: 'anime_to_watch_before_you_die.json', limit: 0 },
+    { id: 'sitcoms', title: 'Best Sitcoms', file: 'best_sitcoms.json', limit: 0 },
+    { id: 'christian_tv', title: 'Christian TV Shows', file: 'christian_tv_shows.json', limit: 0 },
+    { id: 'spies', title: 'CIA / Mossad Spies', file: 'cia_mossad_spies.json', limit: 0 },
+    { id: 'doctor_who', title: 'Doctor Who Specials', file: 'doctor_who_specials.json', limit: 0 }
   ];
   const BASE = 'https://raw.githubusercontent.com/kiduyu-klaus/KiduyuTv_final/main/lists/';
   let collections = [];
@@ -109,8 +118,8 @@
     }
     const total = collections.reduce((n, c) => n + c.movies.length, 0);
     view.innerHTML = '<div class="page"><div class="page-head"><h1>Movies</h1><span class="count">' + total + ' titles \u00b7 ' + collections.length + ' collections</span></div>' +
-      '<div class="chips">' + collections.map(c => '<a class="chip" href="#movies/' + esc(c.id) + '">' + esc(c.title) + '</a>').join('') + '</div>' +
-      '<div class="rows">' + collections.map(c => row(c.title, c.movies.slice(0, 30), '#movies/' + c.id)).join('') + '</div></div>';
+      '<div class="chips">' + collections.map(c => '<a class="chip" href="#movies/' + esc(c.id) + '">' + esc(c.title) + ' (' + c.movies.length + ')</a>').join('') + '</div>' +
+      '<div class="rows">' + collections.map(c => row(c.title, c.movies.slice(0, 40), '#movies/' + c.id)).join('') + '</div></div>';
   }
 
   const loadPromise = load();
