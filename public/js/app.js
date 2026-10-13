@@ -424,6 +424,7 @@
     switch (name) {
       case 'live': renderLive(arg); break;
       case 'sports': renderSports(); break;
+      case 'movies': break;   // rendered by movies-ui.js (curated movie lists), which listens for the same route
       case 'mylist': renderMyList(); break;
       case 'search': renderSearch(arg); break;
       default: renderHome();

@@ -4,10 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>StreamBox</title>
-  <meta name="description" content="Live TV and sports in one Netflix-style player.">
+  <meta name="description" content="Live TV, sports and movies in one Netflix-style player.">
   <meta name="theme-color" content="#141414">
-
-  <!-- Installable on iPhone/iPad (Share → Add to Home Screen) and Android (Install app) -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -15,7 +13,6 @@
   <meta name="apple-mobile-web-app-title" content="StreamBox">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
@@ -26,6 +23,7 @@
     <nav class="nav" id="nav">
       <a href="#home" data-route="home">Home</a>
       <a href="#live" data-route="live">Live TV</a>
+      <a href="#movies" data-route="movies">Movies</a>
       <a href="#sports" data-route="sports">Sports</a>
       <a href="#mylist" data-route="mylist">My List</a>
     </nav>
@@ -33,24 +31,20 @@
       <button class="icon-btn" id="searchToggle" aria-label="Search">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       </button>
-      <input class="search-input" id="searchInput" type="search" placeholder="Search channels…" autocomplete="off">
+      <input class="search-input" id="searchInput" type="search" placeholder="Search channels & movies…" autocomplete="off">
       <button class="icon-btn" id="settingsBtn" aria-label="Settings">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       </button>
     </div>
   </header>
-
   <main id="view"></main>
-
-  <!-- Mobile bottom tab bar -->
   <nav class="tabbar" id="tabbar">
     <a href="#home" data-route="home"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
     <a href="#live" data-route="live"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="m8 2 4 4 4-4"/></svg>Live TV</a>
+    <a href="#movies" data-route="movies"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 4v16M17 4v16M2 12h20"/></svg>Movies</a>
     <a href="#sports" data-route="sports"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>Sports</a>
     <a href="#mylist" data-route="mylist"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>My List</a>
   </nav>
-
-  <!-- Player -->
   <div class="player" id="player" hidden>
     <video id="video" playsinline controls></video>
     <div class="player-top">
@@ -69,15 +63,12 @@
     </div>
     <div class="player-msg" id="playerMsg" hidden></div>
   </div>
-
-  <!-- Detail / settings modal -->
   <div class="modal" id="modal" hidden>
     <div class="modal-card" id="modalCard"></div>
   </div>
-
   <div class="toast" id="toast" hidden></div>
-
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
   <script src="/js/app.js"></script>
+  <script src="/js/movies-ui.js"></script>
 </body>
 </html>

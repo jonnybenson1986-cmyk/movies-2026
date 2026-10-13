@@ -1,14 +1,15 @@
 # StreamBox
 
-A Netflix-style player for live TV and sports. It's a static Progressive Web App (PWA), so it installs on iPhone, iPad and Android straight from the browser. You don't need an app store.
+A Netflix-style player for live TV, sports and movies. It's a static Progressive Web App (PWA), so it installs on iPhone, iPad and Android straight from the browser. You don't need an app store.
 
 ## What's inside
 
 | Section | Source |
 |---|---|
 | **Live TV** (~11,600 channels) | The [iptv-org](https://github.com/iptv-org/iptv) playlist (`playlists/iptv-org.m3u`) plus your VLC playlist (`playlists/VLC_TV_IPTV.xspf`: Pluto TV, Samsung TV Plus, Tubi…), merged into `public/data/channels.json` with logos and TV-guide IDs |
+| **Movies** | Curated collections (MCU, Bond, Oscar contenders, Horror, Classics, Hallmark, …) from [KiduyuTv](https://github.com/kiduyu-klaus/KiduyuTv_final) lists — posters & metadata via TMDB; open TMDB for details |
 | **Sports** | SKY Racing 1 & 2 (from `playlists/Sports_App_2026.html`) plus every sports channel in the playlist |
-| **My List / Continue Watching** | Saved on the device |
+| **My List / Continue Watching** | Saved on the device (channels and movies) |
 | **Settings → Playlists** | Add any extra M3U playlist URL |
 
 ## Deploy to Netlify
@@ -83,3 +84,7 @@ About 770 channels can't play in a browser: they use plain `http://`, or they ne
 cd public && python3 -m http.server 8080
 # open http://localhost:8080
 ```
+
+## Movies
+
+The **Movies** tab shows curated collections (Marvel, James Bond, Oscar contenders, Popular Horror, Classic Cinema, Hallmark, and more) adapted from [KiduyuTv](https://github.com/kiduyu-klaus/KiduyuTv_final) lists. Cards use TMDB posters; tapping a title opens a detail modal with synopsis, rating, and a link to TMDB. Movies can be saved to **My List**. StreamBox does not host or stream the films themselves.
