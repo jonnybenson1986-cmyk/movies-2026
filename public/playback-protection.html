@@ -24,6 +24,15 @@
     <p>Rules may need updates when the provider changes. Ads embedded inside a video cannot be removed by these rules, and provider availability still determines whether a title plays.</p>
     <p>Browsers without extension support can browse Movy titles; protected playback requires a supported browser.</p>
     <details>
+      <summary>Download the supplied v1.0 reference files</summary>
+      <p>These three files describe the earlier extension and require additional scripts. Use the complete extension ZIP above to install the current helper with movie source fallback.</p>
+      <ul>
+        <li><a href="/downloads/movy-extension-reference/manifest.json" download>manifest.json</a></li>
+        <li><a href="/downloads/movy-extension-reference/rules.json" download>rules.json</a></li>
+        <li><a href="/downloads/movy-extension-reference/README.md" download>README.md</a></li>
+      </ul>
+    </details>
+    <details>
       <summary>Using a custom StreamBox domain?</summary>
       <p>The extension recognizes localhost, Netlify and Vercel sites. For your own domain, edit the extracted manifest.json: add your app's exact HTTPS origin followed by /* to the connector.js content script's matches list. Reload the extension and StreamBox.</p>
     </details>
