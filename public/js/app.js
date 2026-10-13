@@ -29,6 +29,24 @@
   ];
   const movieQuery = id => `${MOVIE_COLLECTIONS.find(c => c.id === id).q} AND mediatype:(movies) AND format:(MPEG4 OR "h.264")`;
 
+  // TMDB (themoviedb.org): posters, trailers, ratings and "where to watch". Each user adds their own free API key in Settings.
+  // TMDB titles are not played inside StreamBox; they link out to the services that carry them.
+  const TMDB_API = 'https://api.themoviedb.org/3';
+  const TMDB_IMG = 'https://image.tmdb.org/t/p/';
+  const TMDB_REGION = 'AU';
+  const TMDB_LISTS = [
+    { id: 'trending', title: 'Trending This Week', path: 'trending/movie/week' },
+    { id: 'popular', title: 'Popular', path: 'movie/popular' },
+    { id: 'top', title: 'Top Rated', path: 'movie/top_rated' },
+    { id: 'now', title: 'In Cinemas Now', path: 'movie/now_playing' },
+    { id: 'upcoming', title: 'Coming Soon', path: 'movie/upcoming' },
+  ];
+  const TMDB_GENRES = [
+    ['Action', 28], ['Comedy', 35], ['Drama', 18], ['Thriller', 53], ['Horror', 27], ['Sci-Fi', 878],
+    ['Romance', 10749], ['Animation', 16], ['Family', 10751], ['Crime', 80], ['Documentary', 99], ['War', 10752], ['Western', 37],
+  ];
+  const TMDB_ATTRIBUTION = 'This product uses the TMDB API but is not endorsed or certified by TMDB.';
+
   const CATEGORY_ORDER = ['Sports', 'Movies', 'News', 'Comedy & Series', 'Kids', 'Documentary', 'Music', 'Lifestyle', 'Religious', 'Entertainment'];
   const ROW_LIMIT = 30;
   const GRID_CHUNK = 120;
@@ -40,7 +58,7 @@
     get(key, fallback) { try { const v = localStorage.getItem('sb:' + key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
     set(key, value) { try { localStorage.setItem('sb:' + key, JSON.stringify(value)); } catch { /* private mode */ } },
   };
-  const settings = Object.assign({ showAll: false, sources: [] }, store.get('settings', {}));
+  const settings = Object.assign({ showAll: false, sources: [], tmdbKey: '' }, store.get('settings', {}));
   const saveSettings = () => store.set('settings', settings);
 
   // ---------------------------------------------------------------- state
@@ -172,6 +190,63 @@
     return `https://archive.org/download/${encodeURIComponent(item.id)}/${file.name.split('/').map(encodeURIComponent).join('/')}`;
   }
 
+  // ---------------------------------------------------------------- data: TMDB
+  const tmdbCache = new Map();
+  const hasTmdb = () => !!settings.tmdbKey;
+
+  async function tmdb(path, params = {}) {
+    const url = `${TMDB_API}/${path}?${new URLSearchParams({ api_key: settings.tmdbKey, language: 'en-AU', ...params })}`;
+    if (!tmdbCache.has(url)) {
+      const p = fetch(url).then(r => {
+        if (r.status === 401) { toast('TMDB key rejected — check it in Settings'); throw new Error('TMDB key rejected'); }
+        if (!r.ok) throw new Error(`TMDB error ${r.status}`);
+        return r.json();
+      });
+      p.catch(() => tmdbCache.delete(url));
+      tmdbCache.set(url, p);
+    }
+    return tmdbCache.get(url);
+  }
+
+  function tmdbItem(m) {
+    return {
+      key: 't:' + m.id, type: 'tmdb', id: m.id,
+      name: m.title || m.original_title || 'Untitled', year: (m.release_date || '').slice(0, 4),
+      desc: m.overview || '', rating: m.vote_average ? m.vote_average.toFixed(1) : '',
+      img: m.poster_path ? TMDB_IMG + 'w342' + m.poster_path : '',
+      backdrop: m.backdrop_path ? TMDB_IMG + 'w780' + m.backdrop_path : '',
+    };
+  }
+
+  // One or more pages of a movie list, de-duplicated, with posters only
+  async function tmdbList(path, params = {}, pages = 1) {
+    try {
+      const pagesData = await Promise.all(Array.from({ length: pages }, (_, i) => tmdb(path, { region: TMDB_REGION, ...params, page: i + 1 })));
+      const seen = new Set();
+      return pagesData.flatMap(p => p.results || [])
+        .filter(m => m.poster_path && !seen.has(m.id) && seen.add(m.id))
+        .map(tmdbItem).map(m => (register(m), m));
+    } catch (e) { console.warn('tmdb list failed', path, e); return []; }
+  }
+  const tmdbGenre = (id, pages = 1) => tmdbList('discover/movie', { with_genres: id, sort_by: 'popularity.desc', include_adult: false }, pages);
+  const tmdbSearch = q => tmdbList('search/movie', { query: q, include_adult: false }, 1);
+
+  const tmdbBanner = () => `<section class="row"><div class="setup-card">
+    <div><b>Unlock posters, trailers &amp; “where to watch”</b>
+    <p>Add a free TMDB API key (themoviedb.org → Settings → API) to browse trending, top-rated and genre movies with streaming info for Australia.</p></div>
+    <button class="btn btn-red" data-act="opensettings">Add key</button></div></section>`;
+
+  function tmdbHomeRows() {
+    if (!hasTmdb()) return tmdbBanner();
+    return [
+      asyncRow('Trending Movies', tmdbList('trending/movie/week'), '#movies/tmdb-trending'),
+      asyncRow('Top Rated', tmdbList('movie/top_rated', {}, 1), '#movies/tmdb-top'),
+      asyncRow('In Cinemas Now', tmdbList('movie/now_playing'), '#movies/tmdb-now'),
+      asyncRow('Action', tmdbGenre(28), '#movies/tmdb-g28'),
+      asyncRow('Comedy', tmdbGenre(35), '#movies/tmdb-g35'),
+    ].join('');
+  }
+
   // ---------------------------------------------------------------- my list & history
   const myList = () => store.get('mylist', []);
   const inMyList = key => myList().some(i => i.key === key);
@@ -188,15 +263,15 @@
   }
   // Saved items survive reloads even if the source list changes
   const snapshot = it => {
-    const { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc, img } = it;
-    return { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc: (desc || '').slice(0, 400), img };
+    const { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc, img, backdrop, rating } = it;
+    return { key, type, name, url, cat, quality, source, logo, needsHeaders, id, year, desc: (desc || '').slice(0, 400), img, backdrop, rating };
   };
   const revive = saved => items.get(saved.key) || (register(saved), saved);
 
   // ---------------------------------------------------------------- card rendering
   function cardHTML(item) {
     register(item);
-    if (item.type === 'vod') {
+    if (item.type === 'vod' || item.type === 'tmdb') {
       return `<button class="card poster" data-key="${esc(item.key)}" aria-label="${esc(item.name)}">
         <img loading="lazy" src="${esc(item.img)}" alt="" onerror="this.style.opacity=0">
         <span class="poster-title">${esc(item.name)}${item.year ? ` <small>(${esc(item.year)})</small>` : ''}</span>
@@ -298,6 +373,7 @@
       <div class="rows">
         ${rowHTML('Continue Watching', history.slice(0, ROW_LIMIT))}
         ${rowHTML('My List', mine.slice(0, ROW_LIMIT), '#mylist')}
+        ${tmdbHomeRows()}
         ${rowHTML('Live Sports', byCat('Sports').slice(0, ROW_LIMIT), '#sports')}
         ${asyncRow('Free Movies — Classic Features', archiveSearch(movieQuery('classics')), '#movies')}
         ${rowHTML('Pluto TV Channels', all.filter(c => c.source === 'Pluto TV').slice(0, ROW_LIMIT), '#live/Pluto TV')}
@@ -346,6 +422,7 @@
   }
 
   function renderMovies(collection) {
+    if (collection?.startsWith('tmdb-')) return renderTmdbList(collection.slice(5));
     if (collection) {
       const c = MOVIE_COLLECTIONS.find(m => m.id === collection) || MOVIE_COLLECTIONS[0];
       view.innerHTML = `<div class="page">
@@ -356,13 +433,34 @@
       archiveSearch(movieQuery(c.id), 300).then(list => { const m = $('#gridMount'); if (m) mountGrid(m, list, true); });
       return;
     }
+    const tmdbRows = !hasTmdb() ? tmdbBanner() : [
+      ...TMDB_LISTS.map(l => asyncRow(l.title, tmdbList(l.path), '#movies/tmdb-' + l.id)),
+      ...TMDB_GENRES.map(([name, id]) => asyncRow(name, tmdbGenre(id), '#movies/tmdb-g' + id)),
+    ].join('');
     view.innerHTML = `<div class="page">
-      <div class="page-head"><h1>Movies</h1><span class="count">Free, legal public-domain films + 24/7 movie channels</span></div>
+      <div class="page-head"><h1>Movies</h1><span class="count">${hasTmdb() ? 'Posters, trailers &amp; where to watch in Australia' : 'Free, legal public-domain films + 24/7 movie channels'}</span></div>
       <div class="rows">
+        ${tmdbRows}
         ${MOVIE_COLLECTIONS.map(c => asyncRow(c.title, archiveSearch(movieQuery(c.id)), '#movies/' + c.id)).join('')}
         ${rowHTML('24/7 Movie Channels', visibleChannels().filter(c => c.cat === 'Movies').slice(0, ROW_LIMIT), '#live/Movies')}
       </div>
+      ${hasTmdb() ? `<p class="attrib">Streaming data by JustWatch via TMDB. ${TMDB_ATTRIBUTION}</p>` : ''}
     </div>`;
+  }
+
+  function renderTmdbList(id) {
+    const list = TMDB_LISTS.find(l => l.id === id);
+    const genre = TMDB_GENRES.find(([, g]) => 'g' + g === id);
+    if (!hasTmdb() || (!list && !genre)) { location.hash = 'movies'; return; }
+    const chips = [...TMDB_LISTS.map(l => [l.title, 'tmdb-' + l.id]), ...TMDB_GENRES.map(([n, g]) => [n, 'tmdb-g' + g])];
+    view.innerHTML = `<div class="page">
+      <div class="page-head"><h1>${esc(list ? list.title : genre[0])}</h1><span class="count">Australia · via TMDB</span></div>
+      <div class="chips">${chips.map(([t, k]) => `<a class="chip ${k === 'tmdb-' + id ? 'active' : ''}" href="#movies/${k}">${esc(t)}</a>`).join('')}</div>
+      <div id="gridMount"><div class="spinner" style="margin:60px auto"></div></div>
+      <p class="attrib">Streaming data by JustWatch via TMDB. ${TMDB_ATTRIBUTION}</p>
+    </div>`;
+    const load = list ? tmdbList(list.path, {}, 5) : tmdbGenre(genre[1], 5);
+    load.then(items => { const m = $('#gridMount'); if (m) mountGrid(m, items, true); });
   }
 
   function renderMyList() {
@@ -382,7 +480,8 @@
     view.innerHTML = `<div class="page">
       <div class="page-head"><h1>Results for “${esc(q)}”</h1><span class="count">${live.length} channels</span></div>
       <div class="rows">
-        ${safe ? asyncRow('Movies', archiveSearch(`title:(${safe}) AND mediatype:(movies) AND collection:(feature_films OR SciFi_Horror OR animationandcartoons OR silent_films) AND format:(MPEG4 OR "h.264")`, 40)) : ''}
+        ${safe && hasTmdb() ? asyncRow('Movies on TMDB', tmdbSearch(q.trim()), '') : ''}
+        ${safe ? asyncRow('Public-domain films',archiveSearch(`title:(${safe}) AND mediatype:(movies) AND collection:(feature_films OR SciFi_Horror OR animationandcartoons OR silent_films) AND format:(MPEG4 OR "h.264")`, 40)) : ''}
       </div>
       <div class="row-head"><h2>Live Channels</h2></div>
       <div id="gridMount"></div>
@@ -532,6 +631,69 @@
       </div>`);
   }
 
+  async function showTmdb(item) {
+    openModal('<div class="spinner" style="margin:80px auto"></div>');
+    let d;
+    try {
+      d = await tmdb(`movie/${item.id}`, { append_to_response: 'videos,watch/providers,credits' });
+    } catch (e) {
+      openModal(`<div class="modal-body" style="padding-top:28px"><p>${esc(e.message)}</p></div>`);
+      return;
+    }
+    const wp = d['watch/providers']?.results?.[TMDB_REGION];
+    const videos = d.videos?.results || [];
+    const trailer = videos.find(v => v.site === 'YouTube' && v.type === 'Trailer') || videos.find(v => v.site === 'YouTube');
+    const runtime = d.runtime ? `${Math.floor(d.runtime / 60)}h ${d.runtime % 60}m` : '';
+    const cast = (d.credits?.cast || []).slice(0, 5).map(c => c.name).join(', ');
+    const genres = (d.genres || []).map(g => g.name).join(' · ');
+    const uniq = list => list.filter((p, i, a) => a.findIndex(q => q.provider_id === p.provider_id) === i);
+    const groups = wp ? [
+      ['Free to watch', uniq([...(wp.free || []), ...(wp.ads || [])])],
+      ['Included with subscription', uniq(wp.flatrate || [])],
+      ['Rent', uniq(wp.rent || [])],
+      ['Buy', uniq(wp.buy || [])],
+    ].filter(([, list]) => list.length) : [];
+    const providersHTML = groups.map(([label, list]) => `<h3>${label}</h3><div class="providers">${list.map(p => `
+      <a class="provider" href="${esc(wp.link)}" target="_blank" rel="noopener noreferrer">
+        ${p.logo_path ? `<img src="${TMDB_IMG}w92${esc(p.logo_path)}" alt="">` : ''}<span>${esc(p.provider_name)}</span>
+      </a>`).join('')}</div>`).join('');
+    const img = item.backdrop || item.img;
+
+    openModal(`
+      <div class="modal-hero" style="--tile:${tileColor(item.name)}">
+        ${img ? `<img src="${esc(img)}" alt="">` : ''}
+        <div class="inner">
+          <h2>${esc(item.name)}</h2>
+          <div class="hero-actions">
+            <button class="btn btn-more" data-act="fav" data-key="${esc(item.key)}">${inMyList(item.key) ? '✓ In My List' : '+ My List'}</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="facts">
+          ${(d.vote_average ? d.vote_average.toFixed(1) : item.rating) ? `<span class="ok">★ ${esc(d.vote_average ? d.vote_average.toFixed(1) : item.rating)}</span>` : ''}
+          ${item.year ? `<span>${esc(item.year)}</span>` : ''}${runtime ? `<span>${runtime}</span>` : ''}${genres ? `<span>${esc(genres)}</span>` : ''}
+        </div>
+        <p>${esc(d.overview || item.desc || 'No description available.')}</p>
+        ${cast ? `<p style="margin-top:10px;color:var(--muted)">Starring ${esc(cast)}</p>` : ''}
+        ${trailer ? `<div class="trailer"><iframe src="https://www.youtube-nocookie.com/embed/${esc(trailer.key)}" title="Trailer" allow="encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>` : ''}
+        <h3>Where to watch in Australia</h3>
+        ${providersHTML || '<p style="color:var(--muted)">Not currently listed for streaming in Australia.</p>'}
+        <p class="attrib">Streaming data by JustWatch via TMDB. ${TMDB_ATTRIBUTION}</p>
+      </div>`);
+  }
+
+  async function saveTmdbKey(key) {
+    if (!/^[a-f0-9]{32}$/i.test(key)) {
+      toast(key.startsWith('eyJ') ? 'That’s a v4 token. Use the 32-character “API Key” (v3) instead.' : 'TMDB API keys are 32 characters long.');
+      return;
+    }
+    settings.tmdbKey = key; saveSettings(); tmdbCache.clear();
+    closeModal();
+    toast('TMDB key saved');
+    route();
+  }
+
   function showChannel(item) {
     const v = vlcLinks(item.url);
     openModal(`
@@ -556,6 +718,10 @@
         <h2 style="font-size:24px;margin-bottom:6px">Settings</h2>
         <h3>Channels</h3>
         <label><input type="checkbox" id="optShowAll" ${settings.showAll ? 'checked' : ''}> Show channels that only play in VLC (http:// or header-protected)</label>
+        <h3>TMDB: posters, trailers &amp; where to watch</h3>
+        <p style="color:var(--muted)">${hasTmdb() ? `Key saved (ends …${esc(settings.tmdbKey.slice(-4))}). It's stored only on this device.` : 'Paste your free API key from themoviedb.org → Settings → API. It is stored only on this device.'}</p>
+        <div class="form-row"><input type="text" id="tmdbInput" placeholder="TMDB API key (v3)" autocomplete="off" spellcheck="false"><button class="btn btn-red" data-act="savetmdb" style="padding:8px 16px">Save</button>${hasTmdb() ? '<button class="btn btn-more" data-act="cleartmdb" style="padding:8px 16px">Remove</button>' : ''}</div>
+        <p style="color:#777;font-size:12px;margin-top:8px">${TMDB_ATTRIBUTION}</p>
         <h3>Playlists (M3U)</h3>
         <p style="color:var(--muted)">Add any M3U/M3U8 playlist URL. It must be https and allow cross-origin requests.</p>
         <ul class="src-list">${settings.sources.map((s, i) => `<li><span>${esc(s)}</span><button class="btn btn-more" style="padding:4px 10px;font-size:12px" data-act="rmsrc" data-i="${i}">Remove</button></li>`).join('') || '<li><span style="color:var(--muted)">No extra playlists.</span></li>'}</ul>
@@ -591,6 +757,9 @@
       else if (a === 'addiptv') addSource('https://iptv-org.github.io/iptv/index.m3u');
       else if (a === 'rmsrc') { settings.sources.splice(+act.dataset.i, 1); saveSettings(); location.reload(); }
       else if (a === 'clearhist') { store.set('history', []); toast('History cleared'); }
+      else if (a === 'opensettings') showSettings();
+      else if (a === 'savetmdb') saveTmdbKey($('#tmdbInput').value.trim());
+      else if (a === 'cleartmdb') { settings.tmdbKey = ''; saveSettings(); tmdbCache.clear(); toast('TMDB key removed'); route(); showSettings(); }
       return;
     }
 
@@ -599,6 +768,7 @@
       const item = items.get(card.dataset.key);
       if (!item) return;
       if (item.type === 'vod') return showMovie(item);
+      if (item.type === 'tmdb') return showTmdb(item);
       if (item.isPlaylist) return addSource(item.url.replace(/^http:/, 'https:'));
       if (!isPlayable(item)) return showChannel(item);
       const siblings = [...card.parentElement.querySelectorAll('[data-key]')].map(el => items.get(el.dataset.key)).filter(i => i?.type === 'live');

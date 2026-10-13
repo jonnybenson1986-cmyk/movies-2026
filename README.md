@@ -8,7 +8,8 @@ A Netflix-style player for live TV, sports and free movies. It's a static Progre
 |---|---|
 | **Live TV** (~10,000 channels) | `playlists/VLC_TV_IPTV.xspf` (iptv-org, Pluto TV, Samsung TV Plus, Tubi…), converted to `public/data/channels.json` |
 | **Sports** | SKY Racing 1 & 2 (from `playlists/Sports_App_2026.html`) plus every sports channel in the playlist |
-| **Movies** | Public-domain feature films from the Internet Archive (noir, comedy, westerns, horror, sci-fi, silent, cartoons) |
+| **Movies (TMDB)** | Trending, popular, top-rated, in-cinemas and genre rows with posters, ratings, trailers and "where to watch" in Australia. Needs a free TMDB API key (see below). |
+| **Movies (public domain)** | Feature films from the Internet Archive (noir, comedy, westerns, horror, sci-fi, silent, cartoons) |
 | **My List / Continue Watching** | Saved on the device |
 | **Settings → Playlists** | Add any extra M3U playlist URL, or the full iptv-org list in one tap |
 
@@ -17,6 +18,16 @@ A Netflix-style player for live TV, sports and free movies. It's a static Progre
 1. Go to [app.netlify.com](https://app.netlify.com) → **Add new site → Import an existing project → GitHub**.
 2. Pick this repo. `netlify.toml` fills in the settings automatically (publish directory `public`, no build command).
 3. Click **Deploy**. You'll get a URL like `https://your-site.netlify.app`.
+
+## Add your TMDB key (movie posters, trailers, "where to watch")
+
+1. Create a free account at [themoviedb.org](https://www.themoviedb.org) and go to **Settings → API**. Request a key (choose "Personal", and "Website" for the URL).
+2. Copy the **API Key (v3 auth)**, the 32-character one. Don't use the "Read Access Token".
+3. In StreamBox, tap the ⚙ icon → **TMDB** → paste the key → **Save**.
+
+The key is saved only on that device (browser storage). It is never written into this repo. TMDB titles link out to the services that carry them; StreamBox doesn't play them.
+
+This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming data by JustWatch via TMDB.
 
 ## Install on your phone
 
