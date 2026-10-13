@@ -102,11 +102,23 @@ Open a movie and tap **Play** to load a video provider inside StreamBox. **Sourc
 
 To regenerate the catalog, run `npm run build:movies`. The importer fetches the pinned upstream revision recorded in the script and catalog; normal site builds use the bundled catalog. For a local checkout of that revision, run `node scripts/build-movies.mjs --source /path/to/KiduyuTv_final`.
 
+## Automatic movie updates
+
+StreamBox checks for new movies whenever it opens and every 24 hours while it stays open. Returning to the app checks whether an update is due; reconnecting retries immediately. **Settings → Movie updates → Check for new movies** runs a manual check and shows the result.
+
+Updates check the latest KiduyuTv revision and fetch its 13 collections from that exact revision. Unchanged lists are downloaded at most once per UTC day, so newly released entries can appear even without a new upstream commit. The existing Movy metadata service supplies up to 60 recently released films per check, shown in **New Movies** on Home and in Movies. This collection retains up to 1,000 titles; the Movy tab still provides its full paginated catalog.
+
+The catalog is cached on the device for offline browsing. Existing curated titles and saved movie bookmarks are retained. Failed sources retry after an hour without discarding the available catalog; if device storage is unavailable, updates remain available for that session. Offline browsing does not make external videos available offline, and new catalog entries still depend on provider playback availability.
+
+The app cannot reliably check while it is closed. Opening it again catches up; no redeploy is required for these device updates.
+
 ## Movy and protected Vidy playback
 
 The **Movy** tab brings the public Movy catalogs into StreamBox: movies, TV shows, anime and the 4K library. Search, genres, sorting and pagination fetch live metadata; details include TV seasons and anime episodes. Titles can be saved to My List. The 4K search filters the current page; movie/TV APIs limit browsing to 500 pages. Anime starts with trending/airing titles and offers search and genres. Two upstream anime genres with unavailable endpoints are omitted.
 
 Catalog pages use StreamBox controls and local title artwork, without loading Movy's page scripts. Metadata comes from Movy's public services (including TMDB-compatible identifiers), with AniList used to map anime playback IDs. Film files are streamed by external providers, not copied into this repository. Availability and successful playback depend on those providers.
+
+Movy catalog and title pages offer a direct **Download playback helper** ZIP link and installation instructions. The installation page also provides the supplied v1.0 manifest, rules and README as individual reference downloads; the complete v1.1+ ZIP includes all required scripts.
 
 **Vidy Play requires the companion Chrome/Edge desktop extension (v1.1+).** In the app, open **Download & install playback protection**, download and extract the archive, enable Developer mode in `chrome://extensions` or `edge://extensions`, and choose **Load unpacked**. Select the extracted folder containing `manifest.json`, then reload StreamBox. See [extension instructions](browser-extension/README.md) for custom domains and supported browsers.
 
@@ -115,3 +127,11 @@ The extension blocks known advertising hosts, popups and top-level diversions or
 Run `npm test` for catalog validation, stale-request cancellation and protection component checks. These checks do not prove external video playback or replace installing and testing the extension in a supported browser.
 
 After editing the extension, run `npm run build:extension` (Python 3 standard library) to refresh the downloadable ZIP served by the app.
+
+## Australian channel directory
+
+**Home → Australia** or **Live TV → Australia** lists all 391 entries from [WebGrab+Plus’s OzTiVo configuration](https://github.com/awiouy/webgrabplus/blob/master/config/siteini.pack/Australia/oztivo.net.channels.xml), including regional feeds and historical names. Search by name, region or guide ID and download the imported directory.
+
+This source contains channel names and guide IDs, with no video URLs or programme schedules. Entries display **Stream not supplied** until a bundled or added playlist has a stream with an exact matching `tvg-id` (the entry’s guide ID or site ID). The app does not infer regional streams from similar names. Add M3U playlists and a separate XMLTV schedule through Settings. Existing stream/proxy/VLC handling applies to matched streams.
+
+The source XML is bundled in `channel-sources/`, pinned to upstream commit `30c4f48f5b92d699d189133fcc8de4f4db952177`. Run `npm run build:australia` (Python 3 standard library) to regenerate `public/data/australia.json`; site builds retain this bundled directory.

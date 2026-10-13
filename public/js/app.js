@@ -272,10 +272,11 @@
   }
 
   // ---------------------------------------------------------------- my list & history
-  const savedItems = list => list.filter(i => i?.type === 'live' || (i?.type === 'movie' && (items.get(i.key)?.type === 'movie' || movy.restore(i)))); // Ignore obsolete discovery entries
+  const restoreMovie = saved => movy.restore(saved) || movies.restore(saved);
+  const savedItems = list => list.filter(i => i?.type === 'live' || (i?.type === 'movie' && (items.get(i.key)?.type === 'movie' || restoreMovie(i)))); // Ignore obsolete discovery entries
   const myList = () => savedItems(store.get('mylist', []));
   for (const saved of [...store.get('mylist', []), ...store.get('history', [])]) {
-    const restored = movy.restore(saved);
+    const restored = restoreMovie(saved);
     if (restored) register(restored);
   }
   const inMyList = key => myList().some(i => i.key === key);
@@ -295,7 +296,7 @@
     const { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId, cc } = it;
     return { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId, cc };
   };
-  const revive = saved => items.get(saved.key) || movy.restore(saved) || (register(saved), saved);
+  const revive = saved => items.get(saved.key) || restoreMovie(saved) || (register(saved), saved);
 
   // ---------------------------------------------------------------- card rendering
   function cardHTML(item) {
@@ -389,7 +390,9 @@
       <div class="rows">
         ${rowHTML('Continue Watching', history.slice(0, ROW_LIMIT))}
         ${rowHTML('My List', mine.slice(0, ROW_LIMIT), '#mylist')}
+        ${rowHTML('New Movies', movies.newMovies.slice(0, ROW_LIMIT), '#movies/new')}
         ${rowHTML('Movies', movies.all.slice(0, ROW_LIMIT), '#movies')}
+        <section class="row"><div class="row-head"><h2>Australia</h2><a class="see-all" href="#australia">${window.StreamBoxAustralia.count} guide channels ›</a></div></section>
         <section class="row"><div class="row-head"><h2>Movy</h2></div><div class="chips"><a class="chip" href="#movy/movie">Movies</a><a class="chip" href="#movy/tv">TV Shows</a><a class="chip" href="#movy/anime">Anime</a><a class="chip" href="#movy/4k">4K Library</a></div></section>
         ${countryRow('Browse by country', groupByCountry(all).filter(g => g.cc).slice(0, 24), '#countries')}
         ${rowHTML('Live Sports', byCat('Sports').slice(0, ROW_LIMIT), '#sports')}
@@ -420,7 +423,7 @@
     view.innerHTML = `<div class="page">
       <div class="page-head"><h1>Live TV</h1><span class="count">${list.length.toLocaleString()} channels${settings.showAll ? '' : ` · ${channels.filter(c => !c.isPlaylist && !c.dead && !isPlayable(c)).length.toLocaleString()} more need VLC or a proxy (Settings)`}</span>
         <button class="btn btn-more page-btn" data-act="vlcpl">Play this list in VLC</button></div>
-      <div class="chips"><a class="chip chip-accent" href="#countries">🌍 By country</a>${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
+      <div class="chips"><a class="chip chip-accent" href="#countries">🌍 By country</a><a class="chip" href="#australia">Australia · ${window.StreamBoxAustralia.count} guide channels</a>${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
       <div id="gridMount"></div>
     </div>`;
     mountGrid($('#gridMount'), list);
@@ -534,19 +537,21 @@
   let routeVersion = 0;
   async function route() {
     const version = ++routeVersion;
+    pendingMovieRender = false;
     stopHero();
     movy.cancel();
     const [name, ...rest] = decodeURIComponent(location.hash.slice(1) || 'home').split('/');
     const arg = rest.join('/');
     const navName = name === 'country' ? 'countries' : name;
     document.querySelectorAll('[data-route]').forEach(a => a.classList.toggle('active', a.dataset.route === navName));
-    await Promise.all([channelsReady, movies.ready]);
+    await Promise.all([channelsReady, movies.ready, window.StreamBoxAustralia.ready]);
     if (version !== routeVersion) return;
     movies.all.forEach(register);
     window.scrollTo(0, 0);
     switch (name) {
       case 'live': renderLive(arg); break;
       case 'sports': renderSports(); break;
+      case 'australia': window.StreamBoxAustralia.render(view, arg, { streams: channels.filter(c => !(settings.hideBad && isBad(c))), card: cardHTML }); break;
       case 'countries': renderCountries(arg); break;
       case 'country': renderCountry(arg); break;
       case 'movies': movies.render(view, arg); break;
@@ -777,6 +782,7 @@
     return { detail, text: hasProxy() ? 'It may be offline or region-locked.' : 'It may be offline or geo-blocked in your region.' };
   }
 
+  let pendingMovieRender = false;
   function closePlayer() {
     teardown();
     current = null;
@@ -784,6 +790,7 @@
     msg.hidden = true;
     document.body.style.overflow = '';
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    if (pendingMovieRender) { pendingMovieRender = false; route(); }
     if (!location.hash || location.hash === '#home') startHero(SKY_RACING[0].url);
   }
 
@@ -805,7 +812,13 @@
   const modal = $('#modal'), modalCard = $('#modalCard');
   const closeBtn = '<button class="icon-btn modal-close" data-act="close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
   function openModal(html) { modalCard.innerHTML = closeBtn + html; modal.hidden = false; document.body.style.overflow = 'hidden'; }
-  function closeModal() { modal.hidden = true; if (player.hidden) document.body.style.overflow = ''; }
+  function closeModal() {
+    modal.hidden = true;
+    if (player.hidden) {
+      document.body.style.overflow = '';
+      if (pendingMovieRender) { pendingMovieRender = false; route(); }
+    }
+  }
 
   // ---------------------------------------------------------------- backup & restore
   async function exportData() {
@@ -823,8 +836,8 @@
     if (data?.app !== 'streambox') { toast('That isn’t a StreamBox backup'); return; }
     // Only accept known item types and re-build each entry from whitelisted fields
     const clean = list => (Array.isArray(list) ? list : [])
-      .filter(i => i && typeof i.key === 'string' && (i.type === 'live' || (i.type === 'movie' && (items.get(i.key)?.type === 'movie' || movy.restore(i)))) && /^https?:\/\//.test(i.url || ''))
-      .map(i => snapshot(i.type === 'movie' ? (items.get(i.key) || movy.restore(i)) : i));
+      .filter(i => i && typeof i.key === 'string' && (i.type === 'live' || (i.type === 'movie' && (items.get(i.key)?.type === 'movie' || restoreMovie(i)))) && /^https?:\/\//.test(i.url || ''))
+      .map(i => snapshot(i.type === 'movie' ? (items.get(i.key) || restoreMovie(i)) : i));
     const merge = (a, b) => { const seen = new Set(a.map(i => i.key)); return [...a, ...b.filter(i => !seen.has(i.key))]; };
     store.set('mylist', merge(myList(), clean(data.mylist)).slice(0, 200));
     store.set('history', merge(store.get('history', []), clean(data.history)).slice(0, 30));
@@ -862,10 +875,17 @@
       </div>`);
   }
 
+  function movieUpdateText(status) {
+    return status.message + (status.checkedAt ? ' Last updated: ' + new Date(status.checkedAt).toLocaleString() : '');
+  }
   function showSettings() {
     openModal(`
       <div class="modal-body" style="padding-top:28px">
         <h2 style="font-size:24px;margin-bottom:6px">Settings</h2>
+        <h3>Movie updates</h3>
+        <p>Checks for new movies on launch and once a day while the app is open. Saved titles stay available offline.</p>
+        <p id="movieUpdateStatus" role="status" style="color:var(--muted)">${esc(movieUpdateText(movies.updates.status))}</p>
+        <button class="btn btn-more" data-act="refreshmovies" style="font-size:13px;padding:6px 12px">Check for new movies</button>
         <h3>Channels</h3>
         <label><input type="checkbox" id="optShowAll" ${settings.showAll ? 'checked' : ''}> Show channels that only play in VLC (http:// or header-protected)</label>
         <label><input type="checkbox" id="optAutoVlc" ${settings.autoVlc ? 'checked' : ''}> On iPhone/Android, open those channels in VLC automatically</label>
@@ -981,6 +1001,7 @@
       else if (a === 'vlcpl') exportVlcList();
       else if (a === 'addsrc') addSource($('#srcInput').value.trim());
       else if (a === 'rmsrc') { settings.sources.splice(+act.dataset.i, 1); saveSettings(); location.reload(); }
+      else if (a === 'refreshmovies') movies.updates.refresh({ force: true });
       else if (a === 'clearhist') { store.set('history', []); toast('History cleared'); }
       else if (a === 'opensettings') showSettings();
       else if (a === 'proxysetup') { closePlayer(); showSettings(); }
@@ -1058,6 +1079,20 @@
   addEventListener('scroll', onScroll, { passive: true });
   addEventListener('hashchange', route);
 
+  window.addEventListener('streambox-movies-updated', e => {
+    movies.all.forEach(register);
+    const name = location.hash.slice(1).split('/')[0] || 'home';
+    if (['home', 'movies', 'mylist', 'search'].includes(name)) {
+      if (player.hidden && modal.hidden) route();
+      else pendingMovieRender = true;
+    }
+    if (e.detail?.reason === 'refresh' && e.detail.added) toast(e.detail.added + ' new movies added');
+  });
+  window.addEventListener('streambox-movie-update-status', e => {
+    const status = $('#movieUpdateStatus');
+    if (status) status.textContent = movieUpdateText(e.detail);
+  });
+
   // ---------------------------------------------------------------- boot
   view.innerHTML = '<div class="spinner" style="margin:40vh auto"></div>';
   movy.checkProtection();
@@ -1065,6 +1100,7 @@
   channelsReady.then(loadGuides);
   setInterval(patchGuide, 60000);
   route();
+  movies.updates.start();
 
   if ('serviceWorker' in navigator && PAGE_IS_HTTPS) navigator.serviceWorker.register('/sw.js').catch(() => {});
 })();

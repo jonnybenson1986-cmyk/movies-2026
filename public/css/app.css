@@ -262,7 +262,6 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
   .player.movie-mode .player-title small { display: none; }
 }
 
-<<<<<<< HEAD
 /* ---------- Countries ---------- */
 .chip-accent { border-color: var(--gold); color: var(--gold); }
 .country-filter { margin-left: auto; width: min(100%, 220px); padding: 7px 12px; border-radius: 999px; border: 1px solid #555; background: #000; color: #fff; font-size: 13px; }
@@ -284,7 +283,6 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .country-row .country-tile { flex: none; width: clamp(170px, 18vw, 230px); scroll-snap-align: start; }
 .card img.card-flag { position: absolute; inset: auto 8px 8px auto; width: 22px; height: 16px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,.3); z-index: 2; pointer-events: none; }
 @media (max-width: 820px) { .country-row .country-tile { width: 62vw; } .country-filter { width: 100%; margin-left: 0; } }
-=======
 .movy-filters { padding: 16px var(--gutter); display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .movy-filters label, .movy-detail label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 13px; }
 .movy-filters input, .movy-filters select, .movy-detail select { color: #fff; background: var(--bg-2); border: 1px solid #555; border-radius: 4px; padding: 10px; max-width: 100%; }
@@ -305,4 +303,12 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .player.movie-mode { display: grid; grid-template-rows: 76px minmax(0, 1fr) auto; }
 .player.movie-mode #movieFrame { position: static; grid-row: 2; height: 100%; min-height: 0; }
 .player.movie-mode .movie-tools { position: static; grid-row: 3; padding-bottom: calc(10px + var(--safe-bottom)); }
->>>>>>> origin/claude/wonderful-keller-94obao
+
+.movy-downloads { margin: 16px var(--gutter); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.movy-downloads a:not(.btn) { text-decoration: underline; }
+
+.australia-note { margin: 16px var(--gutter); color: var(--muted); line-height: 1.6; }
+.australia-channel { padding: 16px; background: var(--bg-2); border-radius: 8px; min-width: 0; overflow-wrap: anywhere; }
+.australia-channel h2 { font-size: 17px; margin-bottom: 8px; }
+.australia-channel p { font-size: 13px; line-height: 1.5; color: var(--muted); }
+.australia-channel .card { width: 100%; margin-top: 12px; }

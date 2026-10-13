@@ -1,4 +1,4 @@
-/* Movie collections and player sources adapted from KiduyuTv. No metadata API. */
+/* KiduyuTv movie collections and player sources, with cached release updates. */
 (() => {
   'use strict';
   // Provider templates from KiduyuTv's StreamProvider.kt. IDs are provider lookup keys.
@@ -17,20 +17,30 @@
   };
   const url = (movie, index = 0) => sources[index].base + movie.id;
   let collections = [], all = [], failed = false;
-  const ready = fetch('/data/movies.json').then(async res => {
-    if (!res.ok) throw new Error(`Catalog HTTP ${res.status}`);
-    const data = await res.json();
+  function apply(data, detail) {
     const unique = new Map();
     collections = data.collections.map(c => ({ ...c, movies: c.movies.map(m => {
       const movie = unique.get(m.id) || {
-        ...m, key: 'm:' + m.id, type: 'movie', cat: 'Movies', source: 'KiduyuTv',
+        ...m, key: 'm:' + m.id, type: 'movie', cat: 'Movies', source: m.source || 'KiduyuTv',
         collection: c.title, url: url(m),
       };
       unique.set(m.id, movie);
       return movie;
     }) }));
-    all = [...unique.values()];
-  }).catch(e => { failed = true; console.warn('Movie catalog failed', e); });
+    all = [...unique.values()]; failed = false;
+    window.dispatchEvent(new CustomEvent('streambox-movies-updated', { detail }));
+  }
+  const updates = window.StreamBoxMovieCatalog.create({ onUpdate: apply, onStatus: status => {
+    failed = !collections.length && status.phase === 'failed';
+    window.dispatchEvent(new CustomEvent('streambox-movie-update-status', { detail: status }));
+  } });
+  const ready = updates.ready;
+
+  function restore(saved) {
+    if (saved?.type !== 'movie' || saved.catalog || saved.key !== 'm:' + saved.id) return null;
+    const m = window.StreamBoxMovieCatalog.normalizeMovie(saved);
+    return m ? { ...m, key: 'm:' + m.id, type: 'movie', cat: 'Movies', collection: 'Saved movie', url: url(m) } : null;
+  }
 
   function card(m) {
     const meta = [m.year, m.vote ? '★ ' + m.vote : ''].filter(Boolean).join(' · ');
@@ -68,5 +78,5 @@
           <div class="row-track-wrap"><div class="row-track">${c.movies.slice(0, 40).map(card).join('')}</div></div></section>`).join('')}</div>`}</div>`;
   }
 
-  window.StreamBoxMovies = { ready, card, detail, render, sources, url, get all() { return all; } };
+  window.StreamBoxMovies = { ready, card, detail, render, sources, url, restore, updates, get newMovies() { return collections.find(c => c.id === 'new')?.movies || []; }, get all() { return all; } };
 })();

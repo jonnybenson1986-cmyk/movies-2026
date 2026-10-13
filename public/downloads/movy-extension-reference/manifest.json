@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "StreamBox — Movy playback protection",
+  "version": "1.0.0",
+  "description": "Blocks known ads, popups and external navigation originating from Movy and Vidy players.",
+  "permissions": ["declarativeNetRequest", "webNavigation"],
+  "host_permissions": ["https://*.movy.sx/*", "https://*.vidy.st/*"],
+  "background": { "service_worker": "background.js" },
+  "declarative_net_request": { "rule_resources": [{ "id": "protection", "enabled": true, "path": "rules.json" }] },
+  "content_scripts": [
+    { "matches": ["https://*.movy.sx/*", "https://*.vidy.st/*"], "js": ["guard.js"], "run_at": "document_start", "all_frames": true, "world": "MAIN" },
+    { "matches": ["https://*.movy.sx/*", "https://*.vidy.st/*"], "css": ["ads.css"], "run_at": "document_start", "all_frames": true },
+    { "matches": ["http://localhost/*", "http://127.0.0.1/*", "https://*.netlify.app/*", "https://*.vercel.app/*"], "js": ["connector.js"], "run_at": "document_start" }
+  ]
+}

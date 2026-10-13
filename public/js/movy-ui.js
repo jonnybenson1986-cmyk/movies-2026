@@ -96,6 +96,9 @@
   function shell(kind, params) {
     return `<div class="page"><div class="page-head"><h1>Movy · ${esc(kinds[kind])}</h1></div>
       <div class="chips">${Object.entries(kinds).map(([k, label]) => `<a class="chip ${kind === k ? 'active' : ''}" href="${esc(link(k, 1, new URLSearchParams(params.has('query') ? { query: params.get('query') } : {})))}">${label}</a>`).join('')}</div>
+      <p class="movie-note movy-downloads">Vidy playback needs the Chrome/Edge desktop helper.
+        <a class="btn btn-more" href="/downloads/streambox-playback-protection.zip" download>Download playback helper</a>
+        <a href="/playback-protection.html" target="_blank" rel="noopener">Installation instructions</a></p>
       <form id="movyFilters" class="movy-filters"><label>Search <input name="query" type="search" maxlength="120" value="${esc(params.get('query') || '')}" placeholder="Search ${esc(kinds[kind])}"></label>
       <label>Genre <select name="genre" id="movyGenre"><option value="">All genres</option></select></label>
       ${kind === 'movie' || kind === 'tv' ? `<label>Sort <select name="sort"><option value="popular">Popular</option><option value="newest">Newest</option><option value="rating">Top rated</option></select></label>` : ''}
@@ -192,7 +195,8 @@
       <p>${esc(record.overview) || 'No description available.'}</p>
       <div class="btns"><button class="btn btn-more" data-act="fav" data-key="${esc(record.key)}">${hooks.isSaved(record.key) ? '✓ In My List' : '+ My List'}</button></div>
       <p id="movyProtection" class="movie-note">Install or update the StreamBox playback helper (v1.1+) to enable Play.</p>
-      <p class="movie-note"><a href="/playback-protection.html" target="_blank" rel="noopener">Download &amp; install playback protection</a> · Chrome or Edge desktop</p>
+      <p class="movie-note"><a class="btn btn-more" href="/downloads/streambox-playback-protection.zip" download>Download playback helper</a>
+        <a href="/playback-protection.html" target="_blank" rel="noopener">Download &amp; install playback protection</a> · Chrome or Edge desktop</p>
       ${kind === 'movie' ? `<button class="btn btn-play" data-movy-play="1" ${protectedPlayback ? '' : 'disabled'}>▶ Play</button>` : ''}
       ${kind === 'anime' && !record.embedId ? '<p class="movie-note">Playback is unavailable for this title. You can still browse its episodes.</p>' : ''}
       ${seasons.length ? `<label>Season <select id="movySeason">${seasons.map(s => `<option value="${s.season_number}">${esc(s.name)}</option>`).join('')}</select></label>` : ''}
