@@ -17,6 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/personal-library.css">
 </head>
 <body>
   <header class="topbar" id="topbar">
@@ -29,6 +30,7 @@
       <a href="#movy" data-route="movy">Movy</a>
       <a href="#sports" data-route="sports">Sports</a>
       <a href="#mylist" data-route="mylist">My List</a>
+      <a href="#library" data-route="library">My Library</a>
     </nav>
     <div class="topbar-actions">
       <button class="btn btn-red install-btn" id="installBtn" type="button" hidden aria-label="Download the StreamBox app">
@@ -51,6 +53,7 @@
     <a href="#movy" data-route="movy"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM9 8l7 4-7 4z"/></svg>Movy</a>
     <a href="#sports" data-route="sports"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>Sports</a>
     <a href="#mylist" data-route="mylist"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>My List</a>
+    <a href="#library" data-route="library"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="m10 8 5 4-5 4z"/></svg>Library</a>
   </nav>
   <div class="player" id="player" hidden>
     <iframe id="movieFrame" title="Movie player" hidden allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="no-referrer"></iframe>
@@ -87,6 +90,7 @@
   <script src="/js/australia-ui.js"></script>
   <script src="/js/movy-ui.js"></script>
   <script src="/js/movie-playback.js"></script>
+  <script src="/js/personal-library.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>
