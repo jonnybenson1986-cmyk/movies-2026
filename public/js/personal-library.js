@@ -9,6 +9,7 @@
   const safeUrl = value => { try { const u = new URL(String(value || '')); return ['https:', 'http:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } };
   const localItems = () => read(ITEMS_KEY, []).filter(x => x && typeof x.title === 'string' && safeUrl(x.url));
   function normalize(raw, i) {
+    raw = raw && typeof raw === 'object' ? raw : {};
     const title = String(raw.title || raw.name || '').trim();
     const url = safeUrl(raw.url || raw.stream || raw.file);
     if (!title || !url) return null;
