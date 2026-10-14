@@ -693,7 +693,7 @@
       movieFrame.hidden = movieTools.hidden = true;
       player.classList.add('movie-mode');
       video.controls = true;
-      const isHls = /\\.m3u8(?:$|\\?)/i.test(item.url);
+      const isHls = /\.m3u8(?:$|\?)/i.test(item.url);
       if (isHls && !IS_IOS && window.Hls?.isSupported()) {
         hls = new Hls({ enableWorker: true, backBufferLength: 30 });
         hls.loadSource(item.url); hls.attachMedia(video);
