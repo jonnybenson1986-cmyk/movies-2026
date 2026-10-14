@@ -555,6 +555,7 @@
       case 'countries': renderCountries(arg); break;
       case 'country': renderCountry(arg); break;
       case 'movies': movies.render(view, arg); break;
+      case 'library': await window.StreamBoxLibrary.render(view, { play }); break;
       case 'movy': await movy.render(view, location.hash.slice(1).split('/').slice(1).join('/'), { register, isSaved: inMyList, retry: route, play }); break;
       case 'mylist': renderMyList(); break;
       case 'search': renderSearch(arg); break;
@@ -686,6 +687,25 @@
     msg.innerHTML = '<div class="spinner"></div>'; msg.hidden = false;
     pushHistory(item);
     wakeControls();
+
+    if (item.type === 'movie' && item.catalog === 'personal') {
+      video.hidden = false;
+      movieFrame.hidden = movieTools.hidden = true;
+      player.classList.add('movie-mode');
+      video.controls = true;
+      const isHls = /\.m3u8(?:$|\?)/i.test(item.url);
+      if (isHls && !IS_IOS && window.Hls?.isSupported()) {
+        hls = new Hls({ enableWorker: true, backBufferLength: 30 });
+        hls.loadSource(item.url); hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+        hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal && current === item) showPlayerMsg('Video unavailable', 'The server may be offline or may not allow cross-origin playback. Check its CORS settings.', item, d.details || 'HLS playback error'); });
+      } else {
+        video.src = item.url;
+        video.play().catch(() => { msg.hidden = false; msg.innerHTML = '<p>Press play to start this video. If it fails, check the URL, file format and server permissions.</p>'; });
+      }
+      msg.hidden = true;
+      return;
+    }
 
     if (item.type === 'movie' && item.catalog === 'movy' && !movy.protectedPlayback) {
       showPlayerMsg('Playback protection required', 'Install the StreamBox playback protection extension and reload the app to play Movy titles.', item);
