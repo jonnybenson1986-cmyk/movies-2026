@@ -1,14 +1,17 @@
 // Passcode gate for the whole site. Runs on Netlify's edge, before any file is served, so it can't be
-// skipped by editing the page. Visitors enter the passcode once; a cookie remembers them for 30 days.
+// skipped by editing the page. The passcode is needed again every time the app or page is closed:
+//  - the cookies are session cookies, which the browser drops when it closes, and
+//  - the app also keeps an "unlocked" flag in sessionStorage (see the script at the top of index.html),
+//    which the browser clears when the tab or the installed app is closed.
 //
 // The passcode is set by the PASSCODE environment variable in Netlify (Site configuration -> Environment
 // variables). If that isn't set, the built-in default below is used: only its SHA-256 hash is stored here.
 // A short numeric code can still be guessed, so prefer a longer PASSCODE.
 
-const COOKIE = 'sb_gate';
+const COOKIE = 'sb_gate';       // the passcode itself (HttpOnly), checked on every request
+const MARKER = 'sb_gate_on';    // readable by the page: tells the app that a passcode gate is in front of it
 const SALT = 'streambox-gate|';
 const DEFAULT_HASH = '5bea84abca5ad70f26ac6cb2bb791cb537bf5e374bacbbb2b200ad173b471c58';
-const MAX_AGE = 30 * 24 * 3600;
 const MAX_CODE_LENGTH = 64;
 const FAIL_DELAY_MS = 800;   // slows down guessing
 
@@ -31,10 +34,13 @@ async function passcodeOk(candidate) {
   return safeEqual(await sha256(SALT + candidate), DEFAULT_HASH);
 }
 
-const cookieValue = request => {
-  const m = new RegExp('(?:^|;\\s*)' + COOKIE + '=([^;]*)').exec(request.headers.get('cookie') || '');
+const cookieValue = (request, name) => {
+  const m = new RegExp('(?:^|;\\s*)' + name + '=([^;]*)').exec(request.headers.get('cookie') || '');
   try { return m ? decodeURIComponent(m[1]) : ''; } catch { return ''; }
 };
+// Needs both cookies: the passcode, and the marker that only this session-style login sets
+// (so sign-ins made before this change, which lasted 30 days, are asked for the passcode again)
+const signedIn = async request => (await passcodeOk(cookieValue(request, COOKIE))) && cookieValue(request, MARKER) === '1';
 
 // Only ever redirect to a path on this site
 const safeNext = value => (typeof value === 'string' && /^\/(?![/\\])/.test(value) ? value : '/');
@@ -74,6 +80,14 @@ function lockPage(next, error) {
   });
 }
 
+// Shown for an instant after a correct passcode: marks this tab as unlocked, then continues to the app
+function unlockedPage(next) {
+  const target = JSON.stringify(next).replace(/</g, '\\u003c');
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="robots" content="noindex"><title>StreamBox</title>
+<script>try{sessionStorage.setItem('sb_unlocked','1')}catch(e){}location.replace(${target})</script></head>
+<body style="background:#141414;color:#b3b3b3;font-family:system-ui,sans-serif;padding:24px"><noscript>Unlocked. <a href="${esc(next)}" style="color:#fff">Continue</a></noscript></body></html>`;
+}
+
 export default async function gate(request, context) {
   const url = new URL(request.url);
 
@@ -82,16 +96,20 @@ export default async function gate(request, context) {
     const next = safeNext(form?.get('next'));
     if (await passcodeOk(form?.get('code'))) {
       const secure = url.protocol === 'https:' ? '; Secure' : '';
-      return new Response(null, {
-        status: 303,
-        headers: { location: next, 'set-cookie': `${COOKIE}=${encodeURIComponent(form.get('code'))}; Path=/; Max-Age=${MAX_AGE}; HttpOnly; SameSite=Lax${secure}`, 'cache-control': 'no-store' },
-      });
+      const headers = new Headers({ 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      // No Max-Age/Expires: these are session cookies and disappear when the browser closes
+      headers.append('set-cookie', `${COOKIE}=${encodeURIComponent(form.get('code'))}; Path=/; HttpOnly; SameSite=Lax${secure}`);
+      headers.append('set-cookie', `${MARKER}=1; Path=/; SameSite=Lax${secure}`);
+      return new Response(unlockedPage(next), { status: 200, headers });
     }
     await new Promise(resolve => setTimeout(resolve, FAIL_DELAY_MS));
     return lockPage(next, true);
   }
 
-  if (isPublic(url.pathname) || (await passcodeOk(cookieValue(request)))) return context.next();
+  // The app sends a freshly opened tab or app here to ask for the passcode again
+  if (url.pathname === '/__gate/lock' && request.method === 'GET') return lockPage(safeNext(url.searchParams.get('next')), false);
+
+  if (isPublic(url.pathname) || (await signedIn(request))) return context.next();
 
   const wantsPage = request.method === 'GET' && (request.headers.get('accept') || '').includes('text/html');
   return wantsPage ? lockPage(url.pathname + url.search, false) : new Response('Passcode required', { status: 401, headers: { 'cache-control': 'no-store' } });

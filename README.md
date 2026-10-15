@@ -29,11 +29,18 @@ Settings → **Backup & restore** → **Export backup** saves a `streambox-backu
 
 ## Passcode
 
-The whole site, including its data files and downloads, sits behind a passcode. A Netlify edge function (`netlify/edge-functions/gate.js`) checks it on the server, so it can't be skipped by editing the page. Visitors enter it once and a cookie keeps them signed in for 30 days. The default passcode is **3280**.
+The whole site, including its data files and downloads, sits behind a passcode. A Netlify edge function (`netlify/edge-functions/gate.js`) checks it on the server, so it can't be skipped by editing the page. The default passcode is **3280**.
 
+**The passcode is asked for again every time the app or page is closed.**
+- The sign-in uses session cookies, which the browser drops when it closes.
+- The app also remembers "unlocked" per tab (in `sessionStorage`), and the browser clears that when the tab or the installed phone app is closed. So a new tab, or reopening the app after closing it, shows the lock screen even if the browser kept its cookies.
+- Reloading a page, or moving around inside the app, doesn't ask again. Switching to another app and back (without closing it) doesn't either.
+- Exceptions: if the browser is set to "continue where you left off" or you reopen a closed tab from history, the browser may restore the tab's state and skip the prompt.
+
+**Other notes**
 - **Change it (recommended):** in Netlify go to *Site configuration → Environment variables* and add `PASSCODE` with a longer value (8+ characters), then redeploy. Everyone is signed out when it changes.
 - **How strong is it?** A 4-digit code has only 10,000 possibilities, so it keeps casual visitors out but a determined person could guess it. Only a hash of the default is stored in the repo; setting `PASSCODE` removes even that. Wrong guesses are slowed by 0.8 s.
-- **Where it applies:** on Netlify. Running locally (`python3 -m http.server`) or on another host, there's no gate.
+- **Where it applies:** on Netlify. Running locally (`python3 -m http.server`) or on another host, there's no gate and the app doesn't ask.
 - **Tests:** `npm test` includes `tests/gate.test.mjs`.
 
 ## Install on your phone

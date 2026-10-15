@@ -2,6 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script>
+    // Passcode on every launch: when a passcode gate is in front of the app (it sets the sb_gate_on cookie),
+    // this tab must have been unlocked in this session. sessionStorage is cleared when the tab or app closes.
+    (function () {
+      try {
+        if (!/(?:^|;\s*)sb_gate_on=1/.test(document.cookie) || sessionStorage.getItem('sb_unlocked') === '1') return;
+        document.documentElement.style.display = 'none';
+        location.replace('/__gate/lock?next=' + encodeURIComponent(location.pathname + location.search));
+      } catch (e) { /* storage blocked: the session cookie still applies */ }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>StreamBox</title>
   <meta name="description" content="Live TV, sports and movies in one Netflix-style player.">
