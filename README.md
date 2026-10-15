@@ -27,6 +27,15 @@ Settings → **TV guide (XMLTV)** → add the URL of an XMLTV guide (`.xml` or `
 
 Settings → **Backup & restore** → **Export backup** saves a `streambox-backup.json` with My List, watch history and your playlist and guide URLs. **Import backup** merges a backup into the current device. Imports are filtered, so only known item types with http(s) streams are kept.
 
+## Passcode
+
+The whole site, including its data files and downloads, sits behind a passcode. A Netlify edge function (`netlify/edge-functions/gate.js`) checks it on the server, so it can't be skipped by editing the page. Visitors enter it once and a cookie keeps them signed in for 30 days. The default passcode is **3280**.
+
+- **Change it (recommended):** in Netlify go to *Site configuration → Environment variables* and add `PASSCODE` with a longer value (8+ characters), then redeploy. Everyone is signed out when it changes.
+- **How strong is it?** A 4-digit code has only 10,000 possibilities, so it keeps casual visitors out but a determined person could guess it. Only a hash of the default is stored in the repo; setting `PASSCODE` removes even that. Wrong guesses are slowed by 0.8 s.
+- **Where it applies:** on Netlify. Running locally (`python3 -m http.server`) or on another host, there's no gate.
+- **Tests:** `npm test` includes `tests/gate.test.mjs`.
+
 ## Install on your phone
 
 - **iPhone / iPad:** open the site in **Safari** → Share button → **Add to Home Screen**.
