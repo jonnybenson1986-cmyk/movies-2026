@@ -48,3 +48,24 @@ test('host matching follows the helper’s host permissions exactly', () => {
   assert.equal(box.hostAllowed(''), false);
   assert.equal(box.hostAllowed(null), false);
 });
+
+test('server search derives same-title player servers from a Movy title page', () => {
+  const box = harness();
+  const servers = box.serverUrls('https://www.movy.sx/movie/278');
+  assert.equal(servers.length, 5);
+  assert.deepEqual([...servers.map(s => String(s.name))], ['Vidy', 'VidLink', 'Vidnest', 'Videasy', 'MoviesAPI']);
+  assert.ok(servers.every(s => box.allowedUrl(s.url)));
+  const tv = box.serverUrls('https://www.movy.sx/tv/1399/2/3');
+  assert.ok(tv[0].url.includes('/tv/1399/2/3'));
+  // A provider URL that is itself the first candidate is not retried.
+  const self = box.serverUrls('https://www.vidy.st/movie/278?autoplay=true');
+  assert.ok(!self.some(s => s.url.startsWith('https://www.vidy.st/movie/278')));
+  assert.deepEqual([...box.serverUrls('https://www.movy.sx/')], []);
+});
+
+test('the browser box provides a fullscreen toggle', () => {
+  const box = harness();
+  assert.equal(typeof box.toggleFullscreen, 'function');
+  assert.match(readFileSync(new URL('../public/js/movy-browser.js', import.meta.url), 'utf8'), /data-mb="fullscreen"/);
+  assert.match(readFileSync(new URL('../public/js/movy-browser.js', import.meta.url), 'utf8'), /data-mb="find"/);
+});
