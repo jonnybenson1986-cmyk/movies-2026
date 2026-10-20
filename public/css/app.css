@@ -312,3 +312,34 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .australia-channel h2 { font-size: 17px; margin-bottom: 8px; }
 .australia-channel p { font-size: 13px; line-height: 1.5; color: var(--muted); }
 .australia-channel .card { width: 100%; margin-top: 12px; }
+
+/* ---------- Movy Browser box ---------- */
+.movy-browser { position: fixed; inset: 0; z-index: 105; background: #0b0b0b; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.movy-browser-bar { display: flex; align-items: center; gap: 4px; padding: calc(8px + var(--safe-top)) 10px 8px; background: #1f2023; border-bottom: 1px solid #000; }
+.movy-browser-bar .icon-btn { background: transparent; flex: none; width: 36px; height: 36px; }
+.movy-browser-bar .icon-btn:disabled { opacity: .35; cursor: default; }
+.movy-browser-address { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; background: #000; border: 1px solid #3c4043; border-radius: 999px; padding: 7px 14px; }
+.movy-browser-address:focus-within { border-color: #8ab4f8; }
+.movy-browser-address svg { width: 14px; height: 14px; flex: none; stroke: #9aa0a6; }
+.movy-browser-address input { flex: 1; min-width: 0; background: transparent; border: 0; color: #e8eaed; font-size: 13px; outline: none; }
+.movy-browser-state { flex: none; max-width: 26vw; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.movy-browser-frame { width: 100%; height: 100%; border: 0; background: #000; }
+@media (max-width: 700px) { .movy-browser-state { display: none; } .movy-browser-bar .icon-btn { width: 34px; } }
+
+/* ---------- Movy helper setup wizard ---------- */
+.movy-setup { z-index: 115; }
+.movy-setup .modal-card { width: min(100%, 600px); }
+.movy-setup-body { padding-top: 28px; }
+.movy-setup-status { color: var(--muted); font-size: 13px; }
+.movy-setup-status.movy-setup-active { color: var(--green); font-weight: 700; }
+.movy-setup-steps { padding-left: 22px; display: grid; gap: 16px; margin: 18px 0; }
+.movy-setup-steps li { line-height: 1.55; font-size: 14px; }
+.movy-setup-steps li.done > b:first-child { color: var(--green); }
+.movy-setup-steps li.done > b:first-child::before { content: '✓ '; }
+.movy-setup-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.movy-setup-actions .btn { font-size: 13px; padding: 7px 14px; }
+.movy-setup-url { user-select: all; }
+.movy-setup-wait { display: flex; align-items: center; gap: 10px; color: var(--muted); margin-top: 8px; }
+.movy-setup-wait .spinner { width: 18px; height: 18px; border-width: 2px; margin: 0; flex: none; }
+.movy-setup-note { color: var(--muted); font-size: 13px; margin-top: 10px; }
+.movy-setup-note b { color: var(--text); }

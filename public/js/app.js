@@ -574,6 +574,7 @@
     status: $('#movieSourceStatus'), next: $('#movieNextSource'),
     canOpen: source => current?.catalog === 'movy' || source.url.startsWith('https://www.vidy.st/') ? movy.checkProtection() : true,
   });
+  window.StreamBoxMovySetup?.configure({ movy, play });
   function movieChoices(item) {
     if (item.catalog === 'movy' && item.mediaType !== 'movie') {
       return [{ name: 'Vidy · Protected', url: movy.playerUrl(item, item.season ?? 1, item.episode ?? 1) }];
@@ -708,7 +709,13 @@
     }
 
     if (item.type === 'movie' && item.catalog === 'movy' && !movy.protectedPlayback) {
-      showPlayerMsg('Playback protection required', 'Install the StreamBox playback protection extension and reload the app to play Movy titles.', item);
+      msg.innerHTML = `<h3>Playback protection required</h3>
+        <p>Movy plays through the StreamBox helper extension. Set it up automatically — StreamBox detects the install and starts <b>${esc(item.name)}</b> by itself — or watch right now in the Browser box, no helper needed.</p>
+        <div class="btns">
+          <button class="btn btn-red" data-act="movysetup">Set up helper &amp; auto-play</button>
+          <button class="btn btn-more" data-act="movybrowser">Open in Browser box</button>
+        </div>`;
+      msg.hidden = false;
       return;
     }
     if (item.type === 'movie') {
@@ -1024,6 +1031,16 @@
       else if (a === 'refreshmovies') movies.updates.refresh({ force: true });
       else if (a === 'clearhist') { store.set('history', []); toast('History cleared'); }
       else if (a === 'opensettings') showSettings();
+      else if (a === 'movysetup' && current?.catalog === 'movy') {
+        window.StreamBoxMovySetup?.open({ record: current, season: Number.isInteger(current.season) ? current.season : 1, episode: Number.isInteger(current.episode) ? current.episode : 1 });
+      }
+      else if (a === 'movybrowser' && current) {
+        const item = current;
+        closePlayer();
+        let url = null;
+        try { url = movy.playerUrl(item, Number.isInteger(item.season) ? item.season : 1, Number.isInteger(item.episode) ? item.episode : 1); } catch { /* fall back to Movy home */ }
+        window.StreamBoxMovyBrowser?.open(url || window.StreamBoxMovyBrowser.HOME, item.name);
+      }
       else if (a === 'proxysetup') { closePlayer(); showSettings(); }
       else if (a === 'localproxy') $('#proxyInput').value = 'http://localhost:8787';
       else if (a === 'saveproxy') saveProxy($('#proxyInput').value.trim().replace(/\/+$/, ''), $('#proxyToken').value.trim());
