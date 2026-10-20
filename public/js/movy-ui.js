@@ -96,9 +96,11 @@
   function shell(kind, params) {
     return `<div class="page"><div class="page-head"><h1>Movy · ${esc(kinds[kind])}</h1></div>
       <div class="chips">${Object.entries(kinds).map(([k, label]) => `<a class="chip ${kind === k ? 'active' : ''}" href="${esc(link(k, 1, new URLSearchParams(params.has('query') ? { query: params.get('query') } : {})))}">${label}</a>`).join('')}</div>
-      <p class="movie-note movy-downloads">Vidy playback needs the Chrome/Edge desktop helper.
-        <a class="btn btn-more" href="/downloads/streambox-playback-protection.zip" download>Download playback helper</a>
-        <a href="/playback-protection.html" target="_blank" rel="noopener">Installation instructions</a></p>
+      <p class="movie-note movy-downloads">Watch inside the app: the Browser box plays Movy and provider sites directly. For protected playback with automatic source fallback, set up the Chrome/Edge helper — automatically.
+        <button class="btn btn-more" type="button" data-movy-setup="1">Set up helper &amp; auto-play</button>
+        <button class="btn btn-more" type="button" data-movy-browser-home="1">Open Browser box</button>
+        <a class="btn btn-more" href="/downloads/streambox-playback-protection.zip" download>Download helper</a>
+        <a href="/playback-protection.html" target="_blank" rel="noopener">Manual instructions</a></p>
       <form id="movyFilters" class="movy-filters"><label>Search <input name="query" type="search" maxlength="120" value="${esc(params.get('query') || '')}" placeholder="Search ${esc(kinds[kind])}"></label>
       <label>Genre <select name="genre" id="movyGenre"><option value="">All genres</option></select></label>
       ${kind === 'movie' || kind === 'tv' ? `<label>Sort <select name="sort"><option value="popular">Popular</option><option value="newest">Newest</option><option value="rating">Top rated</option></select></label>` : ''}
@@ -193,7 +195,11 @@
     view.innerHTML = `<div class="page"><div class="page-head"><h1>${esc(record.name)}</h1><a class="btn btn-more page-btn" href="${link(kind)}">Browse ${esc(kinds[kind])}</a></div>
       <div class="movy-detail"><p class="facts">${esc([record.year, record.vote ? '★ ' + record.vote : '', kinds[kind]].filter(Boolean).join(' · '))}</p>
       <p>${esc(record.overview) || 'No description available.'}</p>
-      <div class="btns"><button class="btn btn-more" data-act="fav" data-key="${esc(record.key)}">${hooks.isSaved(record.key) ? '✓ In My List' : '+ My List'}</button></div>
+      <div class="btns">
+        <button class="btn btn-more" data-act="fav" data-key="${esc(record.key)}">${hooks.isSaved(record.key) ? '✓ In My List' : '+ My List'}</button>
+        <button class="btn btn-more" data-movy-browser="1">Open in Browser box</button>
+        <button class="btn btn-more" data-movy-setup="1">Set up helper &amp; auto-play</button>
+      </div>
       <p id="movyProtection" class="movie-note">Install or update the StreamBox playback helper (v1.1+) to enable Play.</p>
       <p class="movie-note"><a class="btn btn-more" href="/downloads/streambox-playback-protection.zip" download>Download playback helper</a>
         <a href="/playback-protection.html" target="_blank" rel="noopener">Download &amp; install playback protection</a> · Chrome or Edge desktop</p>
@@ -203,8 +209,17 @@
       <div id="movyEpisodes" class="movy-episodes"></div></div></div>`;
     checkProtection();
     if (protectedPlayback) document.getElementById('movyProtection').textContent = 'Playback protection active';
+    autoActivate(view, token);
     if (seasons.length) await season(seasons[0].season_number, detailState);
     else showEpisodes(episodes);
+  }
+  // Keep watching while a title page is open: a freshly installed helper activates without a reload.
+  async function autoActivate(view, token) {
+    while (token === version && view?.isConnected && !protectedPlayback) {
+      await new Promise(r => setTimeout(r, 3000));
+      if (token !== version || protectedPlayback) return;
+      await checkProtection();
+    }
   }
   function showEpisodes(episodes) {
     const el = document.getElementById('movyEpisodes');
@@ -255,12 +270,34 @@
   });
   document.addEventListener('click', async e => {
     if (e.target.closest('#movyRetry')) hooks?.retry();
+    if (e.target.closest('[data-movy-browser-home]')) { window.StreamBoxMovyBrowser?.open(); return; }
+    const browser = e.target.closest('[data-movy-browser]');
+    if (browser && detailState) {
+      const record = detailState.record;
+      const seasonNumber = Number(document.getElementById('movySeason')?.value || 1);
+      let url;
+      try { url = playerUrl(record, seasonNumber, 1); }
+      catch { url = 'https://www.movy.sx/' + (record.mediaType === 'anime' ? 'anime' : record.mediaType) + '/' + record.id; }
+      window.StreamBoxMovyBrowser?.open(url, record.name);
+      return;
+    }
+    const setup = e.target.closest('[data-movy-setup]');
+    if (setup) {
+      const pending = detailState ? {
+        record: detailState.record,
+        season: Number(document.getElementById('movySeason')?.value || 1),
+        episode: Number(setup.dataset.movyEpisode || 1),
+      } : null;
+      window.StreamBoxMovySetup?.open(pending);
+      return;
+    }
     const play = e.target.closest('[data-movy-play]');
-    if (play && detailState && protectedPlayback) {
+    if (play && detailState) {
       const seasonNumber = Number(document.getElementById('movySeason')?.value || 1);
       const episodeNumber = Number(play.dataset.movyPlay);
       const record = detailState.record;
       if (record.mediaType !== 'movie' && !detailState.episodes.some(e => e.number === episodeNumber)) return;
+      if (!protectedPlayback) { window.StreamBoxMovySetup?.open({ record, season: seasonNumber, episode: episodeNumber }); return; }
       const state = detailState;
       if (await checkProtection() && state === detailState && state.token === version) hooks.play({ ...record, season: seasonNumber, episode: episodeNumber });
     }
