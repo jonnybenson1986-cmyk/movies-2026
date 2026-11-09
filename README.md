@@ -78,6 +78,10 @@ Channels and movies use an Apple TV-style design (`public/css/apple.css`, loaded
 
 The built-in key is visible to anyone who can load the app (or read the repository), which is normal for a read-only TMDB key. If it's ever misused, create a new key on TMDB and replace `BUILT_IN_KEY` in `artwork.js`. This product uses the TMDB API but is not endorsed or certified by TMDB.
 
+## Back button
+
+Every page except Home has a **Back** button at the left of the top bar. It goes to the previous page in the app (including after a reload), or to Home when there isn't one, for example when the app was opened straight on a page or from a shared link. The browser's own back button and swipe-back still work and keep it in step.
+
 ## The live player
 
 Live channels play in StreamBox's own player (`live-mode` in `public/js/app.js`):

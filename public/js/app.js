@@ -1305,6 +1305,23 @@
 
   function onScroll() { if (!location.hash || location.hash === '#home') $('#topbar').classList.toggle('solid', scrollY > 60); }
   addEventListener('scroll', onScroll, { passive: true });
+  // ---- Back button: the previous page in the app, or Home when there isn't one (e.g. the app was opened on this page)
+  const backBtn = $('#backBtn');
+  let navIndex = Number.isInteger(history.state?.i) ? history.state.i : 0;
+  if (!Number.isInteger(history.state?.i)) history.replaceState({ ...(history.state || {}), i: navIndex }, '');
+  const updateBack = () => {
+    backBtn.hidden = (location.hash.slice(1).split('/')[0] || 'home') === 'home';
+    $('#topbar').classList.toggle('has-back', !backBtn.hidden);   // lets the CSS make room on narrow screens
+  };
+  addEventListener('hashchange', () => {
+    const i = history.state?.i;
+    if (Number.isInteger(i)) navIndex = i;   // going back or forward to a page we have already been on
+    else { navIndex += 1; history.replaceState({ ...(history.state || {}), i: navIndex }, ''); }   // a new page
+    updateBack();
+  });
+  backBtn.onclick = () => { if (navIndex > 0) history.back(); else location.hash = '#home'; };
+  updateBack();
+
   addEventListener('hashchange', route);
 
   window.addEventListener('streambox-account-synced', () => {
