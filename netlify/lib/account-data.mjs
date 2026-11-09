@@ -3,8 +3,8 @@
 // only ever hold plain, size-limited data.
 
 export const LIMITS = { mylist: 200, history: 30, progress: 400, bytes: 400_000 };
-const ITEM_TYPES = new Set(['live', 'movie', 'title']);
-const TEXT = { name: 300, url: 1000, cat: 80, quality: 20, source: 80, logo: 1000, tvgId: 120, ua: 300, rf: 300, id: 120, catalog: 40, mediaType: 20, overview: 700, year: 8, vote: 8, embedId: 120, cc: 3, poster: 120 };
+const ITEM_TYPES = new Set(['live', 'movie']);
+const TEXT = { name: 300, url: 1000, cat: 80, quality: 20, source: 80, logo: 1000, tvgId: 120, ua: 300, rf: 300, id: 120, catalog: 40, mediaType: 20, overview: 700, year: 8, vote: 8, embedId: 120, cc: 3 };
 
 const text = (value, max) => (typeof value === 'string' ? value.slice(0, max) : typeof value === 'number' && Number.isFinite(value) ? String(value).slice(0, max) : '');
 const num = (value, max) => (Number.isFinite(value) && value >= 0 ? Math.min(value, max) : 0);
@@ -18,9 +18,6 @@ export function cleanItem(raw) {
   if (raw.needsHeaders === true) item.needsHeaders = true;
   for (const field of ['season', 'episode']) if (Number.isInteger(raw[field]) && raw[field] >= 0) item[field] = Math.min(raw[field], 9999);
   if (item.type === 'live' && !/^https?:\/\//.test(item.url || '')) return null;
-  if (item.type === 'title' && !/^\d{1,10}$/.test(item.id || '')) return null;   // a TMDB title
-  if (item.type === 'title') delete item.url;                                      // titles have no stream address
-  if (item.poster && !/^\/[\w.-]+$/.test(item.poster)) delete item.poster;       // a TMDB image path only
   return item;
 }
 

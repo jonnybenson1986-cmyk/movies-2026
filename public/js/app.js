@@ -32,9 +32,6 @@
 
   const movies = window.StreamBoxMovies;
   const movy = window.StreamBoxMovy;
-  // The Apple TV style Discover and title pages load as a module, alongside the rest of the app
-  let apple = null;
-  const appleReady = import('/js/apple-tv/index.js').then(m => { apple = m; }).catch(() => {});
 
   // ---------------------------------------------------------------- storage
   const store = {
@@ -280,13 +277,11 @@
 
   // ---------------------------------------------------------------- my list & history
   const restoreMovie = saved => movy.restore(saved) || movies.restore(saved);
-  const isTitle = i => i?.type === 'title' && /^\d+$/.test(String(i.id));   // a TMDB title from the Discover pages
-  const savedItems = list => list.filter(i => i?.type === 'live' || isTitle(i) || (i?.type === 'movie' && (items.get(i.key)?.type === 'movie' || restoreMovie(i)))); // Ignore obsolete discovery entries
+  const savedItems = list => list.filter(i => i?.type === 'live' || (i?.type === 'movie' && (items.get(i.key)?.type === 'movie' || restoreMovie(i)))); // Ignore obsolete discovery entries
   const myList = () => savedItems(store.get('mylist', []));
   for (const saved of [...store.get('mylist', []), ...store.get('history', [])]) {
     const restored = restoreMovie(saved);
     if (restored) register(restored);
-    else if (isTitle(saved)) register(saved);
   }
   const inMyList = key => myList().some(i => i.key === key);
   function toggleMyList(item) {
@@ -302,15 +297,14 @@
   }
   // Saved items survive reloads even if the source list changes
   const snapshot = it => {
-    const { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId, cc, poster } = it;
-    return { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId, cc, poster };
+    const { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId, cc } = it;
+    return { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId, cc };
   };
   const revive = saved => items.get(saved.key) || restoreMovie(saved) || (register(saved), saved);
 
   // ---------------------------------------------------------------- card rendering
   function cardHTML(item) {
     register(item);
-    if (item.type === 'title') return apple ? apple.card(item) : '';
     if (item.type === 'movie') return item.catalog === 'movy' ? movy.card(item) : movies.card(item);
     if (item.type === 'link') {
       return `<a class="card link-card" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">
@@ -552,9 +546,9 @@
     movy.cancel();
     const [name, ...rest] = decodeURIComponent(location.hash.slice(1) || 'home').split('/');
     const arg = rest.join('/');
-    const navName = name === 'country' ? 'countries' : name === 'title' ? 'discover' : name;
+    const navName = name === 'country' ? 'countries' : name;
     document.querySelectorAll('[data-route]').forEach(a => a.classList.toggle('active', a.dataset.route === navName));
-    await Promise.all([channelsReady, movies.ready, window.StreamBoxAustralia.ready, appleReady]);
+    await Promise.all([channelsReady, movies.ready, window.StreamBoxAustralia.ready]);
     if (version !== routeVersion) return;
     movies.all.forEach(register);
     window.scrollTo(0, 0);
@@ -567,10 +561,6 @@
       case 'movies': movies.render(view, arg); break;
       case 'library': await window.StreamBoxLibrary.render(view, { play }); break;
       case 'movy': await movy.render(view, location.hash.slice(1).split('/').slice(1).join('/'), { register, isSaved: inMyList, retry: route, play }); break;
-      case 'discover': case 'title':
-        if (apple) apple.render(view, name, arg, { isCurrent: () => version === routeVersion, rowHTML, mountGrid, register, toggleList: toggleMyList, inList: inMyList, history: () => savedItems(store.get('history', [])), toast, openModal });
-        else view.innerHTML = '<div class="page"><div class="empty">Discover couldn’t load. Check your connection and reload.</div></div>';
-        break;
       case 'mylist': renderMyList(); break;
       case 'search': renderSearch(arg); break;
       default: renderHome();
@@ -1041,7 +1031,6 @@
   function openModal(html) { modalCard.innerHTML = closeBtn + html; modal.hidden = false; document.body.style.overflow = 'hidden'; }
   function closeModal() {
     modal.hidden = true;
-    modalCard.innerHTML = '';   // also stops a trailer that is playing
     if (player.hidden) {
       document.body.style.overflow = '';
       if (pendingMovieRender) { pendingMovieRender = false; route(); }
@@ -1281,7 +1270,6 @@
     if (card) {
       const item = items.get(card.dataset.key);
       if (!item) return;
-      if (item.type === 'title') { location.hash = 'title/' + item.id; return; }
       if (item.catalog === 'movy') { location.hash = 'movy/detail/' + item.mediaType + '/' + item.id; return; }
       if (item.type === 'movie') return openModal(movies.detail(item, inMyList(item.key)));
       if (item.isPlaylist) return addSource(item.url.replace(/^http:/, 'https:'));

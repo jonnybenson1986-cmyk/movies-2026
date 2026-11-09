@@ -78,16 +78,6 @@ Channels and movies use an Apple TV-style design (`public/css/apple.css`, loaded
 
 The built-in key is visible to anyone who can load the app (or read the repository), which is normal for a read-only TMDB key. If it's ever misused, create a new key on TMDB and replace `BUILT_IN_KEY` in `artwork.js`. This product uses the TMDB API but is not endorsed or certified by TMDB.
 
-## Discover and title pages
-
-**Discover** (`#discover`) is an Apple TV-style home for films: a large hero, then shelves for Continue Watching, Trending, Top Rated and genres, each with a *See all* grid. Opening a poster shows its **title page** (`#title/<TMDB id>`): backdrop, age rating, genres, trailer, cast, similar films and details. The code is in `public/js/apple-tv/` and `public/css/apple-tv.css`; it loads as a module next to the rest of the app.
-
-- **Data** comes from TMDB (same key as the posters, see above) and streaming availability from JustWatch via TMDB. Nothing here plays a film itself: **Where to watch** lists the services in Australia that carry the title (subscription, free, rent, buy) with a link to JustWatch. Trailers are YouTube's own player.
-- **My List and accounts**: titles can be added to My List and sync with the signed-in account like channels do (the server keeps only the TMDB id, name, year, rating and poster path).
-- **Keyboard and remote**: arrow keys move between buttons, posters and arrows; Back works as everywhere else.
-- Badges show only what the data says (age rating, "Top Rated" for a very high rating with many votes). There is no invented 4K/HDR label.
-- Added to `netlify.toml`: `X-Frame-Options` and `Permissions-Policy` headers. The pasted `/api` redirect and long-cache rules were not used: the browser calls TMDB directly, and long caching would keep old versions of the app on phones.
-
 ## Back button
 
 Every page except Home has a **Back** button at the left of the top bar. It goes to the previous page in the app (including after a reload), or to Home when there isn't one, for example when the app was opened straight on a page or from a shared link. The browser's own back button and swipe-back still work and keep it in step.
