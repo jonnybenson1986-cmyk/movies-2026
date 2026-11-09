@@ -27,21 +27,21 @@ Settings → **TV guide (XMLTV)** → add the URL of an XMLTV guide (`.xml` or `
 
 Settings → **Backup & restore** → **Export backup** saves a `streambox-backup.json` with My List, watch history and your playlist and guide URLs. **Import backup** merges a backup into the current device. Imports are filtered, so only known item types with http(s) streams are kept.
 
-## Passcode
+## Accounts (username and password)
 
-The whole site, including its data files and downloads, sits behind a passcode. A Netlify edge function (`netlify/edge-functions/gate.js`) checks it on the server, so it can't be skipped by editing the page. The default passcode is **3280**.
+Everyone signs in with their own username and password. A Netlify edge function (`netlify/edge-functions/gate.js`) checks the sign-in on the server before **any** file is served, so it can't be skipped by editing the page. The sign-in is asked for again every time the app or page is closed. The accounts are `bb`, `jb`, `sb`, `tc`, `nn`, `bn` and `ja`. Usernames aren't case sensitive.
 
-**The passcode is asked for again every time the app or page is closed.**
-- The sign-in uses session cookies, which the browser drops when it closes.
-- The app also remembers "unlocked" per tab (in `sessionStorage`), and the browser clears that when the tab or the installed phone app is closed. So a new tab, or reopening the app after closing it, shows the lock screen even if the browser kept its cookies.
-- Reloading a page, or moving around inside the app, doesn't ask again. Switching to another app and back (without closing it) doesn't either.
-- Exceptions: if the browser is set to "continue where you left off" or you reopen a closed tab from history, the browser may restore the tab's state and skip the prompt.
+**What each account keeps** (saved on Netlify, so it follows the person to any phone or tablet):
+- **My List** and **Continue Watching**
+- **Where they are up to in a video**, for videos StreamBox plays itself (My Library). Opening a video again resumes where it was left, and finishing it clears the place. Movies played inside third-party players run in a frame StreamBox can't see into, so only "recently watched" is remembered for those.
 
-**Other notes**
-- **Change it (recommended):** in Netlify go to *Site configuration → Environment variables* and add `PASSCODE` with a longer value (8+ characters), then redeploy. Everyone is signed out when it changes.
-- **How strong is it?** A 4-digit code has only 10,000 possibilities, so it keeps casual visitors out but a determined person could guess it. Only a hash of the default is stored in the repo; setting `PASSCODE` removes even that. Wrong guesses are slowed by 0.8 s.
-- **Where it applies:** on Netlify. Running locally (`python3 -m http.server`) or on another host, there's no gate and the app doesn't ask.
-- **Tests:** `npm test` includes `tests/gate.test.mjs`.
+People never see each other's data. Signing out clears the lists from that device (they stay in the account), and the next person to sign in starts with their own.
+
+**How it works:** `netlify/functions/me.mjs` (`/api/me`) stores each account's data in Netlify Blobs; `public/js/account.js` pulls it when the app opens or comes back to the screen and pushes changes a couple of seconds after they happen. Lists use the most recent change; video places use the most recent place per video. On a computer with no gate (`python3 -m http.server`) there are no accounts and everything is saved on the device only.
+
+**Set your own passwords (recommended):** the built-in list stores only salted hashes, but 4 to 6 digit passwords can be guessed, so use longer ones. In Netlify go to *Site configuration → Environment variables* and add `USERS` with JSON like `{"bb":"a-long-password","jb":"another-one"}`, then redeploy. When `USERS` is set it **replaces** the built-in list, so include everyone. That is also how you add or remove people. Changing someone's password signs them out. Wrong guesses are slowed by 0.8 s.
+
+**Tests:** `npm test` covers the sign-in (`tests/gate.test.mjs`), the stored data and sync (`tests/accounts.test.mjs`).
 
 ## Install on your phone
 

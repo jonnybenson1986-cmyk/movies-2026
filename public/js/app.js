@@ -663,6 +663,31 @@
     msg.hidden = false;
   }
 
+  // ---- where the person is up to in a video. Only for videos StreamBox plays itself (their own library):
+  // third-party movie players run in their own frame, which StreamBox can't see into.
+  const progressMap = () => { const m = store.get('progress', {}); return m && typeof m === 'object' && !Array.isArray(m) ? m : {}; };
+  let progressKey = null, progressSavedAt = 0, resumeFrom = null;
+  const clock = sec => { const s = Math.floor(sec), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return `${h ? h + ':' + String(m).padStart(2, '0') : m}:${String(s % 60).padStart(2, '0')}`; };
+  function saveProgress(force = false) {
+    if (!progressKey || !(video.duration > 0)) return;
+    const now = Date.now();
+    if (!force && now - progressSavedAt < 5000) return;
+    progressSavedAt = now;
+    const map = progressMap(), t = video.currentTime, d = video.duration;
+    // Barely started or finished: remember it as "no place" (t: 0), so the account forgets the old place too
+    map[progressKey] = t > 10 && t < d - 30 ? { t: Math.floor(t), d: Math.floor(d), at: now } : { t: 0, d: Math.floor(d), at: now };
+    const newest = Object.entries(map).sort((a, b) => b[1].at - a[1].at).slice(0, 300);
+    store.set('progress', Object.fromEntries(newest));
+  }
+  video.addEventListener('loadedmetadata', () => {
+    const from = resumeFrom; resumeFrom = null;
+    if (progressKey && from && from.t > 10 && video.duration > from.t + 30) { video.currentTime = from.t; toast(`Resuming at ${clock(from.t)}`); }
+  });
+  video.addEventListener('timeupdate', () => saveProgress());
+  video.addEventListener('pause', () => saveProgress(true));
+  video.addEventListener('ended', () => { if (progressKey) { const map = progressMap(); map[progressKey] = { t: 0, d: Math.floor(video.duration) || 0, at: Date.now() }; store.set('progress', map); } });
+  addEventListener('pagehide', () => saveProgress(true));
+
   function teardown() {
     clearTimeout(stallTimer);
     moviePlayback.stop();
@@ -677,6 +702,8 @@
 
   async function play(item, list = [], force = false) {
     stopHero();
+    saveProgress(true);   // where the previous video was up to
+    progressKey = resumeFrom = null;
     teardown();
     player.classList.remove('live-mode');   // each stream attempt calls teardown(), so this is reset here, not there
     current = item;
@@ -696,6 +723,10 @@
       movieFrame.hidden = movieTools.hidden = true;
       player.classList.add('movie-mode');
       video.controls = true;
+      // Pick up a place saved from another device a moment ago (but never wait long for it)
+      if (window.StreamBoxAccount?.enabled) await Promise.race([window.StreamBoxAccount.sync(), new Promise(r => setTimeout(r, 1500))]);
+      if (current !== item) return;
+      progressKey = item.key; progressSavedAt = Date.now(); resumeFrom = progressMap()[item.key] || null;
       const isHls = /\.m3u8(?:$|\?)/i.test(item.url);
       if (isHls && !IS_IOS && window.Hls?.isSupported()) {
         hls = new Hls({ enableWorker: true, backBufferLength: 30 });
@@ -819,6 +850,8 @@
 
   let pendingMovieRender = false;
   function closePlayer() {
+    saveProgress(true);
+    progressKey = resumeFrom = null;
     teardown();
     current = null;
     player.hidden = true;
@@ -1047,6 +1080,9 @@
     openModal(`
       <div class="modal-body" style="padding-top:28px">
         <h2 style="font-size:24px;margin-bottom:6px">Settings</h2>
+        ${window.StreamBoxAccount?.enabled ? `<h3>Account</h3>
+        <p style="color:var(--muted)">Signed in as <b style="color:#fff">${esc(window.StreamBoxAccount.user)}</b>. Your My List, Continue Watching and your place in your own videos are saved to your account and follow you to your other devices.</p>
+        <button class="btn btn-more" data-act="signout" style="font-size:13px;padding:6px 12px">Sign out</button>` : ''}
         <h3>Movie updates</h3>
         <p>Checks for new movies on launch and once a day while the app is open. Saved titles stay available offline.</p>
         <p id="movieUpdateStatus" role="status" style="color:var(--muted)">${esc(movieUpdateText(movies.updates.status))}</p>
@@ -1181,6 +1217,7 @@
       else if (a === 'refreshmovies') movies.updates.refresh({ force: true });
       else if (a === 'clearhist') { store.set('history', []); toast('History cleared'); }
       else if (a === 'opensettings') showSettings();
+      else if (a === 'signout') { toast('Signing out…'); Promise.resolve(window.StreamBoxAccount?.flush()).finally(() => { location.href = '/__gate/logout'; }); }
       else if (a === 'saveart') saveArtworkKey($('#artInput').value.trim());
       else if (a === 'clearart') { settings.tmdbKey = ''; saveSettings(); window.StreamBoxArt?.reload(); toast('Using the built-in key'); route(); showSettings(); }
       else if (a === 'movysetup' && current?.catalog === 'movy') {
@@ -1270,6 +1307,13 @@
   addEventListener('scroll', onScroll, { passive: true });
   addEventListener('hashchange', route);
 
+  window.addEventListener('streambox-account-synced', () => {
+    const name = location.hash.slice(1).split('/')[0] || 'home';
+    if (['home', 'mylist'].includes(name)) {
+      if (player.hidden && modal.hidden) route();
+      else pendingMovieRender = true;
+    }
+  });
   window.addEventListener('streambox-movies-updated', e => {
     movies.all.forEach(register);
     const name = location.hash.slice(1).split('/')[0] || 'home';

@@ -11,5 +11,10 @@
     "probe": "node scripts/probe-streams.mjs",
     "build:australia": "python3 scripts/build-australia.py"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^11.1.8"
+  }
 }
