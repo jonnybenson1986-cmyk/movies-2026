@@ -91,6 +91,7 @@
 
   window.StreamBoxArt = {
     enabled: () => !!key(),
+    key: () => key(),   // the Discover pages use the same TMDB key
     // Call after the key changes: cards on screen are looked at again
     reload() { save(); document.querySelectorAll('[data-art-id]').forEach(el => { seen.delete(el); }); scan(); },   // keeps what is already fetched
   };
