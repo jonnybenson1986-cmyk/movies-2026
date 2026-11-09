@@ -74,7 +74,9 @@ Channels and movies use an Apple TV-style design (`public/css/apple.css`, loaded
 - A floating pill navigation on desktop, a frosted tab bar on phones, a large-type hero, white pill buttons, and soft hover lift.
 - Cards with the `apple` class use the new layout; older cards (personal library, link cards) keep their layout.
 
-**Movie and series artwork (optional).** The movie data has no artwork, so titles show typographic posters by default. To show real posters and a backdrop on the Movies hero, open *Settings → Artwork for movies & series* and paste a free [TMDB](https://www.themoviedb.org) API key (themoviedb.org → Settings → API, the 32-character *API Key (v3)*). The key stays on that device. Posters load only for the cards on screen and are remembered. This product uses the TMDB API but is not endorsed or certified by TMDB.
+**Movie and series artwork.** The movie data has no artwork of its own, so posters (and the backdrop on the Movies hero) come from [TMDB](https://www.themoviedb.org) through `public/js/artwork.js`. It works on every device with no setup, using the TMDB API key built into that file. Posters load only for the cards on screen and are remembered on the device. To use your own key instead, open *Settings → Artwork for movies & series* and paste it there (it stays on that device).
+
+The built-in key is visible to anyone who can load the app (or read the repository), which is normal for a read-only TMDB key. If it's ever misused, create a new key on TMDB and replace `BUILT_IN_KEY` in `artwork.js`. This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 ## The live player
 

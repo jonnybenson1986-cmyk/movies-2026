@@ -1,16 +1,19 @@
 /* Poster and backdrop artwork from TMDB, loaded lazily for the cards on screen.
-   Optional: it only runs when a TMDB API key is saved in Settings (stored on this device).
-   Without a key, cards keep their typographic artwork. */
+   It uses the app's built-in TMDB key, so artwork shows on every device with no setup.
+   A key saved in Settings (stored on that device) takes priority over the built-in one. */
 (() => {
   'use strict';
   const STORE = 'sb:art-v1', LIMIT = 6000, IMG = 'https://image.tmdb.org/t/p/', CONCURRENCY = 6;
+  // TMDB "API Key (v3)": a read-only key for public movie data. Anyone who can load the app can see it.
+  const BUILT_IN_KEY = '3aff4c9f91e0d6aa6841f7af6c6a42c5';
+  const validKey = k => /^[a-f0-9]{32}$/i.test(k || '');
   const read = () => { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch { return {}; } };
   let cache = read(), dirty = false, active = 0;
   const queue = [], pending = new Map();   // pending: "type:id" -> elements waiting for the answer
 
   const key = () => {
-    try { const k = JSON.parse(localStorage.getItem('sb:settings') || '{}').tmdbKey; return /^[a-f0-9]{32}$/i.test(k || '') ? k : ''; }
-    catch { return ''; }
+    try { const k = JSON.parse(localStorage.getItem('sb:settings') || '{}').tmdbKey; if (validKey(k)) return k; } catch { /* storage blocked */ }
+    return BUILT_IN_KEY;
   };
   function save() {
     if (!dirty) return;
@@ -89,6 +92,6 @@
   window.StreamBoxArt = {
     enabled: () => !!key(),
     // Call after the key changes: cards on screen are looked at again
-    reload() { cache = read(); document.querySelectorAll('[data-art-id]').forEach(el => { seen.delete(el); }); scan(); },
+    reload() { save(); document.querySelectorAll('[data-art-id]').forEach(el => { seen.delete(el); }); scan(); },   // keeps what is already fetched
   };
 })();

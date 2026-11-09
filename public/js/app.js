@@ -1061,8 +1061,8 @@
         <label><input type="checkbox" id="optHideBad" ${settings.hideBad ? 'checked' : ''}> Hide channels that failed to play on this device (for 12 hours)</label>
         <button class="btn btn-more" data-act="resetbad" style="font-size:13px;padding:6px 12px">Show hidden channels again (${Object.keys(bad).length})</button>
         <h3>Artwork for movies &amp; series</h3>
-        <p style="color:var(--muted)">${artworkKey() ? `Artwork on. Key saved (ends …${esc(artworkKey().slice(-4))}), stored only on this device.` : 'Optional: paste a free TMDB API key (themoviedb.org → Settings → API) to show real posters. Without it, titles show typographic artwork.'}</p>
-        <div class="form-row"><input type="text" id="artInput" placeholder="TMDB API key (v3)" autocomplete="off" spellcheck="false"><button class="btn btn-red" data-act="saveart" style="padding:8px 16px">Save</button>${artworkKey() ? '<button class="btn btn-more" data-act="clearart" style="padding:8px 16px">Remove</button>' : ''}</div>
+        <p style="color:var(--muted)">${artworkKey() ? `Using your own TMDB key (ends …${esc(artworkKey().slice(-4))}), stored only on this device.` : 'Artwork is on, using the key built into StreamBox. You can use your own TMDB API key instead (themoviedb.org → Settings → API).'}</p>
+        <div class="form-row"><input type="text" id="artInput" placeholder="Your own TMDB API key (optional)" autocomplete="off" spellcheck="false"><button class="btn btn-red" data-act="saveart" style="padding:8px 16px">Save</button>${artworkKey() ? '<button class="btn btn-more" data-act="clearart" style="padding:8px 16px">Use built-in key</button>' : ''}</div>
         <p style="color:#777;font-size:12px;margin-top:8px">This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
         <h3>Playlists (M3U)</h3>
         <p style="color:var(--muted)">Add any M3U/M3U8 playlist URL. It must be https and allow cross-origin requests.</p>
@@ -1182,7 +1182,7 @@
       else if (a === 'clearhist') { store.set('history', []); toast('History cleared'); }
       else if (a === 'opensettings') showSettings();
       else if (a === 'saveart') saveArtworkKey($('#artInput').value.trim());
-      else if (a === 'clearart') { settings.tmdbKey = ''; saveSettings(); window.StreamBoxArt?.reload(); toast('Artwork key removed'); route(); showSettings(); }
+      else if (a === 'clearart') { settings.tmdbKey = ''; saveSettings(); window.StreamBoxArt?.reload(); toast('Using the built-in key'); route(); showSettings(); }
       else if (a === 'movysetup' && current?.catalog === 'movy') {
         window.StreamBoxMovySetup?.open({ record: current, season: Number.isInteger(current.season) ? current.season : 1, episode: Number.isInteger(current.episode) ? current.episode : 1 });
       }
