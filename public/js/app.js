@@ -19,6 +19,10 @@
   const PAGE_IS_HTTPS = location.protocol === 'https:';
   const IS_IOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const IS_ANDROID = /Android/.test(navigator.userAgent);
+  const IS_SAFARI = /^((?!chrome|chromium|crios|fxios|edg|android).)*safari/i.test(navigator.userAgent);
+  // iPhone, iPad and Safari play HLS natively. Only the native player can be sent to an Apple TV with AirPlay,
+  // and it needs no CORS permission from the stream.
+  const NATIVE_HLS = (IS_IOS || IS_SAFARI) && !!document.createElement('video').canPlayType('application/vnd.apple.mpegurl');
   const VLC_STORES = {
     ios: 'https://apps.apple.com/app/vlc-for-mobile/id650377962',
     android: 'https://play.google.com/store/apps/details?id=org.videolan.vlc',
@@ -34,7 +38,7 @@
     get(key, fallback) { try { const v = localStorage.getItem('sb:' + key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
     set(key, value) { try { localStorage.setItem('sb:' + key, JSON.stringify(value)); } catch { /* private mode */ } },
   };
-  const settings = Object.assign({ showAll: false, autoVlc: true, hideBad: true, sources: [], guides: [], proxyUrl: '', proxyToken: '' }, store.get('settings', {}));
+  const settings = Object.assign({ showAll: false, autoVlc: true, autoFullscreen: !!matchMedia?.('(pointer: coarse)').matches, hideBad: true, sources: [], guides: [], proxyUrl: '', proxyToken: '' }, store.get('settings', {}));
   const saveSettings = () => store.set('settings', settings);
 
   // ---------------------------------------------------------------- state
@@ -59,7 +63,7 @@
 
   // A browser can load a stream directly unless it needs custom headers or is plain http:// on an https page.
   // With a StreamBox proxy configured (Settings), every channel can play in the app.
-  const CORS_EXEMPT = IS_IOS || IS_ANDROID;   // the phone's own HLS player ignores CORS; desktop hls.js can't
+  const CORS_EXEMPT = IS_IOS || IS_ANDROID || NATIVE_HLS;   // the platform's own HLS player ignores CORS; hls.js can't
   const directOK = ch => ch.type !== 'live' || (!ch.needsHeaders && (!PAGE_IS_HTTPS || ch.url.startsWith('https://')) && !(ch.noCors && !CORS_EXEMPT));
   const hasProxy = () => {
     try {
@@ -728,7 +732,7 @@
       if (current !== item) return;
       progressKey = item.key; progressSavedAt = Date.now(); resumeFrom = progressMap()[item.key] || null;
       const isHls = /\.m3u8(?:$|\?)/i.test(item.url);
-      if (isHls && !IS_IOS && window.Hls?.isSupported()) {
+      if (isHls && !IS_IOS && !NATIVE_HLS && window.Hls?.isSupported()) {
         hls = new Hls({ enableWorker: true, backBufferLength: 30 });
         hls.loadSource(item.url); hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
@@ -766,6 +770,8 @@
       player.classList.add('live-mode');
       video.controls = false;   // StreamBox's own controls (below) replace the browser's
       applyVolume(); syncPlayerUI(); showPlayerHint();
+      // Straight from the tap that opened the channel (browsers only allow full screen then). Not when switching channels.
+      if (settings.autoFullscreen && !inFullscreen()) enterFullscreen();
     }
 
     if (item.type === 'live' && !force && !isPlayable(item)) {
@@ -777,7 +783,7 @@
 
     const url = item.url;
     // Cheapest route first, then fall back: direct (hls.js) -> the browser's own HLS player (no CORS check) -> your proxy
-    const hlsJs = !IS_IOS && !!window.Hls?.isSupported();
+    const hlsJs = !IS_IOS && !NATIVE_HLS && !!window.Hls?.isSupported();
     const plan = [];
     if (directOK(item) || force) {
       const direct = { url, native: !hlsJs, label: 'direct' }, native = { url, native: true, label: 'native' };
@@ -857,7 +863,7 @@
     player.hidden = true;
     msg.hidden = true;
     document.body.style.overflow = '';
-    exitFullscreen();
+    if (fsElement() === player || video.webkitDisplayingFullscreen) exitFullscreen();
     player.classList.remove('live-mode');
     if (pendingMovieRender) { pendingMovieRender = false; route(); }
     if (!location.hash || location.hash === '#home') startHero(SKY_RACING[0].url);
@@ -889,6 +895,7 @@
     enter: svg('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'),
     exit: svg('<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>'),
     pip: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="12" width="7" height="5" rx="1" fill="currentColor"/>'),
+    airplay: svg('<path d="M6 17H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="m12 14 5.5 7h-11z" fill="currentColor"/>'),
   };
   const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
   const inFullscreen = () => fsElement() === player || !!video.webkitDisplayingFullscreen;
@@ -920,6 +927,7 @@
 
   const playBtn = $('#playerPlay'), muteBtn = $('#playerMute'), volInput = $('#playerVol');
   const fsBtn = $('#playerFs'), pipBtn = $('#playerPip'), playerHint = $('#playerHint');
+  const fsTopBtn = $('#playerFsTop'), airBtn = $('#playerAirplay');
   const volumeState = Object.assign({ v: 1, m: false }, store.get('volume', {}));
 
   function applyVolume() {
@@ -934,13 +942,24 @@
     muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
     volInput.value = video.muted ? 0 : video.volume;
     const full = inFullscreen();
-    fsBtn.innerHTML = full ? ICON.exit : ICON.enter;
-    fsBtn.setAttribute('aria-label', full ? 'Exit full screen' : 'Full screen');
+    fsBtn.innerHTML = fsTopBtn.innerHTML = full ? ICON.exit : ICON.enter;
+    for (const b of [fsBtn, fsTopBtn]) b.setAttribute('aria-label', full ? 'Exit full screen' : 'Full screen');
+    airBtn.innerHTML = ICON.airplay;
+    airBtn.hidden = !airplayAvailable;
+    airBtn.classList.toggle('on', !!video.webkitCurrentPlaybackTargetIsWireless);
+    airBtn.setAttribute('aria-label', video.webkitCurrentPlaybackTargetIsWireless ? 'Playing on AirPlay. Tap to change' : 'AirPlay');
+    syncAppFullscreen();
     player.classList.toggle('fullscreen', full);
     pipBtn.innerHTML = ICON.pip;
     pipBtn.hidden = !(document.pictureInPictureEnabled && !video.disablePictureInPicture);
     player.classList.toggle('no-volume', IS_IOS);
   }
+  // AirPlay (Safari on iPhone, iPad and Mac): the button only appears when an Apple TV or speaker is nearby
+  let airplayAvailable = false;
+  video.addEventListener('webkitplaybacktargetavailabilitychanged', e => { airplayAvailable = e.availability === 'available'; syncPlayerUI(); });
+  video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', syncPlayerUI);
+  airBtn.onclick = () => { try { video.webkitShowPlaybackTargetPicker(); } catch { toast('AirPlay isn’t available right now'); } };
+
   function togglePlayback() {
     if (!video.paused) { video.pause(); return; }
     if (hls?.liveSyncPosition) video.currentTime = hls.liveSyncPosition;   // resume at the live edge, not where it paused
@@ -948,7 +967,7 @@
   }
 
   playBtn.onclick = togglePlayback;
-  fsBtn.onclick = toggleFullscreen;
+  fsBtn.onclick = fsTopBtn.onclick = toggleFullscreen;
   pipBtn.onclick = () => (document.pictureInPictureElement ? document.exitPictureInPicture() : video.requestPictureInPicture())?.catch?.(() => toast('Picture in picture isn’t available'));
   muteBtn.onclick = () => {
     video.muted = !video.muted;
@@ -1087,6 +1106,10 @@
         <p>Checks for new movies on launch and once a day while the app is open. Saved titles stay available offline.</p>
         <p id="movieUpdateStatus" role="status" style="color:var(--muted)">${esc(movieUpdateText(movies.updates.status))}</p>
         <button class="btn btn-more" data-act="refreshmovies" style="font-size:13px;padding:6px 12px">Check for new movies</button>
+        <h3>Full screen &amp; AirPlay</h3>
+        <label><input type="checkbox" id="optAutoFs" ${settings.autoFullscreen ? 'checked' : ''}> Open channels in full screen</label>
+        <p style="color:var(--muted);font-size:13px">While watching: tap the full-screen button, double-tap or double-click the picture, or press <b>F</b>. ${IS_IOS ? 'On iPhone full screen uses the built-in video player.' : ''}</p>
+        <p style="color:var(--muted);font-size:13px"><b>AirPlay</b> button appears in the player when an Apple TV or AirPlay speaker is on the same Wi-Fi. It works in Safari on iPhone, iPad and Mac (Chrome and Edge can’t AirPlay). Channels that play through your proxy or need VLC can’t be sent.</p>
         <h3>Channels</h3>
         <label><input type="checkbox" id="optShowAll" ${settings.showAll ? 'checked' : ''}> Show channels that only play in VLC (http:// or header-protected)</label>
         <label><input type="checkbox" id="optAutoVlc" ${settings.autoVlc ? 'checked' : ''}> On iPhone/Android, open those channels in VLC automatically</label>
@@ -1266,6 +1289,7 @@
   modal.addEventListener('change', e => {
     if (e.target.id === 'optShowAll') { settings.showAll = e.target.checked; saveSettings(); route(); }
     else if (e.target.id === 'optAutoVlc') { settings.autoVlc = e.target.checked; saveSettings(); }
+    else if (e.target.id === 'optAutoFs') { settings.autoFullscreen = e.target.checked; saveSettings(); }
     else if (e.target.id === 'optHideBad') { settings.hideBad = e.target.checked; saveSettings(); route(); }
     else if (e.target.id === 'importFile' && e.target.files[0]) importData(e.target.files[0]);
   });
@@ -1292,6 +1316,7 @@
       else if ((e.key === 'm' || e.key === 'M') && isLivePlayer()) muteBtn.click();
       wakeControls();
     } else if (e.key === 'Escape' && !modal.hidden) closeModal();
+    else if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && !appFsBtn.hidden) appFsBtn.click();
   });
 
   // Search
@@ -1305,6 +1330,20 @@
 
   function onScroll() { if (!location.hash || location.hash === '#home') $('#topbar').classList.toggle('solid', scrollY > 60); }
   addEventListener('scroll', onScroll, { passive: true });
+  // ---- Full screen for the whole app (desktop, Android, iPad). Not shown in the installed app, which already is, or on iPhone Safari.
+  const appFsBtn = $('#appFsBtn');
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const root = document.documentElement;
+  const canAppFullscreen = !!(root.requestFullscreen || root.webkitRequestFullscreen);
+  function syncAppFullscreen() {
+    appFsBtn.hidden = !canAppFullscreen || standalone;
+    const on = fsElement() === root;
+    appFsBtn.innerHTML = on ? ICON.exit : ICON.enter;
+    appFsBtn.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+  }
+  appFsBtn.onclick = () => { if (fsElement()) (document.exitFullscreen || document.webkitExitFullscreen).call(document); else (root.requestFullscreen || root.webkitRequestFullscreen).call(root); };
+  syncAppFullscreen();
+
   // ---- Back button: the previous page in the app, or Home when there isn't one (e.g. the app was opened on this page)
   const backBtn = $('#backBtn');
   let navIndex = Number.isInteger(history.state?.i) ? history.state.i : 0;

@@ -186,3 +186,10 @@ html, body { background: #000; color: var(--text); font-family: var(--font); -we
   .topbar.has-back .install-btn span { display: none; }   /* icon only, to make room for Back */
   .topbar.has-back .install-btn { padding: 0; width: 40px; height: 40px; justify-content: center; border-radius: 50%; }
 }
+
+/* ---------- Full screen and AirPlay buttons ---------- */
+#appFsBtn { flex: none; }
+.player-nav #playerFsTop { width: 44px; height: 44px; }
+.player-bar #playerAirplay.on { color: #0a84ff; }   /* sending to an Apple TV */
+.player-bar #playerAirplay[hidden], .player-bar #playerPip[hidden] { display: none; }
+@media (max-width: 600px) { #appFsBtn { display: none; } }   /* phones: the player has its own full screen, and the top bar is full */

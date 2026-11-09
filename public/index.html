@@ -54,6 +54,7 @@
       <button class="icon-btn" id="searchToggle" aria-label="Search">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       </button>
+      <button class="icon-btn" id="appFsBtn" type="button" aria-label="Full screen" title="Full screen (F)" hidden></button>
       <input class="search-input" id="searchInput" type="search" placeholder="Search channels & movies…" autocomplete="off">
       <button class="icon-btn" id="settingsBtn" aria-label="Settings">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
@@ -78,7 +79,7 @@
       <button id="movieNextSource" class="btn btn-more" type="button">Try next source</button>
       <span id="movieSourceStatus" role="status" aria-live="polite"></span>
     </div>
-    <video id="video" playsinline controls></video>
+    <video id="video" playsinline controls x-webkit-airplay="allow"></video>
     <div class="player-top">
       <button class="icon-btn" id="playerClose" aria-label="Back">
         <svg viewBox="0 0 24 24"><path d="M15 18 9 12l6-6"/></svg>
@@ -89,6 +90,7 @@
         <small id="playerSub"></small>
       </div>
       <div class="player-nav">
+        <button class="icon-btn" id="playerFsTop" type="button" aria-label="Full screen" title="Full screen (F)"></button>
         <button class="icon-btn" id="playerPrev" aria-label="Previous channel"><svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg></button>
         <button class="icon-btn" id="playerNext" aria-label="Next channel"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
       </div>
@@ -100,6 +102,7 @@
       <input class="player-vol" id="playerVol" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume">
       <span class="player-live"><span class="dot"></span>LIVE</span>
       <span class="spacer"></span>
+      <button class="icon-btn" id="playerAirplay" type="button" aria-label="AirPlay" title="AirPlay" hidden></button>
       <button class="icon-btn" id="playerPip" type="button" aria-label="Picture in picture" hidden></button>
       <button class="icon-btn" id="playerFs" type="button" aria-label="Full screen"></button>
     </div>
