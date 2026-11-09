@@ -343,3 +343,33 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .movy-setup-wait .spinner { width: 18px; height: 18px; border-width: 2px; margin: 0; flex: none; }
 .movy-setup-note { color: var(--muted); font-size: 13px; margin-top: 10px; }
 .movy-setup-note b { color: var(--text); }
+
+/* ---------- Live player (channels only; movies and library videos keep their own layout) ---------- */
+.player-bar, .player-hint { display: none; }
+.player.live-mode { height: 100vh; height: 100dvh; touch-action: none; overscroll-behavior: contain; }   /* dvh: the visible height on phones/tablets */
+.player.live-mode video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.player.live-mode .player-top {
+  z-index: 3; padding-top: calc(10px + var(--safe-top));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.player.live-mode .player-bar {
+  display: flex; align-items: center; gap: 4px; z-index: 3;
+  position: absolute; inset: auto 0 0 0;
+  padding: 36px max(12px, env(safe-area-inset-right, 0px)) calc(10px + var(--safe-bottom)) max(12px, env(safe-area-inset-left, 0px));
+  background: linear-gradient(transparent, rgba(0,0,0,.85)); transition: opacity .4s;
+}
+.player.live-mode.idle .player-bar { opacity: 0; pointer-events: none; }
+.player-bar .icon-btn { width: 44px; height: 44px; }   /* comfortable touch targets */
+.player-bar .icon-btn svg { width: 26px; height: 26px; }
+.player-bar .spacer { flex: 1; }
+.player-vol { width: 96px; accent-color: var(--red); cursor: pointer; }
+.player.no-volume .player-vol { display: none; }   /* iPhone/iPad: volume is the hardware buttons */
+.player-live { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; font-size: 12px; font-weight: 800; letter-spacing: 1px; }
+.player.live-mode .player-hint {
+  display: block; position: absolute; z-index: 3; left: 50%; bottom: calc(84px + var(--safe-bottom)); transform: translateX(-50%);
+  padding: 6px 14px; border-radius: 999px; background: rgba(0,0,0,.6); color: #ddd; font-size: 13px; white-space: nowrap; pointer-events: none;
+}
+.player.live-mode .player-hint[hidden] { display: none; }
+.player.live-mode.idle { cursor: none; }
+@media (max-width: 600px) { .player-vol { display: none; } .player-live { margin-left: 4px; } }
+@media (max-height: 420px) { .player.live-mode .player-bar { padding-top: 20px; } .player.live-mode .player-top { padding-bottom: 14px; } }   /* phone in landscape */

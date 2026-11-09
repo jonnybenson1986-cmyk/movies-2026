@@ -89,6 +89,17 @@
         <button class="icon-btn" id="playerNext" aria-label="Next channel"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
       </div>
     </div>
+    <!-- Controls for live channels (hidden for movies and library videos) -->
+    <div class="player-bar" id="playerBar">
+      <button class="icon-btn" id="playerPlay" type="button" aria-label="Pause"></button>
+      <button class="icon-btn" id="playerMute" type="button" aria-label="Mute"></button>
+      <input class="player-vol" id="playerVol" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume">
+      <span class="player-live"><span class="dot"></span>LIVE</span>
+      <span class="spacer"></span>
+      <button class="icon-btn" id="playerPip" type="button" aria-label="Picture in picture" hidden></button>
+      <button class="icon-btn" id="playerFs" type="button" aria-label="Full screen"></button>
+    </div>
+    <div class="player-hint" id="playerHint" hidden></div>
     <div class="player-msg" id="playerMsg" hidden></div>
   </div>
   <div class="modal" id="modal" hidden>

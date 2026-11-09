@@ -67,6 +67,16 @@ Channels are bundled by **country / area of origin**, taken from the country cod
 - **A country's page** bundles all its channels, with category filters (News, Sports, Kids…) and **Play in VLC** to export the whole bundle as one playlist.
 - Cards show the channel's flag, the player shows its country, and search understands country names (try `ukraine`).
 
+## The live player
+
+Live channels play in StreamBox's own player (`live-mode` in `public/js/app.js`):
+
+- **Full screen that works on phones and tablets:** the whole player goes full screen, so the controls stay on screen. On Android it also locks to landscape. iPhone only allows the video itself to go full screen, so it uses that. The player is sized to the visible screen (`100dvh`) and respects notches and the home bar, so the controls are never cut off.
+- **Controls:** play/pause (resumes at the live edge), mute and volume (remembered; iPhone/iPad use the hardware buttons), picture-in-picture where the browser supports it, channel up/down, and a buffering spinner.
+- **Gestures and keys:** tap shows or hides the controls, double-tap or double-click is full screen, swipe down closes. On a computer: click or `Space`/`K` plays and pauses, `F` is full screen, `M` mutes, `↑`/`↓` change channel, `Esc` closes.
+- Movies and personal-library videos keep their own layout and are not affected.
+- `node --test tests/*.test.mjs` covers the rest of the app; the player was checked in a real browser at phone, tablet and desktop sizes.
+
 ## Why some channels don't play in the app (and what fixes each)
 
 A browser is stricter than VLC. When a channel shows "Channel unavailable", the message now says why:

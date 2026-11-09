@@ -670,6 +670,7 @@
     movieFrame.hidden = movieTools.hidden = true;
     video.hidden = false;
     player.classList.remove('movie-mode');
+    playerHint.hidden = true;
     if (hls) { hls.destroy(); hls = null; }
     video.pause(); video.removeAttribute('src'); video.load();
   }
@@ -677,6 +678,7 @@
   async function play(item, list = [], force = false) {
     stopHero();
     teardown();
+    player.classList.remove('live-mode');   // each stream attempt calls teardown(), so this is reset here, not there
     current = item;
     currentList = list.length ? list : [item];
     player.hidden = false;
@@ -727,6 +729,12 @@
       msg.hidden = true;
       moviePlayback.start(item, movieChoices(item));
       return;
+    }
+
+    if (item.type === 'live') {
+      player.classList.add('live-mode');
+      video.controls = false;   // StreamBox's own controls (below) replace the browser's
+      applyVolume(); syncPlayerUI(); showPlayerHint();
     }
 
     if (item.type === 'live' && !force && !isPlayable(item)) {
@@ -816,7 +824,8 @@
     player.hidden = true;
     msg.hidden = true;
     document.body.style.overflow = '';
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    exitFullscreen();
+    player.classList.remove('live-mode');
     if (pendingMovieRender) { pendingMovieRender = false; route(); }
     if (!location.hash || location.hash === '#home') startHero(SKY_RACING[0].url);
   }
@@ -833,6 +842,135 @@
     player.classList.remove('idle');
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => player.classList.add('idle'), 3500);
+  }
+
+
+  // ---------------------------------------------------------------- live player controls
+  // Play/pause, volume, full screen, picture-in-picture and touch gestures for live channels.
+  const svg = body => `<svg viewBox="0 0 24 24">${body}</svg>`;
+  const ICON = {
+    play: svg('<path d="M7 4v16l13-8z" fill="currentColor" stroke="none"/>'),
+    pause: svg('<path d="M8 5v14M16 5v14" stroke-width="3.4"/>'),
+    volume: svg('<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>'),
+    muted: svg('<path d="M4 9v6h4l5 4V5L8 9z"/><path d="m17 9 5 6M22 9l-5 6"/>'),
+    enter: svg('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'),
+    exit: svg('<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>'),
+    pip: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="12" width="7" height="5" rx="1" fill="currentColor"/>'),
+  };
+  const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+  const inFullscreen = () => fsElement() === player || !!video.webkitDisplayingFullscreen;
+  const isLivePlayer = () => player.classList.contains('live-mode');
+
+  // The whole player goes full screen so the channel controls stay on screen.
+  // iPhone only allows the video element itself, so it falls back to that.
+  async function enterFullscreen() {
+    try {
+      if (player.requestFullscreen) await player.requestFullscreen({ navigationUI: 'hide' });
+      else if (player.webkitRequestFullscreen) player.webkitRequestFullscreen();
+      else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+      else return false;
+    } catch {
+      try { if (!video.webkitEnterFullscreen) return false; video.webkitEnterFullscreen(); } catch { return false; }
+    }
+    try { await screen.orientation?.lock?.('landscape'); } catch { /* only allowed in full screen, and not by every browser */ }
+    return true;
+  }
+  function exitFullscreen() {
+    try { screen.orientation?.unlock?.(); } catch { /* ignore */ }
+    if (fsElement()) (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {});
+    else if (video.webkitDisplayingFullscreen) video.webkitExitFullscreen?.();
+  }
+  async function toggleFullscreen() {
+    if (inFullscreen()) exitFullscreen();
+    else if (!(await enterFullscreen())) toast('Full screen isn’t available in this browser');
+  }
+
+  const playBtn = $('#playerPlay'), muteBtn = $('#playerMute'), volInput = $('#playerVol');
+  const fsBtn = $('#playerFs'), pipBtn = $('#playerPip'), playerHint = $('#playerHint');
+  const volumeState = Object.assign({ v: 1, m: false }, store.get('volume', {}));
+
+  function applyVolume() {
+    if (!IS_IOS) video.volume = volumeState.v;   // iPhone/iPad ignore this (hardware buttons)
+    video.muted = volumeState.m;
+  }
+  function syncPlayerUI() {
+    playBtn.innerHTML = video.paused ? ICON.play : ICON.pause;
+    playBtn.setAttribute('aria-label', video.paused ? 'Play' : 'Pause');
+    const muted = video.muted || video.volume === 0;
+    muteBtn.innerHTML = muted ? ICON.muted : ICON.volume;
+    muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+    volInput.value = video.muted ? 0 : video.volume;
+    const full = inFullscreen();
+    fsBtn.innerHTML = full ? ICON.exit : ICON.enter;
+    fsBtn.setAttribute('aria-label', full ? 'Exit full screen' : 'Full screen');
+    player.classList.toggle('fullscreen', full);
+    pipBtn.innerHTML = ICON.pip;
+    pipBtn.hidden = !(document.pictureInPictureEnabled && !video.disablePictureInPicture);
+    player.classList.toggle('no-volume', IS_IOS);
+  }
+  function togglePlayback() {
+    if (!video.paused) { video.pause(); return; }
+    if (hls?.liveSyncPosition) video.currentTime = hls.liveSyncPosition;   // resume at the live edge, not where it paused
+    video.play().catch(() => {});
+  }
+
+  playBtn.onclick = togglePlayback;
+  fsBtn.onclick = toggleFullscreen;
+  pipBtn.onclick = () => (document.pictureInPictureElement ? document.exitPictureInPicture() : video.requestPictureInPicture())?.catch?.(() => toast('Picture in picture isn’t available'));
+  muteBtn.onclick = () => {
+    video.muted = !video.muted;
+    if (!video.muted && video.volume === 0) video.volume = 0.5;
+    volumeState.m = video.muted; volumeState.v = video.volume || 0.5;
+    store.set('volume', volumeState);
+  };
+  volInput.oninput = () => {
+    const v = +volInput.value;
+    video.volume = v; video.muted = v === 0;
+    volumeState.m = v === 0; if (v > 0) volumeState.v = v;
+    store.set('volume', volumeState);
+  };
+  for (const ev of ['play', 'pause', 'volumechange', 'emptied', 'webkitbeginfullscreen', 'webkitendfullscreen']) video.addEventListener(ev, syncPlayerUI);
+  for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => {
+    if (!fsElement()) { try { screen.orientation?.unlock?.(); } catch { /* ignore */ } }
+    syncPlayerUI();
+  });
+
+  // Show a spinner while the stream is buffering (the first-load spinner is handled in play())
+  video.addEventListener('waiting', () => { if (isLivePlayer() && current && msg.hidden) { msg.innerHTML = '<div class="spinner"></div>'; msg.hidden = false; } });
+  video.addEventListener('playing', () => { if (isLivePlayer() && msg.querySelector('.spinner') && !msg.querySelector('h3')) msg.hidden = true; });
+
+  // Mouse: click plays/pauses, double-click is full screen. Touch: tap shows/hides the controls, double-tap is full screen,
+  // swipe down closes the player.
+  let pointerType = 'mouse', idleAtDown = false, tapTimer = 0, swipe = null;
+  player.addEventListener('pointerdown', e => { pointerType = e.pointerType; idleAtDown = player.classList.contains('idle'); });
+  video.addEventListener('click', () => {
+    if (!isLivePlayer()) return;
+    if (tapTimer) { clearTimeout(tapTimer); tapTimer = 0; toggleFullscreen(); return; }
+    tapTimer = setTimeout(() => {
+      tapTimer = 0;
+      if (pointerType === 'touch') player.classList.toggle('idle', !idleAtDown);
+      else togglePlayback();
+    }, 250);
+  });
+  player.addEventListener('touchstart', e => {
+    if (!isLivePlayer() || e.touches.length !== 1 || e.target.closest('.player-bar, .player-top, .player-msg')) { swipe = null; return; }
+    swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY, at: Date.now() };
+  }, { passive: true });
+  player.addEventListener('touchend', e => {
+    if (!swipe) return;
+    const t = e.changedTouches[0], dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+    if (dy > 110 && Math.abs(dx) < 70 && Date.now() - swipe.at < 700) { clearTimeout(tapTimer); tapTimer = 0; closePlayer(); }
+    swipe = null;
+  }, { passive: true });
+
+  function showPlayerHint() {
+    const seen = store.get('hintSeen', 0);
+    if (seen >= 3 || !('ontouchstart' in window)) return;
+    store.set('hintSeen', seen + 1);
+    playerHint.textContent = 'Swipe down to close · double-tap for full screen';
+    playerHint.hidden = false;
+    clearTimeout(showPlayerHint.timer);
+    showPlayerHint.timer = setTimeout(() => { playerHint.hidden = true; }, 4000);
   }
 
   // ---------------------------------------------------------------- modals
@@ -1098,7 +1236,9 @@
       if (e.key === 'Escape') closePlayer();
       else if (e.key === 'ArrowUp' && current?.type === 'live') step(-1);
       else if (e.key === 'ArrowDown' && current?.type === 'live') step(1);
-      else if (e.key === 'f') (document.fullscreenElement ? document.exitFullscreen() : player.requestFullscreen?.())?.catch?.(() => {});
+      else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+      else if ((e.key === ' ' || e.key === 'k') && isLivePlayer() && !/^(BUTTON|INPUT|A|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); togglePlayback(); }
+      else if ((e.key === 'm' || e.key === 'M') && isLivePlayer()) muteBtn.click();
       wakeControls();
     } else if (e.key === 'Escape' && !modal.hidden) closeModal();
   });
