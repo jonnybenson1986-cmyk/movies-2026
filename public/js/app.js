@@ -47,7 +47,7 @@
   const $ = sel => document.querySelector(sel);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const hash = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); };
-  const tileColor = name => { const h = hash(name) % 360; return `linear-gradient(135deg, hsl(${h} 55% 32%), hsl(${(h + 40) % 360} 60% 14%))`; };
+  const tileColor = name => { const h = hash(name) % 360; return `linear-gradient(150deg, hsl(${h} 34% 27%), hsl(${(h + 30) % 360} 38% 10%))`; };
   const initials = name => name.replace(/[^\p{L}\p{N} ]/gu, '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
@@ -310,15 +310,15 @@
     const ok = isPlayable(item);
     const nowOn = guideFor(item)?.now;
     const meta = nowOn ? `Now: ${nowOn.title}` : ([item.source, item.quality].filter(Boolean).join(' · ') || item.cat);
-    return `<button class="card" data-key="${esc(item.key)}" aria-label="${esc(item.name)}">
-      <span class="badge ${ok ? '' : 'warn'}">${ok ? '<span class="dot" style="background:#fff"></span>LIVE' : 'VLC'}</span>
-      ${inMyList(item.key) ? '<span class="fav">★</span>' : ''}
-      <span class="tile" style="--tile:${tileColor(item.name)}" data-initials="${esc(initials(item.name))}">
-        ${item.logo ? `<img loading="lazy" src="${esc(item.logo)}" alt="" style="position:absolute;inset:18% 25% 38%;width:50%;height:44%;object-fit:contain" onerror="this.remove()">` : ''}
-        <span class="name">${esc(item.name)}</span>
-        <span class="meta">${esc(meta)}</span>
+    return `<button class="card apple" data-key="${esc(item.key)}" aria-label="${esc(item.name)}">
+      <span class="art" style="--tile:${tileColor(item.name)}">
+        ${item.logo ? `<span class="plate"><img loading="lazy" src="${esc(item.logo)}" alt="" onerror="this.closest('.plate').remove()"></span>` : ''}
+        <span class="initials">${esc(initials(item.name))}</span>
+        <span class="badge ${ok ? '' : 'warn'}">${ok ? '<span class="dot"></span>LIVE' : 'VLC'}</span>
+        ${inMyList(item.key) ? '<span class="fav">★</span>' : ''}
         ${item.cc ? flagImg(item.cc, 'card-flag') : ''}
       </span>
+      <span class="caption"><span class="name">${esc(item.name)}</span><span class="meta">${esc(meta)}</span></span>
     </button>`;
   }
 
@@ -1060,6 +1060,10 @@
         <div class="form-row"><input type="text" id="proxyToken" placeholder="Token (optional, if your proxy uses PROXY_TOKEN)" value="${esc(settings.proxyToken)}" autocomplete="off" spellcheck="false"><button class="btn btn-red" data-act="saveproxy" style="padding:8px 16px">Save</button>${hasProxy() ? '<button class="btn btn-more" data-act="clearproxy" style="padding:8px 16px">Remove</button>' : ''}</div>
         <label><input type="checkbox" id="optHideBad" ${settings.hideBad ? 'checked' : ''}> Hide channels that failed to play on this device (for 12 hours)</label>
         <button class="btn btn-more" data-act="resetbad" style="font-size:13px;padding:6px 12px">Show hidden channels again (${Object.keys(bad).length})</button>
+        <h3>Artwork for movies &amp; series</h3>
+        <p style="color:var(--muted)">${artworkKey() ? `Artwork on. Key saved (ends …${esc(artworkKey().slice(-4))}), stored only on this device.` : 'Optional: paste a free TMDB API key (themoviedb.org → Settings → API) to show real posters. Without it, titles show typographic artwork.'}</p>
+        <div class="form-row"><input type="text" id="artInput" placeholder="TMDB API key (v3)" autocomplete="off" spellcheck="false"><button class="btn btn-red" data-act="saveart" style="padding:8px 16px">Save</button>${artworkKey() ? '<button class="btn btn-more" data-act="clearart" style="padding:8px 16px">Remove</button>' : ''}</div>
+        <p style="color:#777;font-size:12px;margin-top:8px">This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
         <h3>Playlists (M3U)</h3>
         <p style="color:var(--muted)">Add any M3U/M3U8 playlist URL. It must be https and allow cross-origin requests.</p>
         <ul class="src-list">${settings.sources.map((s, i) => `<li><span>${esc(s)}</span><button class="btn btn-more" style="padding:4px 10px;font-size:12px" data-act="rmsrc" data-i="${i}">Remove</button></li>`).join('') || '<li><span style="color:var(--muted)">No extra playlists.</span></li>'}</ul>
@@ -1082,6 +1086,14 @@
         ${isInstalled() ? '<p style="color:var(--green)">StreamBox is installed on this device ✓</p>' : '<button class="btn btn-red" data-act="install" style="font-size:13px;padding:6px 12px">Download StreamBox</button>'}
         <p style="margin-top:8px"><b>iPhone / iPad:</b> open in Safari → Share → <i>Add to Home Screen</i>.<br><b>Android:</b> open in Chrome → ⋮ menu → <i>Install app</i>.<br><b>Windows / Mac:</b> open in Chrome or Edge → install icon in the address bar.</p>
       </div>`);
+  }
+
+  const artworkKey = () => (/^[a-f0-9]{32}$/i.test(settings.tmdbKey || '') ? settings.tmdbKey : '');
+  function saveArtworkKey(key) {
+    if (!/^[a-f0-9]{32}$/i.test(key)) { toast(key.startsWith('eyJ') ? 'That’s a v4 token. Use the 32-character “API Key” (v3).' : 'TMDB API keys are 32 characters long.'); return; }
+    settings.tmdbKey = key; saveSettings();
+    window.StreamBoxArt?.reload();
+    closeModal(); toast('Artwork on'); route();
   }
 
   async function saveProxy(url, token) {
@@ -1169,6 +1181,8 @@
       else if (a === 'refreshmovies') movies.updates.refresh({ force: true });
       else if (a === 'clearhist') { store.set('history', []); toast('History cleared'); }
       else if (a === 'opensettings') showSettings();
+      else if (a === 'saveart') saveArtworkKey($('#artInput').value.trim());
+      else if (a === 'clearart') { settings.tmdbKey = ''; saveSettings(); window.StreamBoxArt?.reload(); toast('Artwork key removed'); route(); showSettings(); }
       else if (a === 'movysetup' && current?.catalog === 'movy') {
         window.StreamBoxMovySetup?.open({ record: current, season: Number.isInteger(current.season) ? current.season : 1, episode: Number.isInteger(current.episode) ? current.episode : 1 });
       }

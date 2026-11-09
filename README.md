@@ -67,6 +67,15 @@ Channels are bundled by **country / area of origin**, taken from the country cod
 - **A country's page** bundles all its channels, with category filters (News, Sports, Kids…) and **Play in VLC** to export the whole bundle as one playlist.
 - Cards show the channel's flag, the player shows its country, and search understands country names (try `ukraine`).
 
+## Apple TV look
+
+Channels and movies use an Apple TV-style design (`public/css/apple.css`, loaded after `app.css`):
+- Rounded artwork with the **title and details underneath**: 16:9 tiles for channels (logo on a soft plate, flag, LIVE tag) and 2:3 posters for movies and series.
+- A floating pill navigation on desktop, a frosted tab bar on phones, a large-type hero, white pill buttons, and soft hover lift.
+- Cards with the `apple` class use the new layout; older cards (personal library, link cards) keep their layout.
+
+**Movie and series artwork (optional).** The movie data has no artwork, so titles show typographic posters by default. To show real posters and a backdrop on the Movies hero, open *Settings → Artwork for movies & series* and paste a free [TMDB](https://www.themoviedb.org) API key (themoviedb.org → Settings → API, the 32-character *API Key (v3)*). The key stays on that device. Posters load only for the cards on screen and are remembered. This product uses the TMDB API but is not endorsed or certified by TMDB.
+
 ## The live player
 
 Live channels play in StreamBox's own player (`live-mode` in `public/js/app.js`):

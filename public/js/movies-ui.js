@@ -13,7 +13,7 @@
     let h = 0;
     for (const c of name) h = (h * 31 + c.charCodeAt(0)) | 0;
     h = Math.abs(h) % 360;
-    return `linear-gradient(135deg, hsl(${h} 55% 32%), hsl(${(h + 40) % 360} 60% 14%))`;
+    return `linear-gradient(150deg, hsl(${h} 34% 27%), hsl(${(h + 30) % 360} 38% 10%))`;
   };
   const url = (movie, index = 0) => sources[index].base + movie.id;
   let collections = [], all = [], failed = false;
@@ -44,10 +44,17 @@
 
   function card(m) {
     const meta = [m.year, m.vote ? '★ ' + m.vote : ''].filter(Boolean).join(' · ');
-    return `<button class="card poster movie-card" data-key="${esc(m.key)}" aria-label="${esc(m.name)}">
-      <span class="badge">MOVIE</span>
-      <span class="tile" style="--tile:${color(m.name)}"><span class="movie-mark" aria-hidden="true">▶</span>
-      <span class="name">${esc(m.name)}</span><span class="meta">${esc(meta)}</span></span></button>`;
+    const type = m.mediaType === 'tv' || m.mediaType === 'anime' ? 'tv' : 'movie';   // TMDB endpoint used for artwork
+    return `<button class="card apple poster movie-card" data-key="${esc(m.key)}" data-art-id="${esc(m.id)}" data-art-type="${type}" aria-label="${esc(m.name)}">
+      <span class="art" style="--tile:${color(m.name)}"><span class="badge">MOVIE</span>
+      <span class="art-year">${esc(m.year)}</span><span class="art-title">${esc(m.name)}</span></span>
+      <span class="caption"><span class="name">${esc(m.name)}</span><span class="meta">${esc(meta)}</span></span></button>`;
+  }
+
+  // One featured title for the hero, the same all day
+  function featured() {
+    const pool = all.filter(m => (m.overview || '').length > 80 && m.year);
+    return pool.length ? pool[Math.floor(Date.now() / 864e5) % pool.length] : null;
   }
 
   function detail(m, saved) {
@@ -68,14 +75,26 @@
     }
     const c = id && collections.find(c => c.id === id);
     if (id && !c) { location.hash = 'movies'; return; }
-    view.innerHTML = `<div class="page"><div class="page-head"><h1>${esc(c ? c.title : 'Movies')}</h1>
-      <span class="count">${c ? c.movies.length : all.length} movies${c ? '' : ' · ' + collections.length + ' collections'}</span>
-      ${c ? '<a class="btn btn-more page-btn" href="#movies">All collections</a>' : ''}</div>
-      ${c ? `<div class="grid poster-grid movie-grid">${c.movies.map(card).join('')}</div>` :
-        `<div class="chips">${collections.map(c => `<a class="chip" href="#movies/${esc(c.id)}">${esc(c.title)} (${c.movies.length})</a>`).join('')}</div>
-        <div class="rows">${collections.map(c => `<section class="row"><div class="row-head"><h2>${esc(c.title)}</h2>
-          <a class="see-all" href="#movies/${esc(c.id)}">See all ›</a></div>
-          <div class="row-track-wrap"><div class="row-track">${c.movies.slice(0, 40).map(card).join('')}</div></div></section>`).join('')}</div>`}</div>`;
+    if (c) {
+      view.innerHTML = `<div class="page"><div class="page-head"><h1>${esc(c.title)}</h1>
+        <span class="count">${c.movies.length} movies</span>
+        <a class="btn btn-more page-btn" href="#movies">All collections</a></div>
+        <div class="grid poster-grid movie-grid">${c.movies.map(card).join('')}</div></div>`;
+      return;
+    }
+    const pick = featured();
+    const hero = pick ? `<section class="hero movies-hero" data-art-id="${esc(pick.id)}" data-art-type="${pick.mediaType === 'tv' || pick.mediaType === 'anime' ? 'tv' : 'movie'}">
+        <div class="hero-bg" style="background-image:${color(pick.name)}"></div>
+        <div class="hero-content"><span class="hero-tag">Featured</span><h1>${esc(pick.name)}</h1>
+          <p class="meta-line">${esc([pick.year, pick.vote ? '★ ' + pick.vote : '', pick.collection].filter(Boolean).join(' · '))}</p>
+          <p>${esc(pick.overview)}</p>
+          <div class="hero-actions"><button class="btn btn-play" data-key="${esc(pick.key)}">Details</button></div></div></section>` : '';
+    view.innerHTML = `${hero}<div class="rows${pick ? '' : ' no-hero'}">
+      <div class="chips">${collections.map(c => `<a class="chip" href="#movies/${esc(c.id)}">${esc(c.title)}</a>`).join('')}</div>
+      ${collections.map(c => `<section class="row"><div class="row-head"><h2>${esc(c.title)}</h2>
+        <a class="see-all" href="#movies/${esc(c.id)}">See all ›</a></div>
+        <div class="row-track-wrap"><div class="row-track">${c.movies.slice(0, 40).map(card).join('')}</div></div></section>`).join('')}
+      ${window.StreamBoxArt?.enabled() ? '<p class="attrib">This product uses the TMDB API but is not endorsed or certified by TMDB.</p>' : ''}</div>`;
   }
 
   window.StreamBoxMovies = { ready, card, detail, render, sources, url, restore, updates, get newMovies() { return collections.find(c => c.id === 'new')?.movies || []; }, get all() { return all; } };

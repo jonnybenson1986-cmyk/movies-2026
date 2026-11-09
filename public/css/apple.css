@@ -1,0 +1,177 @@
+/* ==========================================================================
+   StreamBox — Apple TV look
+   Loaded after app.css. Soft black, frosted glass, rounded artwork with the title underneath,
+   pill navigation, large type. Cards that use the new markup carry the `apple` class; older
+   cards (personal library, link cards) keep their previous layout.
+   ========================================================================== */
+:root {
+  --bg: #000;
+  --bg-2: #1c1c1e;
+  --bg-3: #2c2c2e;
+  --text: #f5f5f7;
+  --muted: #8e8e93;
+  --fill: rgba(120, 120, 128, .24);
+  --fill-strong: rgba(120, 120, 128, .4);
+  --glass: rgba(28, 28, 30, .72);
+  --gutter: clamp(16px, 4vw, 56px);
+  --radius: 14px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+}
+html, body { background: #000; color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+/* ---------- Navigation: floating pill on desktop, frosted tab bar on phones ---------- */
+.topbar { padding: calc(14px + var(--safe-top)) var(--gutter) 14px; background: linear-gradient(rgba(0,0,0,.7), transparent); gap: 16px; }
+.topbar.solid { background: rgba(0, 0, 0, .72); -webkit-backdrop-filter: saturate(180%) blur(24px); backdrop-filter: saturate(180%) blur(24px); }
+.logo { font-size: 20px; font-weight: 800; letter-spacing: .04em; }
+.nav {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  max-width: calc(100% - 330px); overflow-x: auto; scrollbar-width: none;
+  display: flex; gap: 2px; padding: 4px; border-radius: 999px;
+  background: rgba(58, 58, 60, .55); -webkit-backdrop-filter: saturate(180%) blur(28px); backdrop-filter: saturate(180%) blur(28px);
+  box-shadow: 0 0 0 .5px rgba(255,255,255,.12) inset, 0 8px 30px rgba(0,0,0,.35);
+}
+.nav::-webkit-scrollbar { display: none; }
+.nav a { flex: none; padding: 7px 14px; border-radius: 999px; font-size: 14px; font-weight: 500; color: rgba(255,255,255,.72); transition: background .25s var(--ease), color .25s; }
+.nav a:hover { color: #fff; }
+.nav a.active { color: #fff; font-weight: 600; background: rgba(255,255,255,.2); }
+.icon-btn { background: var(--fill); }
+.icon-btn:hover { background: var(--fill-strong); }
+.search-input { border-radius: 999px; background: var(--glass); border-color: transparent; }
+.search-input.open { border-color: rgba(255,255,255,.35); }
+
+.tabbar {
+  background: rgba(22, 22, 24, .78); -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px);
+  border-top: .5px solid rgba(255,255,255,.14); padding-top: 8px;
+}
+.tabbar a { color: #8e8e93; font-weight: 500; transition: color .2s; }
+.tabbar a.active { color: #fff; }
+.tabbar a.active svg { stroke-width: 2.4; }
+
+/* ---------- Hero ---------- */
+.hero { height: min(76vh, 720px); min-height: 440px; max-height: none; }
+.hero .hero-bg { background: radial-gradient(120% 90% at 75% 15%, #3b3b40 0%, #141416 55%, #000 100%); background-size: cover; background-position: center; }
+.hero .hero-bg.has-art { filter: saturate(1.05); }
+.hero::after {
+  background: linear-gradient(0deg, #000 1%, rgba(0,0,0,.55) 28%, transparent 55%),
+              linear-gradient(90deg, rgba(0,0,0,.68) 0%, rgba(0,0,0,.25) 48%, transparent 75%);
+}
+.hero-content { left: var(--gutter); bottom: 15%; max-width: min(560px, 86vw); }
+.hero-tag { font-size: 12px; font-weight: 600; letter-spacing: .16em; color: rgba(255,255,255,.72); }
+.hero h1 { font-size: clamp(34px, 5.4vw, 64px); font-weight: 700; letter-spacing: -.025em; line-height: 1.03; margin: 10px 0 14px; text-shadow: 0 2px 24px rgba(0,0,0,.45); }
+.hero p { font-size: clamp(14px, 1.3vw, 17px); line-height: 1.45; color: rgba(255,255,255,.82); max-width: 520px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.hero .meta-line { margin: 0 0 18px; font-size: 14px; font-weight: 500; color: rgba(255,255,255,.7); }
+.btn { border-radius: 999px; padding: 12px 26px; font-size: 16px; font-weight: 600; transition: transform .25s var(--ease), background .25s; }
+.btn:hover { opacity: 1; transform: scale(1.03); }
+.btn-play { background: #f5f5f7; color: #000; }
+.btn-more { background: var(--fill-strong); color: #fff; -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
+.btn-red { background: #f5f5f7; color: #000; }
+
+.hero p.meta-line { display: block; -webkit-line-clamp: unset; margin: 0 0 10px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,.7); }
+.rows.no-hero { margin-top: calc(84px + var(--safe-top)); }
+.rows > .chips { padding-bottom: 18px; }
+
+/* ---------- Page titles and filters ---------- */
+.page-head h1 { font-size: clamp(30px, 4vw, 44px); font-weight: 700; letter-spacing: -.025em; }
+.page-head .count { color: var(--muted); font-size: 15px; font-weight: 500; }
+.chips { gap: 8px; padding-top: 12px; padding-bottom: 8px; }
+.chip { border: 0; background: var(--fill); color: #f5f5f7; padding: 8px 16px; font-size: 14px; font-weight: 500; transition: background .2s; }
+.chip:hover { background: var(--fill-strong); }
+.chip.active { background: #f5f5f7; color: #000; }
+.chip-accent { background: rgba(10,132,255,.22); color: #5eb0ff; }
+
+/* ---------- Shelves ---------- */
+.row { margin-bottom: 40px; }
+.row-head { padding-bottom: 12px; align-items: center; }
+.row-head h2 { font-size: clamp(19px, 1.8vw, 24px); font-weight: 700; letter-spacing: -.015em; }
+.row-head .see-all { margin-left: auto; color: var(--muted); font-size: 14px; font-weight: 500; }
+.row-head .see-all:hover { color: #fff; }
+.row-track { gap: 16px; padding-top: 10px; padding-bottom: 22px; }
+.row-arrow { top: 22px; bottom: auto; width: 44px; height: 44px; min-width: 0; border-radius: 50%; background: rgba(40,40,44,.82); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.row-arrow.left { left: 12px; } .row-arrow.right { right: 12px; }
+.row-arrow svg { width: 22px; height: 22px; }
+
+/* ---------- Cards: artwork with the title underneath ---------- */
+.card.apple {
+  display: flex; flex-direction: column; gap: 10px; width: clamp(210px, 17vw, 290px);
+  aspect-ratio: auto; background: none; border-radius: 0; overflow: visible; box-shadow: none; text-align: left;
+  transition: transform .35s var(--ease);
+}
+.card.apple:hover, .card.apple:focus-visible { transform: translateY(-4px) scale(1.035); box-shadow: none; outline: none; z-index: 6; }
+.card.apple .art {
+  position: relative; display: block; aspect-ratio: 16 / 9; border-radius: var(--radius); overflow: hidden;
+  background: var(--tile, #2c2c2e);
+  box-shadow: 0 10px 28px rgba(0,0,0,.5), 0 0 0 .5px rgba(255,255,255,.14) inset; transition: box-shadow .35s var(--ease);
+}
+.card.apple:hover .art, .card.apple:focus-visible .art { box-shadow: 0 22px 48px rgba(0,0,0,.7), 0 0 0 1.5px rgba(255,255,255,.55) inset; }
+.card.apple .art::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(160deg, rgba(255,255,255,.1), transparent 40%); }
+.card.apple .caption { display: block; min-width: 0; padding: 0 2px; }
+.card.apple .caption .name {
+  position: static; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 14px; font-weight: 600; line-height: 1.3; letter-spacing: -.005em; color: #f5f5f7;
+}
+.card.apple .caption .meta { position: static; display: block; margin-top: 2px; font-size: 12.5px; font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card.apple .badge {
+  position: absolute; z-index: 2; top: 9px; left: 9px; display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .08em; color: #fff;
+  background: rgba(0,0,0,.42); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+.card.apple .badge .dot { background: #ff453a; }
+.card.apple .badge.warn { background: rgba(255,159,10,.35); }
+.card.apple .fav { position: absolute; z-index: 2; top: 8px; right: 10px; color: #ffd60a; font-size: 15px; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+.card.apple img.card-flag { position: absolute; inset: auto 9px 9px auto; width: 22px; height: 16px; z-index: 2; border-radius: 3px; object-fit: cover; box-shadow: 0 0 0 1px rgba(255,255,255,.35); }
+
+/* Channel artwork: logo on a soft plate, or big initials when there is no logo */
+.card.apple .plate {
+  position: absolute; inset: 17% 24%; display: grid; place-items: center; padding: 7%;
+  background: rgba(255,255,255,.95); border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+.card.apple .plate img { width: 100%; height: 100%; object-fit: contain; }
+.card.apple .plate ~ .initials { display: none; }   /* initials only show when there is no logo (or it failed to load) */
+.card.apple .initials { position: absolute; inset: 0; display: grid; place-items: center; font-size: clamp(28px, 3vw, 40px); font-weight: 700; letter-spacing: -.03em; color: rgba(255,255,255,.9); text-shadow: 0 2px 14px rgba(0,0,0,.35); }
+
+/* Movie and series posters: real artwork when available, typographic key art otherwise */
+.card.apple.poster { width: clamp(132px, 12.5vw, 188px); }
+.card.apple.poster .art { aspect-ratio: 2 / 3; }
+.card.apple .art-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+.card.apple .art-title {
+  position: absolute; inset: auto 12px 14px 12px; z-index: 0; font-size: clamp(16px, 1.5vw, 21px); font-weight: 800; line-height: 1.05; letter-spacing: -.03em;
+  color: #fff; text-shadow: 0 2px 16px rgba(0,0,0,.5); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card.apple .art-year { position: absolute; z-index: 0; left: 12px; top: 40px; font-size: 12px; font-weight: 600; letter-spacing: .12em; color: rgba(255,255,255,.7); }
+.card.apple .art.has-art .art-title, .card.apple .art.has-art .art-year { display: none; }
+.card.apple .art.has-art .badge { display: none; }
+
+/* Grids of cards */
+.grid { gap: 22px 16px; }
+.grid .card.apple, .grid .card.apple.poster { width: auto; }
+.grid.poster-grid, .grid.movie-grid { grid-template-columns: repeat(auto-fill, minmax(min(42%, 168px), 1fr)); }
+
+/* Older cards (personal library, link cards) keep their layout, with softer corners */
+.card:not(.apple) { border-radius: var(--radius); }
+.link-card { background: var(--bg-2); border: 0; }
+
+/* ---------- Countries, modals, forms ---------- */
+.country-tile { border: 0; background: rgba(120,120,128,.16); border-radius: var(--radius); }
+.country-tile:hover, .country-tile:focus-visible { background: rgba(120,120,128,.3); }
+.area-head { font-weight: 700; letter-spacing: -.015em; }
+.modal { -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); background: rgba(0,0,0,.55); }
+.modal-card { border-radius: 24px; background: rgba(28,28,30,.96); box-shadow: 0 30px 80px rgba(0,0,0,.7), 0 0 0 .5px rgba(255,255,255,.12) inset; }
+.modal-close { background: rgba(60,60,64,.9); }
+.modal-body input[type=url], .modal-body input[type=text] { border-radius: 10px; background: #000; border-color: #3a3a3c; }
+.modal-body h3 { font-weight: 700; letter-spacing: -.01em; }
+.toast { border-radius: 999px; background: rgba(245,245,247,.96); }
+.attrib { color: #636366; }
+
+/* ---------- Phones ---------- */
+@media (max-width: 820px) {
+  .nav { display: none; }
+  .hero { height: 66vh; min-height: 420px; }
+  .hero-content { bottom: 12%; }
+  .card.apple { width: 58vw; }
+  .card.apple.poster { width: 34vw; }
+  .row-arrow { display: none; }
+  .grid { gap: 18px 12px; grid-template-columns: repeat(auto-fill, minmax(min(46%, 220px), 1fr)); }
+}
+@media (hover: none) { .card.apple:hover { transform: none; } .card.apple:hover .art { box-shadow: 0 10px 28px rgba(0,0,0,.5), 0 0 0 .5px rgba(255,255,255,.14) inset; } }
+@media (prefers-reduced-motion: reduce) { .card.apple, .btn { transition: none; } }
