@@ -704,6 +704,7 @@
     playerHint.hidden = true;
     if (hls) { hls.destroy(); hls = null; }
     video.pause(); video.removeAttribute('src'); video.load();
+    closeSubsMenu();
   }
 
   async function play(item, list = [], force = false) {
@@ -828,7 +829,7 @@
       };
       const midStream = why => { if (current === item) showPlayerMsg('Stream stopped', why, item); };
       stallTimer = setTimeout(() => finish(new Error('no video after 15s')), 15000);
-      video.onplaying = () => { finish(); msg.hidden = true; };
+      video.onplaying = () => { finish(); msg.hidden = true; applySubs(); };
       video.onerror = () => {
         if (!video.getAttribute('src')) return;
         const why = `media error ${video.error?.code ?? ''}`.trim();
@@ -844,6 +845,8 @@
       let recoveries = 0;
       hls.loadSource(url);
       hls.attachMedia(video);
+      hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, applySubs);
+      hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, syncSubsUI);
       hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => { video.muted = true; video.play().catch(() => {}); }));
       hls.on(Hls.Events.ERROR, (_, d) => {
         if (!d.fatal) return;
@@ -890,7 +893,7 @@
   function wakeControls() {
     player.classList.remove('idle');
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => { if (zapPanel.hidden) player.classList.add('idle'); }, 3500);   // stays awake while the channel list is open
+    idleTimer = setTimeout(() => { if (zapPanel.hidden && subsMenu.hidden) player.classList.add('idle'); }, 3500);   // stays awake while the channel list is open
   }
 
 
@@ -1318,6 +1321,75 @@
   $('.player-nav').prepend(favBtn);
 
 
+
+  // ---------------------------------------------------------------- subtitles
+  // A CC button in the live player. With one choice it switches subtitles on and off; with several it opens a short
+  // menu. The choice is remembered (Settings aren't needed) and applied to the next channel that has subtitles.
+  const subsBtn = $('#playerSubs'), subsMenu = $('#subsMenu');
+  const subsPref = Object.assign({ on: false, lang: '' }, store.get('subs', {}));
+  const saveSubsPref = () => store.set('subs', subsPref);
+  const ICON_CC = '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10.5 10.2a2.2 2.2 0 1 0 0 3.6M17 10.2a2.2 2.2 0 1 0 0 3.6" stroke-width="1.8"/></svg>';
+  const subOptions = () => window.StreamBoxSubs.listOptions({ hlsTracks: hls?.subtitleTracks || [], textTracks: video.textTracks, hlsActive: !!hls });
+  const subIsOn = o => (o.source === 'hls' ? hls?.subtitleTrack === o.id && hls?.subtitleDisplay !== false : o.track.mode === 'showing');
+
+  function setSubtitle(option) {   // option = one of subOptions(), or null for off
+    for (const t of Array.from(video.textTracks)) if (t.kind === 'subtitles' || t.kind === 'captions') { if (t.mode === 'showing') t.mode = 'disabled'; }
+    if (hls) { hls.subtitleDisplay = !!option && option.source === 'hls'; hls.subtitleTrack = option?.source === 'hls' ? option.id : -1; }
+    if (option?.source === 'text') option.track.mode = 'showing';
+    syncSubsUI();
+  }
+  // Make what is showing match what the person chose (tracks can appear after the stream starts)
+  function applySubs() {
+    if (!isLivePlayer()) return;
+    setSubtitle(window.StreamBoxSubs.preferred(subOptions(), subsPref));
+  }
+  function syncSubsUI() {
+    const options = subOptions(), on = options.find(subIsOn);
+    subsBtn.innerHTML = ICON_CC;
+    subsBtn.classList.toggle('on', !!on);
+    subsBtn.setAttribute('aria-pressed', String(!!on));
+    subsBtn.title = on ? `Subtitles: ${on.label} (C)` : 'Subtitles (C)';
+    if (!subsMenu.hidden) renderSubsMenu(options);
+  }
+  function renderSubsMenu(options = subOptions()) {
+    subsMenu.innerHTML = `<button type="button" role="menuitemradio" aria-checked="${!options.some(subIsOn)}" data-sub="-1">Off</button>${
+      options.map((o, i) => `<button type="button" role="menuitemradio" aria-checked="${subIsOn(o)}" data-sub="${i}">${esc(o.label)}</button>`).join('')}`;
+  }
+  function closeSubsMenu() { if (subsMenu.hidden) return; subsMenu.hidden = true; subsBtn.setAttribute('aria-expanded', 'false'); }
+  function chooseSubtitle(option) {
+    subsPref.on = !!option;
+    if (option?.lang) subsPref.lang = option.lang;
+    saveSubsPref();
+    setSubtitle(option);
+    toast(option ? `Subtitles on: ${option.label}` : 'Subtitles off');
+  }
+  function toggleSubtitles() {
+    const options = subOptions();
+    if (!options.length) { toast('No subtitles found on this channel'); return; }
+    chooseSubtitle(options.some(subIsOn) ? null : window.StreamBoxSubs.preferred(options, { on: true, lang: subsPref.lang }));
+  }
+  subsBtn.onclick = e => {
+    e.stopPropagation();
+    const options = subOptions();
+    if (!options.length) { toast('No subtitles found on this channel'); return; }
+    if (options.length === 1) { toggleSubtitles(); return; }
+    subsMenu.hidden = !subsMenu.hidden;
+    subsBtn.setAttribute('aria-expanded', String(!subsMenu.hidden));
+    if (!subsMenu.hidden) { renderSubsMenu(options); subsMenu.querySelector('[aria-checked=true]')?.focus(); wakeControls(); }
+  };
+  subsMenu.addEventListener('click', e => {
+    const b = e.target.closest('[data-sub]');
+    if (!b) return;
+    const i = +b.dataset.sub;
+    chooseSubtitle(i < 0 ? null : subOptions()[i]);
+    closeSubsMenu(); subsBtn.focus({ preventScroll: true });
+  });
+  document.addEventListener('click', e => { if (!subsMenu.hidden && !e.target.closest('#subsMenu, #playerSubs')) closeSubsMenu(); });
+  video.textTracks.addEventListener?.('addtrack', applySubs);
+  video.textTracks.addEventListener?.('removetrack', syncSubsUI);
+  video.textTracks.addEventListener?.('change', syncSubsUI);
+  syncSubsUI();
+
   // ---------------------------------------------------------------- channel remote
   // Live channels are grouped by country. Up/down changes channel, left/right changes country, a number goes
   // straight to that channel, and the list (OK / Enter) shows every country and channel to pick from.
@@ -1481,11 +1553,12 @@
 
   document.addEventListener('keydown', e => {
     if (!player.hidden) {
-      if (e.key === 'Escape') { if (!zapPanel.hidden) closeZapPanel(); else closePlayer(); }
+      if (e.key === 'Escape') { if (!subsMenu.hidden) { closeSubsMenu(); subsBtn.focus({ preventScroll: true }); } else if (!zapPanel.hidden) closeZapPanel(); else closePlayer(); }
       else if (current?.type === 'live' && remoteKey(e)) { /* handled like a TV remote */ }
       else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
       else if ((e.key === ' ' || e.key === 'k') && isLivePlayer() && !/^(BUTTON|INPUT|A|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); togglePlayback(); }
       else if ((e.key === 'm' || e.key === 'M') && isLivePlayer()) muteBtn.click();
+      else if ((e.key === 'c' || e.key === 'C') && isLivePlayer() && !e.ctrlKey && !e.metaKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) toggleSubtitles();
       wakeControls();
     } else if (e.key === 'Escape' && !modal.hidden) closeModal();
     else if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && !appFsBtn.hidden) appFsBtn.click();

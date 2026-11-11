@@ -102,6 +102,7 @@
       <input class="player-vol" id="playerVol" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume">
       <span class="player-live"><span class="dot"></span>LIVE</span>
       <span class="spacer"></span>
+      <button class="icon-btn" id="playerSubs" type="button" aria-label="Subtitles" aria-haspopup="menu" aria-expanded="false" title="Subtitles (C)"></button>
       <button class="icon-btn" id="playerAirplay" type="button" aria-label="AirPlay" title="AirPlay" hidden></button>
       <button class="icon-btn" id="playerPip" type="button" aria-label="Picture in picture" hidden></button>
       <button class="icon-btn" id="playerFs" type="button" aria-label="Full screen"></button>
@@ -121,6 +122,7 @@
       <div class="zap-countries" id="zapCountries" role="tablist" aria-label="Countries"></div>
       <div class="zap-list" id="zapList" role="listbox" aria-label="Channels in this country"></div>
     </aside>
+    <div class="subs-menu" id="subsMenu" role="menu" aria-label="Subtitles" hidden></div>
     <div class="player-hint" id="playerHint" hidden></div>
     <div class="player-msg" id="playerMsg" hidden></div>
   </div>
@@ -130,6 +132,7 @@
   <div class="toast" id="toast" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
   <script src="/js/zapper.js"></script>
+  <script src="/js/subtitles.js"></script>
   <script src="/js/account.js"></script>
   <script src="/js/artwork.js"></script>
   <script src="/js/movie-catalog.js"></script>

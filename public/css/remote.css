@@ -1,4 +1,4 @@
-/* Channel remote: d-pad, channel banner and channel list, inside the live player. */
+/* Live player extras: channel remote (d-pad, banner, channel list) and the subtitles button. */
 .zap-remote, .zap-banner, .zap-panel { display: none; }
 
 /* ---------- On-screen remote ---------- */
@@ -85,3 +85,25 @@
 }
 @media (max-height: 420px) and (min-width: 601px) { .player.live-mode .zap-remote { transform: translateY(-50%) scale(.85); transform-origin: right center; } }
 @media (prefers-reduced-motion: reduce) { .player.live-mode .zap-panel { animation: none; } }
+
+/* ---------- Subtitles (CC button and menu in the live player) ---------- */
+.player-bar #playerSubs svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.player-bar #playerSubs.on { background: #f5f5f7; color: #000; }
+.subs-menu { display: none; }
+.player.live-mode .subs-menu {
+  display: flex; flex-direction: column; gap: 2px; z-index: 6; position: absolute;
+  right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(76px + var(--safe-bottom));
+  min-width: 190px; max-width: min(86vw, 300px); max-height: 50dvh; overflow-y: auto; padding: 6px; border-radius: 16px;
+  background: rgba(28,28,30,.96); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); box-shadow: 0 10px 34px rgba(0,0,0,.55);
+}
+.player.live-mode .subs-menu[hidden] { display: none; }
+.subs-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; border: 0; border-radius: 10px; background: transparent; color: #f5f5f7; font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+.subs-menu button:hover { background: rgba(255,255,255,.1); }
+.subs-menu button[aria-checked="true"] { font-weight: 700; }
+.subs-menu button[aria-checked="true"]::after { content: '✓'; margin-left: auto; }
+.subs-menu button:focus-visible { outline: 3px solid #fff; outline-offset: -3px; }
+.player.live-mode.zap-open .subs-menu { right: calc(min(380px, 92vw) + 12px); }
+.player.live-mode video::cue { background: rgba(0,0,0,.75); color: #fff; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: clamp(15px, 2.1vw, 24px); line-height: 1.3; }
+/* Keep captions clear of the control bar while it's showing (Chrome, Edge and Safari) */
+.player.live-mode video::-webkit-media-text-track-container { transition: transform .3s; transform: translateY(-70px); }
+.player.live-mode.idle video::-webkit-media-text-track-container { transform: none; }
