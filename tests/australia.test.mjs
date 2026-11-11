@@ -30,3 +30,10 @@ test('directory renders all entries and searches regional identifiers; titles ar
 test('failed or malformed catalog renders a recoverable error',async()=>{
  for(const h of [harness({},false),harness({country:'Australia',channels:[{}]})]){await h.ui.ready;h.ui.render(h.view,'',{streams:[],card:()=>''});assert.match(h.view.innerHTML,/Please reload/);}
 });
+test('SKY Racing channels carry the site IDs of their Australian directory entries',()=>{
+ const app=readFileSync(new URL('../public/js/app.js',import.meta.url),'utf8');
+ const sky=[...app.matchAll(/name: 'SKY Racing (\d)', id: '([A-Z0-9]+)'/g)].map(m=>[m[1],m[2]]);
+ assert.deepEqual(sky,[['1','SKYR'],['2','SKYR2']]);
+ assert.equal(data.channels.find(c=>c.siteId==='SKYR').name,'Sky Racing');
+ assert.equal(data.channels.find(c=>c.siteId==='SKYR2').name,'Sky Racing 2');
+});

@@ -4,8 +4,9 @@
 
   // ---------------------------------------------------------------- constants
   const SKY_RACING = [
-    { name: 'SKY Racing 1', url: 'https://skylivetab-new.akamaized.net/hls/live/2038780/sky1/index.m3u8' },
-    { name: 'SKY Racing 2', url: 'https://skylivetab-new.akamaized.net/hls/live/2038781/sky2/index.m3u8' },
+    // `id` is the channel's site ID in the Australian directory (public/data/australia.json), which is how it shows up there
+    { name: 'SKY Racing 1', id: 'SKYR', url: 'https://skylivetab-new.akamaized.net/hls/live/2038780/sky1/index.m3u8' },
+    { name: 'SKY Racing 2', id: 'SKYR2', url: 'https://skylivetab-new.akamaized.net/hls/live/2038781/sky2/index.m3u8' },
   ];
 
   const QUICK_LINKS = [
@@ -129,7 +130,7 @@
       key: `l:${origin}:${i}`, type: 'live',
       name: raw.n, url: raw.u, cat: raw.c || 'Entertainment', quality: raw.q || '',
       source: raw.s || '', logo: raw.l || '', needsHeaders: !!raw.h, isPlaylist: !!raw.p, tvgId: raw.t || '',
-      cc: ccFromId(raw.t),                  // country of origin (ISO 3166-1 alpha-2, lower case), '' if unknown
+      cc: raw.cc || ccFromId(raw.t),                  // country of origin (ISO 3166-1 alpha-2, lower case), '' if unknown
       ua: raw.ua || '', rf: raw.rf || '',   // HTTP headers the stream needs (sent via the VLC playlist / proxy)
       verified: !!raw.v,                    // manifest loaded with CORS when the build probed it
       noCors: !!raw.nc,                     // live, but its server sends no CORS header (browsers can't read it)
@@ -180,7 +181,7 @@
     });
 
     // Featured sports first so they lead the Sports row
-    add(SKY_RACING.map(s => ({ n: s.name, u: s.url, c: 'Sports', q: 'HD', s: 'SKY Racing', v: 1 })), 'sky');
+    add(SKY_RACING.map(s => ({ n: s.name, u: s.url, c: 'Sports', q: 'HD', s: 'SKY Racing', v: 1, t: s.id, cc: 'au' })), 'sky');
 
     try {
       const res = await fetch('/data/channels.json');
