@@ -110,6 +110,15 @@ While a channel is playing it works like a TV remote. Channels are grouped by **
 
 Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other countries without changing what's playing, and `Enter` plays the highlighted one. A banner shows the channel's number, name, country and what's on now each time you change. On phones the list is a sheet from the bottom and the d-pad sits above the controls.
 
+## TV Guide (Australia)
+
+**Live TV → TV Guide** (`#guide`, also a chip on the Countries page and the Australia page) is a programme guide for Australian channels: one row per channel with what's **on now** (with a progress bar and finish time) and what's next, scrolling sideways. Tap a programme for its description and times; tap **Watch** to play the channel (the ones StreamBox has a stream for come first, and a chip narrows the list to only those). A search box finds a channel.
+
+- **Data:** the free XMLTV guide from [i.mjh.nz](https://i.mjh.nz) (free-to-air and streaming channels, refreshed through the day), loaded straight in the browser with the app's existing XMLTV reader. It's about 0.8 MB compressed and is fetched when the app starts, so channel cards and the player also show **Now / Next** for the Australian channels that match. Times show in your device's time zone.
+- **City:** the guide is per capital city (Sydney is the default). Change it on the guide page or in *Settings → TV guide*; **Off** turns the built-in guide off. State feeds the app lists separately (ABC TV VIC, Channel 9 Perth…) only get data when they match the chosen city.
+- **Limits:** some channels have no programme data from this source (for example Sky Racing, Sky News and ausbiz), and some app channels have no guide channel; those simply show no Now / Next. The guide covers roughly the next 36 hours. The code is in `public/js/tv-guide.js` (tested in `tests/tv-guide.test.mjs`) and `public/css/guide.css`.
+- Guides you add yourself in Settings still work and are merged in.
+
 ## Why some channels don't play in the app (and what fixes each)
 
 A browser is stricter than VLC. When a channel shows "Channel unavailable", the message now says why:

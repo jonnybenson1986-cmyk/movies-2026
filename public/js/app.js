@@ -39,7 +39,7 @@
     get(key, fallback) { try { const v = localStorage.getItem('sb:' + key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
     set(key, value) { try { localStorage.setItem('sb:' + key, JSON.stringify(value)); } catch { /* private mode */ } },
   };
-  const settings = Object.assign({ showAll: false, autoVlc: true, autoFullscreen: !!matchMedia?.('(pointer: coarse)').matches, hideBad: true, sources: [], guides: [], proxyUrl: '', proxyToken: '' }, store.get('settings', {}));
+  const settings = Object.assign({ showAll: false, autoVlc: true, autoFullscreen: !!matchMedia?.('(pointer: coarse)').matches, hideBad: true, sources: [], guides: [], auGuide: 'Sydney', proxyUrl: '', proxyToken: '' }, store.get('settings', {}));
   const saveSettings = () => store.set('settings', settings);
 
   // ---------------------------------------------------------------- state
@@ -205,7 +205,8 @@
 
   // ---------------------------------------------------------------- data: TV guide (XMLTV)
   // Channels match a guide by tvg-id, or by normalised channel name. Only the next ~36 hours are kept.
-  const guide = { byId: new Map(), byName: new Map() };
+  const guide = { byId: new Map(), byName: new Map(), names: new Map(), au: [] };   // au: channel ids of the Australian guide, in file order
+  let auGuideState = 'loading';   // 'loading' | 'ready' | 'failed' | 'off'
   const autoGuides = new Set();   // guide URLs advertised by the user's M3U playlists
   const normName = s => (s || '').toLowerCase().replace(/\b(hd|fhd|uhd|sd)\b/g, '').replace(/[^a-z0-9]/g, '');
 
@@ -226,7 +227,7 @@
     return res.text();
   }
 
-  function ingestXmltv(xml) {
+  function ingestXmltv(xml, au = false) {
     if (xml.length > 80e6) throw new Error('guide file too large');
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
     if (doc.getElementsByTagName('parsererror').length) throw new Error('not valid XMLTV');
@@ -234,7 +235,8 @@
     for (const ch of doc.getElementsByTagName('channel')) {
       const id = ch.getAttribute('id');
       if (!id) continue;
-      for (const dn of ch.getElementsByTagName('display-name')) { const n = normName(dn.textContent); if (n) guide.byName.set(n, id); }
+      for (const dn of ch.getElementsByTagName('display-name')) { const n = normName(dn.textContent); if (n) guide.byName.set(n, id); if (!guide.names.has(id)) guide.names.set(id, dn.textContent.trim()); }
+      if (au && !guide.au.includes(id)) guide.au.push(id);
     }
     for (const p of doc.getElementsByTagName('programme')) {
       const start = parseXmltvTime(p.getAttribute('start')), stop = parseXmltvTime(p.getAttribute('stop'));
@@ -246,9 +248,15 @@
     guide.byId.forEach(list => list.sort((a, b) => a.start - b.start));
   }
 
+  // The guide channel for an app channel: by its guide id, by name, or by a known other name (Australian guide)
+  function guideIdOf(item) {
+    if (item.tvgId && guide.byId.has(item.tvgId)) return item.tvgId;
+    const n = normName(item.name);
+    return guide.byName.get(n) || (item.cc === HOME_CC ? guide.byName.get(window.StreamBoxGuide.alias(n, settings.auGuide)) : undefined);
+  }
   function guideFor(item) {
     if (!guide.byId.size || item.type !== 'live') return null;
-    const id = item.tvgId && guide.byId.has(item.tvgId) ? item.tvgId : guide.byName.get(normName(item.name));
+    const id = guideIdOf(item);
     const list = id && guide.byId.get(id);
     if (!list) return null;
     const t = Date.now();
@@ -274,8 +282,34 @@
       try { ingestXmltv(await fetchGuideText(url)); }
       catch (e) { console.warn('guide failed', url, e); toast(`Couldn’t load TV guide (${e.message})`); }
     }
+    // The built-in Australian guide (Settings or the TV Guide page picks the city, or turns it off)
+    const auUrl = window.StreamBoxGuide.url(settings.auGuide);
+    if (!auUrl) auGuideState = 'off';
+    else {
+      auGuideState = 'loading';
+      try { ingestXmltv(await fetchGuideText(auUrl), true); auGuideState = 'ready'; }
+      catch (e) { console.warn('Australian guide failed', e); auGuideState = 'failed'; }
+    }
     patchGuide();
+    if (location.hash.startsWith('#guide')) route();
   }
+
+  // ---------------------------------------------------------------- TV guide page (Australia)
+  function renderGuide(arg) {
+    const now = Date.now();
+    const au = visibleChannels().filter(c => c.cc === HOME_CC);
+    const streams = new Map();
+    for (const c of au) { const id = guideIdOf(c); if (id && !streams.has(id)) streams.set(id, c); }
+    const list = auGuideState === 'ready' ? window.StreamBoxGuide.rows({ ids: guide.au, names: guide.names, byId: guide.byId, streamOf: id => streams.get(id), now }) : [];
+    list.forEach(r => r.stream && register(r.stream));
+    view.innerHTML = window.StreamBoxGuide.pageHTML({ state: auGuideState, city: window.StreamBoxGuide.url(settings.auGuide) ? settings.auGuide : 'off', list, onlyWatchable: arg === 'watch', now });
+    $('#epgCity').onchange = e => { settings.auGuide = e.target.value; saveSettings(); location.reload(); };
+    $('#epgFilter').addEventListener('input', e => {
+      const q = e.target.value.trim().toLowerCase();
+      view.querySelectorAll('.epg-row').forEach(r => { r.hidden = !!q && !r.dataset.name.includes(q); });
+    });
+  }
+  setInterval(() => { if (location.hash.startsWith('#guide') && player.hidden && modal.hidden && document.visibilityState === 'visible' && !$('#epgFilter')?.value) route(); }, 60000);   // keeps "now" current
 
   // ---------------------------------------------------------------- my list & history
   const restoreMovie = saved => movy.restore(saved) || movies.restore(saved);
@@ -429,7 +463,7 @@
     view.innerHTML = `<div class="page">
       <div class="page-head"><h1>Live TV</h1><span class="count">${list.length.toLocaleString()} channels${settings.showAll ? '' : ` · ${channels.filter(c => !c.isPlaylist && !c.dead && !isPlayable(c)).length.toLocaleString()} more need VLC or a proxy (Settings)`}</span>
         <button class="btn btn-more page-btn" data-act="vlcpl">Play this list in VLC</button></div>
-      <div class="chips"><a class="chip chip-accent" href="#countries">🌍 By country</a><a class="chip" href="#australia">Australia · ${window.StreamBoxAustralia.count} guide channels</a>${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
+      <div class="chips"><a class="chip chip-accent" href="#countries">🌍 By country</a><a class="chip chip-accent" href="#guide">📅 TV Guide</a><a class="chip" href="#australia">Australia · ${window.StreamBoxAustralia.count} guide channels</a>${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
       <div id="gridMount"></div>
     </div>`;
     mountGrid($('#gridMount'), list);
@@ -457,7 +491,7 @@
     view.innerHTML = `<div class="page">
       <div class="page-head"><h1>Countries</h1><span class="count">${shown.filter(g => g.cc).length} countries · ${total.toLocaleString()} channels</span>
         <input class="country-filter" id="countryFilter" type="search" placeholder="Find a country…" autocomplete="off"></div>
-      <div class="chips"><a class="chip chip-accent" href="#live">📺 All channels</a><a class="chip ${active ? '' : 'active'}" href="#countries">All areas</a>${areas.map(a => {
+      <div class="chips"><a class="chip chip-accent" href="#live">📺 All channels</a><a class="chip chip-accent" href="#guide">📅 TV Guide · Australia</a><a class="chip ${active ? '' : 'active'}" href="#countries">All areas</a>${areas.map(a => {
         const n = groups.filter(g => g.area === a).reduce((m, g) => m + g.channels.length, 0);
         return `<a class="chip ${a === active ? 'active' : ''}" href="#countries/${encodeURIComponent(a)}">${esc(a)} · ${n.toLocaleString()}</a>`;
       }).join('')}</div>
@@ -490,7 +524,7 @@
     view.innerHTML = `<div class="page">
       <div class="page-head country-head">${flagImg(cc, 'flag flag-lg')}<h1>${esc(name)}</h1>
         <span class="count">${esc(areaOf(cc))} · ${list.length.toLocaleString()} channels</span>
-        <a class="btn btn-more page-btn" href="#countries">All countries</a>
+        <a class="btn btn-more page-btn" href="#countries">All countries</a>${cc === HOME_CC ? '<a class="btn btn-more" href="#guide" style="font-size:13px;padding:7px 14px">📅 TV Guide</a>' : ''}
         <button class="btn btn-more" data-act="vlcpl" style="font-size:13px;padding:7px 14px">Play in VLC</button></div>
       <div class="chips"><a class="chip ${active === 'All' ? 'active' : ''}" href="#country/${esc(code)}">All · ${all.length}</a>${cats.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#country/${esc(code)}/${encodeURIComponent(c)}">${esc(c)} · ${counts[c]}</a>`).join('')}</div>
       <div id="gridMount"></div>
@@ -548,7 +582,7 @@
     movy.cancel();
     const [name, ...rest] = decodeURIComponent(location.hash.slice(1) || 'home').split('/');
     const arg = rest.join('/');
-    const navName = name === 'country' || name === 'countries' ? 'live' : name;   // Live TV opens the country list
+    const navName = name === 'country' || name === 'countries' || name === 'guide' ? 'live' : name;   // Live TV opens the country list
     document.querySelectorAll('[data-route]').forEach(a => a.classList.toggle('active', a.dataset.route === navName));
     await Promise.all([channelsReady, movies.ready, window.StreamBoxAustralia.ready]);
     if (version !== routeVersion) return;
@@ -559,6 +593,7 @@
       case 'sports': renderSports(); break;
       case 'australia': window.StreamBoxAustralia.render(view, arg, { streams: channels.filter(c => !(settings.hideBad && isBad(c))), card: cardHTML }); break;
       case 'countries': renderCountries(arg); break;
+      case 'guide': renderGuide(arg); break;
       case 'country': renderCountry(arg); break;
       case 'movies': movies.render(view, arg); break;
       case 'library': await window.StreamBoxLibrary.render(view, { play }); break;
@@ -1144,6 +1179,7 @@
         <p style="color:var(--muted);font-size:13px;margin-top:8px">The iptv-org list is already built in and is refreshed every time the site is deployed.</p>
         <h3>TV guide (XMLTV)</h3>
         <p style="color:var(--muted)">Adds “Now / Next” to channels. Guides listed in your M3U playlists are picked up automatically. ${guide.byId.size ? `<b>${guide.byId.size}</b> channels with guide data loaded.` : ''} URLs must be https and allow cross-origin requests; .xml and .xml.gz both work.</p>
+        <div class="form-row" style="align-items:center;margin-bottom:10px"><label for="optAuGuide" style="flex:1">Australian TV guide (built in)</label><select id="optAuGuide" style="padding:8px 10px;border-radius:8px">${window.StreamBoxGuide.CITIES.map(c => `<option${c === settings.auGuide ? ' selected' : ''}>${c}</option>`).join('')}<option value="off"${window.StreamBoxGuide.url(settings.auGuide) ? '' : ' selected'}>Off</option></select></div>
         <ul class="src-list">${settings.guides.map((s, i) => `<li><span>${esc(s)}</span><button class="btn btn-more" style="padding:4px 10px;font-size:12px" data-act="rmguide" data-i="${i}">Remove</button></li>`).join('') || '<li><span style="color:var(--muted)">No guide URLs added.</span></li>'}</ul>
         <div class="form-row"><input type="url" id="guideInput" placeholder="https://example.com/guide.xml"><button class="btn btn-red" data-act="addguide" style="padding:8px 16px">Add</button></div>
         <h3>Backup &amp; restore</h3>
@@ -1272,6 +1308,7 @@
       else if (a === 'saveproxy') saveProxy($('#proxyInput').value.trim().replace(/\/+$/, ''), $('#proxyToken').value.trim());
       else if (a === 'clearproxy') { settings.proxyUrl = settings.proxyToken = ''; saveSettings(); toast('Proxy removed'); route(); showSettings(); }
       else if (a === 'resetbad') { Object.keys(bad).forEach(k => delete bad[k]); store.set('bad', bad); toast('Hidden channels restored'); route(); showSettings(); }
+      else if (a === 'guidereload') location.reload();
       else if (a === 'addguide') addGuide($('#guideInput').value.trim());
       else if (a === 'rmguide') { settings.guides.splice(+act.dataset.i, 1); saveSettings(); location.reload(); }
       else if (a === 'export') exportData();
@@ -1280,6 +1317,13 @@
       return;
     }
 
+    const prog = e.target.closest('[data-epg]');
+    if (prog) {
+      const [id, start] = prog.dataset.epg.split('|');
+      const p = (guide.byId.get(id) || []).find(x => x.start === +start);
+      if (p) openModal(window.StreamBoxGuide.detailHTML(guide.names.get(id) || id, p));
+      return;
+    }
     const card = e.target.closest('[data-key]');
     if (card) {
       const item = items.get(card.dataset.key);
@@ -1302,6 +1346,7 @@
   modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
   modal.addEventListener('change', e => {
     if (e.target.id === 'optShowAll') { settings.showAll = e.target.checked; saveSettings(); route(); }
+    else if (e.target.id === 'optAuGuide') { settings.auGuide = e.target.value; saveSettings(); location.reload(); }
     else if (e.target.id === 'optAutoVlc') { settings.autoVlc = e.target.checked; saveSettings(); }
     else if (e.target.id === 'optAutoFs') { settings.autoFullscreen = e.target.checked; saveSettings(); }
     else if (e.target.id === 'optHideBad') { settings.hideBad = e.target.checked; saveSettings(); route(); }
