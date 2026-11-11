@@ -61,6 +61,8 @@ node scripts/build-channels.mjs --fetch  # refresh iptv-org first
 
 ## Browse by country
 
+**Live TV opens this page.** The Live TV button (top bar and phone tab bar) goes straight to the country list, with Australia first; the old all-channels list is one tap away from the "All channels" chip.
+
 Channels are bundled by **country / area of origin**, taken from the country code in each channel's iptv-org ID (for example `BBCOne.uk@SD` is the United Kingdom). That covers about 11,200 of the 11,600 channels across roughly 175 countries. The rest appear under *International / Other*.
 
 - **Countries** (top menu, or the 🌍 chip on Live TV, or the *Browse by country* row on Home): every country grouped by area (Americas, Europe, Asia, Middle East, Africa, Oceania, International), biggest first, with a find-a-country box.

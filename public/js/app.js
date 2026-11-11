@@ -457,7 +457,7 @@
     view.innerHTML = `<div class="page">
       <div class="page-head"><h1>Countries</h1><span class="count">${shown.filter(g => g.cc).length} countries · ${total.toLocaleString()} channels</span>
         <input class="country-filter" id="countryFilter" type="search" placeholder="Find a country…" autocomplete="off"></div>
-      <div class="chips"><a class="chip ${active ? '' : 'active'}" href="#countries">All areas</a>${areas.map(a => {
+      <div class="chips"><a class="chip chip-accent" href="#live">📺 All channels</a><a class="chip ${active ? '' : 'active'}" href="#countries">All areas</a>${areas.map(a => {
         const n = groups.filter(g => g.area === a).reduce((m, g) => m + g.channels.length, 0);
         return `<a class="chip ${a === active ? 'active' : ''}" href="#countries/${encodeURIComponent(a)}">${esc(a)} · ${n.toLocaleString()}</a>`;
       }).join('')}</div>
@@ -548,7 +548,7 @@
     movy.cancel();
     const [name, ...rest] = decodeURIComponent(location.hash.slice(1) || 'home').split('/');
     const arg = rest.join('/');
-    const navName = name === 'country' ? 'countries' : name;
+    const navName = name === 'country' || name === 'countries' ? 'live' : name;   // Live TV opens the country list
     document.querySelectorAll('[data-route]').forEach(a => a.classList.toggle('active', a.dataset.route === navName));
     await Promise.all([channelsReady, movies.ready, window.StreamBoxAustralia.ready]);
     if (version !== routeVersion) return;
