@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="/css/app.css">
   <link rel="stylesheet" href="/css/personal-library.css">
   <link rel="stylesheet" href="/css/apple.css">
+  <link rel="stylesheet" href="/css/remote.css">
 </head>
 <body>
   <header class="topbar" id="topbar">
@@ -106,6 +107,21 @@
       <button class="icon-btn" id="playerPip" type="button" aria-label="Picture in picture" hidden></button>
       <button class="icon-btn" id="playerFs" type="button" aria-label="Full screen"></button>
     </div>
+    <!-- Channel remote: channel up/down, country left/right, and the channel list (live channels only) -->
+    <div class="zap-banner" id="zapBanner" hidden role="status" aria-live="polite"></div>
+    <div class="zap-remote" id="zapRemote" role="group" aria-label="Channel remote">
+      <button class="zap-key up" id="zapChUp" type="button" aria-label="Channel up" title="Channel up (↑)"><svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg><small>CH</small></button>
+      <button class="zap-key left" id="zapCtryPrev" type="button" aria-label="Previous country" title="Previous country (←)"><svg viewBox="0 0 24 24"><path d="M15 18 9 12l6-6"/></svg></button>
+      <button class="zap-key ok" id="zapOk" type="button" aria-label="Channel list" title="Channel list (Enter)"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+      <button class="zap-key right" id="zapCtryNext" type="button" aria-label="Next country" title="Next country (→)"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+      <button class="zap-key down" id="zapChDown" type="button" aria-label="Channel down" title="Channel down (↓)"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg><small>CH</small></button>
+      <span class="zap-cap" aria-hidden="true">Country</span>
+    </div>
+    <aside class="zap-panel" id="zapPanel" hidden aria-label="Channels">
+      <div class="zap-head"><strong>Channels</strong><button class="icon-btn" id="zapClose" type="button" aria-label="Close channel list"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="zap-countries" id="zapCountries" role="tablist" aria-label="Countries"></div>
+      <div class="zap-list" id="zapList" role="listbox" aria-label="Channels in this country"></div>
+    </aside>
     <div class="player-hint" id="playerHint" hidden></div>
     <div class="player-msg" id="playerMsg" hidden></div>
   </div>
@@ -114,6 +130,7 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+  <script src="/js/zapper.js"></script>
   <script src="/js/account.js"></script>
   <script src="/js/artwork.js"></script>
   <script src="/js/movie-catalog.js"></script>

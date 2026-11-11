@@ -89,9 +89,23 @@ Live channels play in StreamBox's own player (`live-mode` in `public/js/app.js`)
 - **Full screen that works on phones, tablets and computers:** the whole player goes full screen, so the controls stay on screen (on Android it also locks to landscape; iPhone only allows the video itself, so it uses that). There's a full-screen button at the top and at the bottom of the player, and double-tap or double-click or `F` also work. On phones and tablets, **channels open straight into full screen** (Settings → *Full screen & AirPlay* turns this on or off, and it's off by default on computers). The top bar also has a button to take the whole app full screen on computers, Android and iPad (`F` does it too when no video is open). The player is sized to the visible screen (`100dvh`) and respects notches and the home bar, so the controls are never cut off.
 - **AirPlay:** in Safari on iPhone, iPad and Mac an **AirPlay** button appears in the player when an Apple TV or AirPlay speaker is on the same Wi-Fi, and lights up while it's sending. Safari now plays channels with its own HLS player, which is what AirPlay needs (it also skips the CORS limit, so more channels work). Chrome and Edge can't AirPlay. Channels that go through your proxy, or that need VLC, can't be sent.
 - **Controls:** play/pause (resumes at the live edge), mute and volume (remembered; iPhone/iPad use the hardware buttons), picture-in-picture where the browser supports it, channel up/down, and a buffering spinner.
-- **Gestures and keys:** tap shows or hides the controls, double-tap or double-click is full screen, swipe down closes. On a computer: click or `Space`/`K` plays and pauses, `F` is full screen, `M` mutes, `↑`/`↓` change channel, `Esc` closes.
+- **Gestures and keys:** tap shows or hides the controls, double-tap or double-click is full screen, swipe down closes. On a computer: click or `Space`/`K` plays and pauses, `F` is full screen, `M` mutes, `Esc` closes (see the remote below for the channel keys).
 - Movies and personal-library videos keep their own layout and are not affected.
 - `node --test tests/*.test.mjs` covers the rest of the app; the player was checked in a real browser at phone, tablet and desktop sizes.
+
+## Channel remote (zapping by country)
+
+While a channel is playing it works like a TV remote. Channels are grouped by **country** (alphabetical, with "International / Other" last), and the logic is in `public/js/zapper.js` (tested in `tests/zapper.test.mjs`).
+
+| Remote | Keyboard | What it does |
+|---|---|---|
+| **CH ▲ / ▼** (on-screen d-pad) | `↑` / `↓`, `Page Up` / `Page Down`, `Channel Up/Down` keys | Next / previous channel in the same country, wrapping round and skipping channels that failed |
+| **◀ / ▶** | `←` / `→` | Previous / next country, landing on the channel you last watched there |
+| **List (OK)** or the list button at the top | `Enter`, `G` | Opens the channel list: a strip of countries to pick from and every channel in that country, numbered, with the one playing highlighted. It stays open so you can keep changing channels; tap the picture, `×`, or `Esc` to put it away |
+| digits | `0`-`9`, then `Enter` (or just wait) | Go straight to that channel number in the current country |
+| | `Backspace` or `L` | Last channel (flip between the two most recent) |
+
+Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other countries without changing what's playing, and `Enter` plays the highlighted one. A banner shows the channel's number, name, country and what's on now each time you change. On phones the list is a sheet from the bottom and the d-pad sits above the controls.
 
 ## Why some channels don't play in the app (and what fixes each)
 

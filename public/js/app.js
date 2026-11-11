@@ -712,7 +712,13 @@
     player.classList.remove('live-mode');   // each stream attempt calls teardown(), so this is reset here, not there
     current = item;
     currentList = list.length ? list : [item];
+    if (item.type === 'live') {   // channels are zapped by country, like a TV remote
+      zap.remember(item);
+      const inCountry = zap.list(item);
+      if (inCountry.length) currentList = inCountry;
+    }
     player.hidden = false;
+    if (!player.contains(document.activeElement)) document.activeElement?.blur?.();   // so Enter and the arrow keys go to the player, not the card behind it
     document.body.style.overflow = 'hidden';
     $('#playerTitle').textContent = item.name;
     renderPlayerSub();
@@ -721,6 +727,7 @@
     msg.innerHTML = '<div class="spinner"></div>'; msg.hidden = false;
     pushHistory(item);
     wakeControls();
+    zapOnPlay(item);
 
     if (item.type === 'movie' && item.catalog === 'personal') {
       video.hidden = false;
@@ -856,6 +863,7 @@
 
   let pendingMovieRender = false;
   function closePlayer() {
+    closeZapPanel(); hideBanner(); digits.cancel();
     saveProgress(true);
     progressKey = resumeFrom = null;
     teardown();
@@ -869,18 +877,18 @@
     if (!location.hash || location.hash === '#home') startHero(SKY_RACING[0].url);
   }
 
+  // Channel up (+1) / down (-1) within the country
   function step(dir) {
-    const playable = currentList.filter(c => isPlayable(c) && (c === current || !isBad(c)));
-    if (!playable.length) return;
-    const i = playable.indexOf(current);
-    play(playable[(i + dir + playable.length) % playable.length], currentList);
+    const next = current && zap.channel(current, dir);
+    if (next) play(next);
+    else if (current) toast(`No other channels in ${current.cc ? countryName(current.cc) : 'this group'}`);
   }
 
   let idleTimer;
   function wakeControls() {
     player.classList.remove('idle');
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => player.classList.add('idle'), 3500);
+    idleTimer = setTimeout(() => { if (zapPanel.hidden) player.classList.add('idle'); }, 3500);   // stays awake while the channel list is open
   }
 
 
@@ -997,6 +1005,7 @@
   player.addEventListener('pointerdown', e => { pointerType = e.pointerType; idleAtDown = player.classList.contains('idle'); });
   video.addEventListener('click', () => {
     if (!isLivePlayer()) return;
+    if (!zapPanel.hidden) { closeZapPanel(); return; }   // a tap on the picture puts the channel list away
     if (tapTimer) { clearTimeout(tapTimer); tapTimer = 0; toggleFullscreen(); return; }
     tapTimer = setTimeout(() => {
       tapTimer = 0;
@@ -1005,7 +1014,7 @@
     }, 250);
   });
   player.addEventListener('touchstart', e => {
-    if (!isLivePlayer() || e.touches.length !== 1 || e.target.closest('.player-bar, .player-top, .player-msg')) { swipe = null; return; }
+    if (!isLivePlayer() || e.touches.length !== 1 || e.target.closest('.player-bar, .player-top, .player-msg, .zap-remote, .zap-panel')) { swipe = null; return; }
     swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY, at: Date.now() };
   }, { passive: true });
   player.addEventListener('touchend', e => {
@@ -1306,11 +1315,172 @@
   favBtn.onclick = () => current && toggleMyList(current);
   $('.player-nav').prepend(favBtn);
 
+
+  // ---------------------------------------------------------------- channel remote
+  // Live channels are grouped by country. Up/down changes channel, left/right changes country, a number goes
+  // straight to that channel, and the list (OK / Enter) shows every country and channel to pick from.
+  let zapCache = { key: '', groups: [] };
+  function zapGroups() {
+    const key = `${channels.length}|${settings.showAll}|${settings.proxyUrl}`;
+    if (zapCache.key !== key) {
+      const list = channels.filter(c => !c.isPlaylist && (settings.showAll || (isPlayable(c) && !c.dead)))
+        .sort((a, b) => (b.verified | 0) - (a.verified | 0));
+      zapCache = { key, groups: window.StreamBoxZap.groupChannels(list, countryName) };
+    }
+    return zapCache.groups;
+  }
+  const zap = window.StreamBoxZap.createZapper({ groups: zapGroups, usable: c => isPlayable(c) && !isBad(c) });
+
+  const zapPanel = $('#zapPanel'), zapCountries = $('#zapCountries'), zapList = $('#zapList'), zapBanner = $('#zapBanner');
+  let browseCc = '', bannerTimer = 0;
+
+  function showBanner(html, ms = 3200) {
+    clearTimeout(bannerTimer);
+    zapBanner.innerHTML = html; zapBanner.hidden = false;
+    if (ms) bannerTimer = setTimeout(() => { zapBanner.hidden = true; }, ms);
+  }
+  const hideBanner = () => { clearTimeout(bannerTimer); zapBanner.hidden = true; };
+
+  function channelBanner(item) {
+    const g = guideFor(item)?.now;
+    showBanner(`<b class="zap-num">${zap.number(item) || ''}</b><span class="zap-info">
+      <strong>${esc(item.name)}</strong>
+      <span>${item.cc ? flagImg(item.cc, 'flag') : ''}${esc(item.cc ? countryName(item.cc) : 'International / Other')}</span>
+      ${g ? `<span class="zap-now">Now: ${esc(g.title)}</span>` : ''}</span>`);
+  }
+
+  const digits = window.StreamBoxZap.createDigits(
+    text => (text ? showBanner(`<b class="zap-num">${esc(text)}</b><span class="zap-info"><span>Go to channel…</span></span>`, 0) : hideBanner()),
+    n => {
+      const ch = current && zap.byNumber(current, n);
+      if (ch) play(ch);
+      else showBanner(`<b class="zap-num">${n}</b><span class="zap-info"><span>No channel ${n} in ${esc(current?.cc ? countryName(current.cc) : 'this group')}</span></span>`);
+    });
+
+  function countryStep(dir) {
+    const next = current && zap.country(current, dir);
+    if (next) play(next); else toast('There’s only one country to choose from');
+  }
+  function lastChannel() {
+    const last = zap.last();
+    if (last && isPlayable(last)) play(last); else toast('No previous channel yet');
+  }
+
+  // ---- the channel list
+  const zapRow = (c, i, on) => {
+    const g = guideFor(c)?.now;
+    return `<button class="zap-row${on ? ' on' : ''}" type="button" role="option" aria-selected="${on}" data-zap="${i}">
+      <span class="zap-n">${i + 1}</span>
+      <span class="zap-logo">${c.logo ? `<img loading="lazy" src="${esc(c.logo)}" alt="" onerror="this.remove()">` : ''}<i>${esc(initials(c.name))}</i></span>
+      <span class="zap-txt"><span class="zap-name">${esc(c.name)}</span><span class="zap-meta">${esc(g ? `Now: ${g.title}` : [c.quality, c.cat].filter(Boolean).join(' · '))}</span></span>
+      ${on ? '<span class="zap-live" aria-label="Playing now">▶</span>' : ''}</button>`;
+  };
+  let browseList = [];
+  function centerChip() {   // scrolls only the country strip, never the page behind
+    const chip = zapCountries.querySelector('.active');
+    if (chip) zapCountries.scrollLeft = chip.offsetLeft - (zapCountries.clientWidth - chip.offsetWidth) / 2;
+  }
+  function renderZapPanel({ scroll = true } = {}) {
+    if (!current || zapPanel.hidden) return;
+    const groups = zap.countries(current);
+    if (!groups.some(g => g.cc === browseCc)) browseCc = current.cc || '';
+    zapCountries.innerHTML = groups.map(g => `<button class="zap-ctry${g.cc === browseCc ? ' active' : ''}" type="button" role="tab" aria-selected="${g.cc === browseCc}" data-cc="${esc(g.cc)}">${flagImg(g.cc, 'flag')}<span>${esc(g.name)}</span><small>${g.channels.length}</small></button>`).join('');
+    browseList = (groups.find(g => g.cc === browseCc) || { channels: [] }).channels;
+    zapList.innerHTML = browseList.map((c, i) => zapRow(c, i, c === current)).join('') || '<p class="zap-empty">No channels here.</p>';
+    centerChip();
+    if (scroll) setTimeout(centerChip, 300);   // again once the flags have loaded and the panel has settled
+    if (scroll) {
+      const on = zapList.querySelector('.on');
+      zapList.scrollTop = on ? on.offsetTop - (zapList.clientHeight - on.offsetHeight) / 2 : 0;
+    }
+  }
+  function openZapPanel() {
+    if (current?.type !== 'live') return;
+    browseCc = current.cc || '';
+    zapPanel.hidden = false; player.classList.add('zap-open'); player.classList.remove('idle');
+    renderZapPanel();
+    (zapList.querySelector('.on') || zapList.querySelector('.zap-row'))?.focus({ preventScroll: true });
+  }
+  function closeZapPanel() {
+    if (zapPanel.hidden) return;
+    zapPanel.hidden = true; player.classList.remove('zap-open');
+    if (!player.hidden && isLivePlayer()) $('#zapOk').focus({ preventScroll: true });
+    wakeControls();
+  }
+  const toggleZapPanel = () => (zapPanel.hidden ? openZapPanel() : closeZapPanel());
+  function browseCountry(dir) {
+    const groups = zap.countries(current);
+    if (groups.length < 2) return;
+    const i = Math.max(0, groups.findIndex(g => g.cc === browseCc));
+    browseCc = groups[window.StreamBoxZap.wrap(i, dir, groups.length)].cc;
+    renderZapPanel({ scroll: false });
+    zapList.scrollTop = 0;
+    zapList.querySelector('.zap-row')?.focus({ preventScroll: true });
+  }
+
+  // Called by play() each time a channel starts
+  function zapOnPlay(item) {
+    const live = item.type === 'live';
+    zapOpenTop.hidden = !live;
+    if (!live) { closeZapPanel(); hideBanner(); return; }
+    channelBanner(item);
+    if (!zapPanel.hidden) { browseCc = item.cc || ''; renderZapPanel(); (zapList.querySelector('.on'))?.focus({ preventScroll: true }); }
+  }
+
+  zapList.addEventListener('click', e => {
+    const row = e.target.closest('[data-zap]');
+    const c = row && browseList[+row.dataset.zap];
+    if (c && c !== current) play(c);
+  });
+  zapCountries.addEventListener('click', e => {
+    const b = e.target.closest('[data-cc]');
+    if (!b) return;
+    browseCc = b.dataset.cc; renderZapPanel({ scroll: false }); zapList.scrollTop = 0;
+  });
+  $('#zapClose').onclick = closeZapPanel;
+  $('#zapChUp').onclick = () => step(1);
+  $('#zapChDown').onclick = () => step(-1);
+  $('#zapCtryPrev').onclick = () => countryStep(-1);
+  $('#zapCtryNext').onclick = () => countryStep(1);
+  $('#zapOk').onclick = toggleZapPanel;
+  const zapOpenTop = document.createElement('button');
+  zapOpenTop.className = 'icon-btn'; zapOpenTop.type = 'button'; zapOpenTop.title = 'Channel list (Enter)'; zapOpenTop.setAttribute('aria-label', 'Channel list');
+  zapOpenTop.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>';
+  zapOpenTop.onclick = toggleZapPanel;
+  $('.player-nav').prepend(zapOpenTop);
+
+  // Keys, the way a TV remote works. Returns true when the key was used.
+  function remoteKey(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return false;
+    const k = e.key, inPanel = !zapPanel.hidden;
+    if (/^\d$/.test(k)) { digits.press(k); return true; }
+    if (k === 'Enter' && digits.text) { digits.commit(); e.preventDefault(); return true; }
+    if (inPanel) {
+      if (k === 'ArrowLeft') { browseCountry(-1); e.preventDefault(); return true; }
+      if (k === 'ArrowRight') { browseCountry(1); e.preventDefault(); return true; }
+      if (k === 'ArrowUp' || k === 'ArrowDown') {
+        const rows = [...zapList.querySelectorAll('.zap-row')];
+        const i = rows.indexOf(document.activeElement);
+        const next = rows[i < 0 ? Math.max(0, rows.findIndex(r => r.classList.contains('on'))) : Math.min(rows.length - 1, Math.max(0, i + (k === 'ArrowDown' ? 1 : -1)))];
+        next?.focus(); e.preventDefault(); return true;
+      }
+      if (k === 'Enter' && !/^(BUTTON|A)$/.test(e.target.tagName)) { zapList.querySelector('.on, .zap-row')?.focus(); e.preventDefault(); return true; }
+      if (k === 'g' || k === 'G' || k === 'ContextMenu') { closeZapPanel(); e.preventDefault(); return true; }
+      return false;
+    }
+    if (k === 'ArrowUp' || k === 'PageUp' || k === 'ChannelUp') { step(1); e.preventDefault(); return true; }
+    if (k === 'ArrowDown' || k === 'PageDown' || k === 'ChannelDown') { step(-1); e.preventDefault(); return true; }
+    if (k === 'ArrowRight') { countryStep(1); e.preventDefault(); return true; }
+    if (k === 'ArrowLeft') { countryStep(-1); e.preventDefault(); return true; }
+    if ((k === 'Enter' && !/^(BUTTON|A)$/.test(e.target.tagName)) || k === 'g' || k === 'G' || k === 'ContextMenu') { openZapPanel(); e.preventDefault(); return true; }
+    if (k === 'Backspace' || k === 'l' || k === 'L') { lastChannel(); e.preventDefault(); return true; }
+    return false;
+  }
+
   document.addEventListener('keydown', e => {
     if (!player.hidden) {
-      if (e.key === 'Escape') closePlayer();
-      else if (e.key === 'ArrowUp' && current?.type === 'live') step(-1);
-      else if (e.key === 'ArrowDown' && current?.type === 'live') step(1);
+      if (e.key === 'Escape') { if (!zapPanel.hidden) closeZapPanel(); else closePlayer(); }
+      else if (current?.type === 'live' && remoteKey(e)) { /* handled like a TV remote */ }
       else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
       else if ((e.key === ' ' || e.key === 'k') && isLivePlayer() && !/^(BUTTON|INPUT|A|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); togglePlayback(); }
       else if ((e.key === 'm' || e.key === 'M') && isLivePlayer()) muteBtn.click();
