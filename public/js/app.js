@@ -96,7 +96,8 @@
     Africa: 'ao bf bi bj bw cd cf cg ci cm cv dj dz eg er et ga gh gm gn gq gw ke km lr ls ly ma mg ml mr mu mw mz na ne ng re rw sc sd sh sl sn so ss st sz td tg tn tz ug yt za zm zw',
     Oceania: 'as au ck fj fm gu ki mh mp nc nr nu nz pf pg pw sb to tv vu wf ws',
   };
-  const AREA_ORDER = ['Americas', 'Europe', 'Asia', 'Middle East', 'Africa', 'Oceania', 'International'];
+  const HOME_CC = 'au';   // Australia comes first everywhere countries are listed
+  const AREA_ORDER = ['Oceania', 'Americas', 'Europe', 'Asia', 'Middle East', 'Africa', 'International'];
   const AREA_OF = {};
   for (const [area, codes] of Object.entries(AREAS)) codes.split(' ').forEach(c => { AREA_OF[c] = area; });
   const areaOf = cc => AREA_OF[cc] || 'International';
@@ -119,7 +120,7 @@
     const by = new Map();
     for (const c of list) { const k = c.cc || ''; if (!by.has(k)) by.set(k, []); by.get(k).push(c); }
     return [...by].map(([cc, chans]) => ({ cc, name: countryName(cc), area: areaOf(cc), channels: chans }))
-      .sort((a, b) => b.channels.length - a.channels.length || a.name.localeCompare(b.name));
+      .sort((a, b) => (b.cc === HOME_CC) - (a.cc === HOME_CC) || b.channels.length - a.channels.length || a.name.localeCompare(b.name));
   }
 
   // ---------------------------------------------------------------- data: channels
@@ -199,7 +200,7 @@
 
   const visibleChannels = () => channels
     .filter(c => !c.isPlaylist && (settings.showAll || (isPlayable(c) && !c.dead)) && !(settings.hideBad && isBad(c)))
-    .sort((a, b) => (b.verified | 0) - (a.verified | 0));   // verified streams first
+    .sort((a, b) => (b.cc === HOME_CC) - (a.cc === HOME_CC) || (b.verified | 0) - (a.verified | 0));   // Australian channels first, then verified streams
 
   // ---------------------------------------------------------------- data: TV guide (XMLTV)
   // Channels match a guide by tvg-id, or by normalised channel name. Only the next ~36 hours are kept.
@@ -1325,7 +1326,7 @@
     if (zapCache.key !== key) {
       const list = channels.filter(c => !c.isPlaylist && (settings.showAll || (isPlayable(c) && !c.dead)))
         .sort((a, b) => (b.verified | 0) - (a.verified | 0));
-      zapCache = { key, groups: window.StreamBoxZap.groupChannels(list, countryName) };
+      zapCache = { key, groups: window.StreamBoxZap.groupChannels(list, countryName, HOME_CC) };
     }
     return zapCache.groups;
   }

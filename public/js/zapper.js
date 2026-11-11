@@ -8,12 +8,13 @@
 
   const wrap = (i, dir, len) => ((i + dir) % len + len) % len;
 
-  // Country groups in alphabetical order, with channels of unknown origin ("International / Other") last
-  function groupChannels(channels, countryName = c => c.toUpperCase()) {
+  // Country groups in alphabetical order, with `first` (the home country) at the top and channels of unknown origin
+  // ("International / Other") last
+  function groupChannels(channels, countryName = c => c.toUpperCase(), first = '') {
     const by = new Map();
     for (const c of channels) { const k = c.cc || ''; if (!by.has(k)) by.set(k, []); by.get(k).push(c); }
     return [...by].map(([cc, list]) => ({ cc, name: cc ? countryName(cc) : 'International / Other', channels: list }))
-      .sort((a, b) => (!a.cc - !b.cc) || a.name.localeCompare(b.name));
+      .sort((a, b) => (!!first && b.cc === first) - (!!first && a.cc === first) || (!a.cc - !b.cc) || a.name.localeCompare(b.name));
   }
 
   // groups: () => groupChannels(...)   usable: channel => can it be played right now

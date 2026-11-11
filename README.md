@@ -95,7 +95,7 @@ Live channels play in StreamBox's own player (`live-mode` in `public/js/app.js`)
 
 ## Channel remote (zapping by country)
 
-While a channel is playing it works like a TV remote. Channels are grouped by **country** (alphabetical, with "International / Other" last), and the logic is in `public/js/zapper.js` (tested in `tests/zapper.test.mjs`).
+While a channel is playing it works like a TV remote. Channels are grouped by **country** (Australia first, then alphabetical, with "International / Other" last), and the logic is in `public/js/zapper.js` (tested in `tests/zapper.test.mjs`).
 
 | Remote | Keyboard | What it does |
 |---|---|---|

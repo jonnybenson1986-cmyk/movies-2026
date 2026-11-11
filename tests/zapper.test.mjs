@@ -20,6 +20,14 @@ test('channels are grouped by country, alphabetically, with unknown origin last'
   assert.equal(groups[2].name, 'GB');
 });
 
+test('the home country goes first, ahead of the alphabet', () => {
+  const groups = groupChannels(all, c => c.toUpperCase(), 'gb');
+  assert.deepEqual(groups.map(g => g.cc), ['gb', 'au', 'fr', '']);
+  assert.deepEqual(groupChannels(all, c => c.toUpperCase(), 'xx').map(g => g.cc), ['au', 'fr', 'gb', ''], 'a home country with no channels changes nothing');
+  const z = createZapper({ groups: () => groups, usable: () => true });
+  assert.equal(z.country(other[0], 1), uk[0], 'stepping forward from the last country wraps to the home country');
+});
+
 test('wrap goes round both ways', () => {
   assert.equal(wrap(2, 1, 3), 0);
   assert.equal(wrap(0, -1, 3), 2);
