@@ -21,8 +21,8 @@ export function cleanItem(raw) {
   return item;
 }
 
-// A favourite song (Audius) or radio station (Radio Browser)
-const MUSIC_TEXT = { id: 80, name: 300, artist: 300, genre: 80 };
+// A favourite song or radio station (see public/js/music.js for where they come from)
+const MUSIC_TEXT = { id: 120, name: 300, artist: 300, genre: 80, src: 12, artistId: 40, album: 200 };
 const httpsUrl = (value, max) => (typeof value === 'string' && value.length <= max && /^https:\/\/[^\s"'<>]+$/.test(value) ? value : '');
 export function cleanMusicItem(raw) {
   if (!raw || typeof raw !== 'object' || typeof raw.key !== 'string' || !raw.key || (raw.type !== 'song' && raw.type !== 'radio')) return null;
@@ -30,7 +30,9 @@ export function cleanMusicItem(raw) {
   for (const [field, max] of Object.entries(MUSIC_TEXT)) { const v = text(raw[field], max); if (v) item[field] = v; }
   if (!item.id || !item.name) return null;
   const art = httpsUrl(raw.art, 600); if (art) item.art = art;
-  if (item.type === 'radio') { const url = httpsUrl(raw.url, 1000); if (!url) return null; item.url = url; }   // a station is its stream address
+  const url = httpsUrl(raw.url, 1000); if (url) item.url = url;
+  // A station is its stream address, and so is a song from anywhere but Audius (those are played by their id)
+  if (!item.url && (item.type === 'radio' || (item.src && item.src !== 'audius'))) return null;
   if (Number.isFinite(raw.duration) && raw.duration > 0) item.duration = Math.min(Math.round(raw.duration), 1e6);
   return item;
 }

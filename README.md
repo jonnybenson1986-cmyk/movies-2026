@@ -122,15 +122,32 @@ Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other
 
 ## Music
 
-**Music** (`#music`, in the top bar and the phone tab bar) has three parts:
+**Music** (`#music`, in the top bar and the phone tab bar) is laid out the way Apple Music is:
 
-- **Songs** – trending tracks, 15 genres and search, from [Audius](https://audius.co), an open music platform where artists publish their own tracks and which offers a public API for apps. Tap a cover to play; **Play all** queues the list and the next song starts by itself.
-- **Radio** – live stations from the [Radio Browser](https://www.radio-browser.info) community directory: Australian stations first, then by style (pop, rock, hits, jazz, classical…) or by name. Only stations with an `https` stream are listed, because a browser won't play `http` audio on an `https` site.
-- **Favourites** – tap the ♥ on any song or station (or in the player). Favourites are saved to the signed-in person's account, so each person has their own and they follow them to their other devices.
+- **Listen Now** – large featured playlists, then shelves: Trending Songs, Radio Stations, Popular Playlists, Underground, Top Pop / Electronic / Hip-Hop / Rock, Creative Commons Picks, Live Concerts, and Browse by Genre.
+- **Browse** – 22 genre tiles. A genre page gathers that genre from every source: top songs (with Play and Shuffle), Creative Commons picks, radio, and netlabel albums.
+- **Radio** – SomaFM's commercial-free channels with their logos, Australian stations first, then stations by genre or by name.
+- **Library** – your favourites: tap the ♥ on any song or station. Saved to the signed-in person's account, so each person has their own and it follows them to their other devices.
+- **Search** – artists (round pictures), songs, playlists, Creative Commons songs, stations, and albums & concerts in one go.
+- **Playlist, album and artist pages** – big artwork, Play / Shuffle, and an Apple-style song list. Artist pages show the artist's own cover photo and picture, with a tick when Audius has verified them.
 
-A **mini player** stays at the bottom while you browse the rest of the app (play/pause, previous/next, a position bar for songs, ♥, close), and the phone's lock-screen media controls work with it. Opening a TV channel or a video pauses the music.
+**Where the music comes from** (all open, no API keys):
 
-The code is `public/js/music.js` and `public/css/music.css` (tests in `tests/music.test.mjs`); no API keys are needed. The [Open-Source-Music-Streaming-Apps](https://github.com/chayotic/Open-Source-Music-Streaming-Apps) list that prompted this is a catalogue of separate phone and desktop apps rather than code or a music source, so nothing from it is embedded; the page links to it. Most of the "streaming clients" on that list play from YouTube Music or Spotify without a licence, which is why StreamBox uses Audius and public radio streams instead.
+| Source | What it gives |
+|---|---|
+| [Audius](https://audius.co) | Songs, playlists and artists, published by the artists themselves |
+| [Openverse](https://openverse.org) | Creative Commons songs (Jamendo's catalogue), searched by genre |
+| [Internet Archive](https://archive.org/details/etree) | Live concerts (the Live Music Archive) and netlabel albums |
+| [SomaFM](https://somafm.com) | About 50 listener-supported radio channels |
+| [Radio Browser](https://www.radio-browser.info) | Community directory of internet radio; only `https` streams are listed |
+
+**Artwork** is always the official picture the artist, label or station published with the music: the track or playlist cover and the artist's picture from Audius (the largest size on the Now Playing and lock screens), the album cover from Jamendo, the station's logo from SomaFM, and the Archive's image for a recording. Nothing is guessed or matched from elsewhere, so a few items have no picture and show a note icon.
+
+**Player, made for phones and tablets.** A mini player stays above the tab bar while you use the rest of the app. Tap it for **Now Playing**: full-screen artwork over a blurred backdrop, a scrubber, large previous / play / next buttons, ♥, and **Up Next** (beside the artwork on tablets, below it on phones). Swipe down or tap the chevron to put it away.
+
+**Screen off.** Music keeps playing when the phone is locked or the app is in the background: it plays through a single audio element, and the phone's lock screen and notification shade show the song, its artwork and play / pause / next / previous / scrub controls (the Media Session API). The next song starts by itself while locked, and a radio station that drops out on a patchy connection is reconnected. On iPhone and iPad this works in Safari and in the app added to the Home Screen; opening a TV channel or a video pauses the music.
+
+The code is `public/js/music.js` (sources, favourites, player), `public/js/music-ui.js` (pages, mini player, Now Playing) and `public/css/music.css`, with tests in `tests/music.test.mjs`. Openverse allows a couple of hundred anonymous searches a day per network, so its answers are kept for six hours. The [Open-Source-Music-Streaming-Apps](https://github.com/chayotic/Open-Source-Music-Streaming-Apps) list that prompted the page is a catalogue of separate apps, most of which play from YouTube Music or Spotify without a licence, which is why StreamBox uses the open sources above instead.
 
 ## Why some channels don't play in the app (and what fixes each)
 
