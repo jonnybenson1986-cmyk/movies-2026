@@ -92,18 +92,20 @@ const ops = {
     if (!info) return null;
     return { ...info, count: count || videos.length, videos: videos.slice(0, 100) };
   },
+  // An instance can answer with the song's details but no audio (YouTube blocks them from time to time),
+  // so every instance is asked, at once, and the first verified audio address wins.
   async streams({ id }) {
-    const data = await fromPiped(`/streams/${encodeURIComponent(id)}`);
-    const url = data && pickPipedAudio(data.audioStreams);
-    if (!url) return null;
-    try {
+    const tryHost = async host => {
+      const data = await fetchJSON(`${host}/streams/${encodeURIComponent(id)}`);
+      const url = data && !data.error && pickPipedAudio(data.audioStreams);
+      if (!url) throw new Error('no audio');
       const r = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT), headers: { 'user-agent': UA, range: 'bytes=0-999' } });
-      if (!r.ok) return null;
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const probe = new Uint8Array(await r.arrayBuffer());
-      return isAudio(r.headers.get('content-type'), probe) ? { url } : null;
-    } catch {
-      return null;
-    }
+      if (!isAudio(r.headers.get('content-type'), probe)) throw new Error('not audio');
+      return { url };
+    };
+    try { return await Promise.any(PIPED.map(tryHost)); } catch { return null; }
   },
 };
 
