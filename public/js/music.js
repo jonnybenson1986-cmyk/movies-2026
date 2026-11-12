@@ -292,16 +292,137 @@
   }
 
   // ================================================================ player
-  // One <audio> element for everything. Phones keep an <audio> element playing with the screen off, and the
-  // Media Session below puts the song, its artwork and the controls on the lock screen. The next song is started
-  // from inside the "ended" event on the same element, which is what lets it carry on while the phone is locked.
+  // Two engines behind one set of controls:
+  //   - one <audio> element for Audius, Openverse, the Archive and radio. Phones keep an <audio> element playing
+  //     with the screen off, and the Media Session below puts the song, its artwork and the controls on the lock
+  //     screen. The next song is started from inside the "ended" event, which lets it carry on while locked.
+  //   - the YouTube bridge for YouTube Music songs: YouTube's own embedded player (the IFrame Player API), kept in a
+  //     small box on the page. The community backends that used to hand out YouTube audio addresses are blocked by
+  //     YouTube, so the official player is the one way a YouTube song reliably plays in the browser.
+  // `media` is what the page listens to: it looks like an <audio> element (paused, currentTime, duration, and the
+  // play / pause / playing / timeupdate / ended events) whichever engine is playing.
   const audio = document.createElement('audio');
   audio.preload = 'auto';
   audio.setAttribute('playsinline', '');
   audio.style.display = 'none';
   (document.body || document.documentElement).appendChild(audio);
   let queue = [], index = -1, current = null, failures = 0, retryTimer = 0, onProblem = () => {};
+  let engine = 'audio';   // 'audio' or 'yt': which one the current item plays on
   const ms = 'mediaSession' in navigator ? navigator.mediaSession : null;
+
+  const media = new EventTarget();
+  const emit = type => media.dispatchEvent(new Event(type));
+
+  // ---------------------------------------------------------------- YouTube bridge
+  const bridge = (() => {
+    const host = document.createElement('div');
+    host.id = 'sbYtBridge';
+    host.className = 'yt-bridge';
+    host.setAttribute('aria-hidden', 'true');
+    // The site sends "Referrer-Policy: no-referrer", but YouTube's player refuses to play without knowing which
+    // site embeds it (error 153). So the bridge builds its own iframe that sends just this site's origin.
+    const slot = document.createElement('iframe');
+    slot.title = 'YouTube player';
+    slot.allow = 'autoplay; encrypted-media; picture-in-picture';
+    slot.referrerPolicy = 'strict-origin-when-cross-origin';
+    slot.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+    const embed = new URLSearchParams({ enablejsapi: 1, autoplay: 0, controls: 0, disablekb: 1, fs: 0, playsinline: 1, rel: 0, iv_load_policy: 3, origin: location.origin });
+    host.appendChild(slot);
+    (document.body || document.documentElement).appendChild(host);
+
+    let yt = null, ready = null, ticker = 0, waiting = null, playing = false, lastId = '';
+    const S = { ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 };
+
+    // The API script is loaded once, as soon as the Music page is opened, so the player already exists by the time
+    // a song is tapped: browsers only let the embedded player start with sound inside (or right after) that tap.
+    function load() {
+      if (ready) return ready;
+      ready = new Promise((resolve, reject) => {
+        const make = () => {
+          try {
+            if (!slot.src) slot.src = 'https://www.youtube.com/embed/?' + embed;
+            yt = new window.YT.Player(slot, {
+              events: { onReady: () => resolve(yt), onStateChange: e => state(e.data), onError: e => problem(e.data) },
+            });
+          } catch (e) { reject(e); }
+        };
+        if (window.YT?.Player) return make();
+        const prev = window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady = () => { try { prev?.(); } catch { /* someone else's hook */ } make(); };
+        const s = document.createElement('script');
+        s.src = 'https://www.youtube.com/iframe_api';
+        s.async = true;
+        s.onerror = () => { ready = null; reject(new Error('YouTube player unavailable')); };
+        document.head.appendChild(s);
+        setTimeout(() => reject(new Error('YouTube player timed out')), 12000);
+      });
+      ready.catch(() => { ready = null; });
+      return ready;
+    }
+
+    function state(s) {
+      if (s === S.PLAYING) {
+        playing = true;
+        if (waiting) { waiting.resolve(); waiting = null; }
+        if (engine !== 'yt') return;
+        clearInterval(ticker); ticker = setInterval(() => emit('timeupdate'), 250);
+        emit('play'); emit('playing'); emit('durationchange');
+      } else if (s === S.PAUSED || s === S.ENDED) {
+        playing = false; clearInterval(ticker);
+        if (engine !== 'yt') return;
+        emit('pause');
+        if (s === S.ENDED) emit('ended');
+      }
+    }
+    // 2: bad id, 5: can't play in this browser, 100: removed or private, 101 / 150: the owner doesn't allow embedding,
+    // 153: no referrer reached YouTube
+    function problem(code) {
+      playing = false; clearInterval(ticker);
+      const err = new Error('YouTube error ' + code);
+      if (waiting) { waiting.reject(err); waiting = null; return; }
+      if (engine === 'yt') emit('error');
+    }
+
+    // Starts a song; resolves once it is really playing, rejects if YouTube won't play it here.
+    async function play(id) {
+      const p = await load();
+      if (waiting) waiting.reject(new Error('Replaced'));
+      const started = new Promise((resolve, reject) => { waiting = { resolve, reject }; });
+      lastId = id;
+      host.classList.add('on');
+      p.loadVideoById({ videoId: id, startSeconds: 0 });
+      p.unMute?.(); p.setVolume?.(100);
+      // Nothing after a while means the browser blocked it from starting (or YouTube is unreachable)
+      const timer = setTimeout(() => { if (waiting) { waiting.reject(new Error('YouTube player did not start')); waiting = null; } }, 9000);
+      try { await started; } finally { clearTimeout(timer); }
+    }
+    function stop() {
+      if (waiting) { waiting.reject(new Error('Stopped')); waiting = null; }
+      clearInterval(ticker); playing = false; lastId = '';
+      host.classList.remove('on');
+      try { yt?.stopVideo?.(); } catch { /* not ready yet */ }
+    }
+    return {
+      host, load, play, stop,
+      resume: () => { try { yt?.playVideo(); } catch { /* not ready */ } },
+      pause: () => { try { yt?.pauseVideo(); } catch { /* not ready */ } },
+      seek: t => { try { yt?.seekTo(t, true); emit('timeupdate'); } catch { /* not ready */ } },
+      get paused() { return !playing; },
+      get time() { try { return yt?.getCurrentTime?.() || 0; } catch { return 0; } },
+      get duration() { try { return yt?.getDuration?.() || NaN; } catch { return NaN; } },
+      get id() { return lastId; },
+    };
+  })();
+
+  Object.defineProperties(media, {
+    paused: { get: () => (engine === 'yt' ? bridge.paused : audio.paused) },
+    currentTime: { get: () => (engine === 'yt' ? bridge.time : audio.currentTime) },
+    duration: { get: () => (engine === 'yt' ? bridge.duration : audio.duration) },
+    playbackRate: { get: () => (engine === 'yt' ? 1 : audio.playbackRate) },
+  });
+  for (const ev of ['play', 'pause', 'playing', 'timeupdate', 'durationchange', 'seeked', 'ratechange', 'ended', 'error']) {
+    audio.addEventListener(ev, () => { if (engine === 'audio') emit(ev); });
+  }
 
   function describe(item) {
     if (!ms) return;
@@ -316,18 +437,25 @@
   function position() {
     if (!ms?.setPositionState) return;
     try {
-      if (current?.type === 'song' && audio.duration > 0 && Number.isFinite(audio.duration)) ms.setPositionState({ duration: audio.duration, position: Math.min(audio.currentTime, audio.duration), playbackRate: audio.playbackRate || 1 });
+      const d = media.duration;
+      if (current?.type === 'song' && d > 0 && Number.isFinite(d)) ms.setPositionState({ duration: d, position: Math.min(media.currentTime, d), playbackRate: media.playbackRate || 1 });
       else ms.setPositionState();
     } catch { /* not supported */ }
   }
+  function useEngine(next) {
+    if (engine === next) return;
+    if (next === 'yt') { audio.pause(); } else bridge.stop();
+    engine = next;
+  }
   function begin(item, url) {
+    useEngine('audio');
     audio.src = url || streamUrl(item);
     describe(item);
     audio.play().then(() => { failures = 0; }).catch(e => { if (e?.name !== 'AbortError') failed(); });
   }
-  // A YouTube song's audio address takes a moment to find, and phones (Safari above all) refuse to start an
-  // <audio> element outside the tap that asked for it. So the tap itself starts a tiny silent clip, which unlocks
-  // the element; the real song can then start on it once its address arrives.
+  // When the YouTube bridge can't play a song, the <audio> element takes over. Phones (Safari above all) refuse
+  // to start an <audio> element outside the tap that asked for it, so the tap itself starts a tiny silent clip,
+  // which unlocks the element; the stand-in song can then start on it once it has been found.
   const SILENCE = (() => {   // a quarter-second of 8 kHz 8-bit mono silence as a WAV file
     const n = 2000, b = new Uint8Array(44 + n).fill(128), v = new DataView(b.buffer);
     [[0, 'RIFF'], [8, 'WAVE'], [12, 'fmt '], [36, 'data']].forEach(([o, t]) => [...t].forEach((c, i) => b[o + i] = c.charCodeAt(0)));
@@ -340,9 +468,9 @@
   function unlock() {
     try { audio.src = SILENCE; const p = audio.play(); if (p) p.catch(() => {}); } catch { /* nothing to unlock */ }
   }
-  // The music-yt function turns a YouTube Music song's id into an audio address that is checked to
-  // really be audio. When no instance can provide one (YouTube often blocks them all), the same song is
-  // found on Audius instead, by its cleaned-up title and artist, best match first.
+  // Fallbacks for a YouTube song the bridge can't play (embedding turned off by its owner, or the browser blocked
+  // it): first a verified audio address from the music-yt function, then the same song found on Audius, by its
+  // cleaned-up title and artist, best match first.
   async function ytStream(item) {
     const r = await fetch(`${YT}?${qs({ op: 'streams', id: item.id })}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(9000) : undefined });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -359,8 +487,7 @@
     }
     return best;
   }
-  const playSource = async item => {
-    if (item.src !== 'yt') return [item, streamUrl(item)];
+  const fallbackSource = async item => {
     try { return [item, await ytStream(item)]; }
     catch {
       const alt = await audiusTwin(item);
@@ -368,21 +495,36 @@
       return [alt, streamUrl(alt)];
     }
   };
-  function start(item, items, { shuffle = false } = {}) {
-    clearTimeout(retryTimer);
-    if (items) { queue = shuffle ? shuffled(items, item) : items; index = queue.findIndex(i => i.key === item.key); }
-    current = item;
-    changed();
-    if (item.src === 'yt') unlock();
-    playSource(item).then(([play, url]) => {
+  function playFallback(item) {
+    fallbackSource(item).then(([play, url]) => {
       if (current !== item) return;
-      if (play !== item) {   // a YouTube song without a working stream: its Audius twin takes its place
+      if (play !== item) {   // its Audius twin takes its place
         current = play;
         queue = queue.map(i => (i.key === item.key ? play : i));
         changed();
       }
       begin(play, url);
     }).catch(() => { if (current === item) failed(); });
+  }
+  function start(item, items, { shuffle = false } = {}) {
+    clearTimeout(retryTimer);
+    if (items) { queue = shuffle ? shuffled(items, item) : items; index = queue.findIndex(i => i.key === item.key); }
+    current = item;
+    changed();
+    if (item.src !== 'yt') { begin(item); return; }
+    unlock();   // keeps the <audio> element ready in case the song has to be played from elsewhere
+    useEngine('yt');
+    describe(item);
+    bridge.play(item.id).then(() => {
+      if (current !== item) return;
+      audio.pause();
+      failures = 0;
+      changed();
+    }).catch(() => {
+      if (current !== item) return;
+      useEngine('audio');
+      playFallback(item);
+    });
   }
   function step(dir) {
     if (queue.length < 2) return false;
@@ -401,36 +543,51 @@
     onProblem(current);
     if (current.type === 'song' && queue.length > 1 && failures < 4) step(1); else { failures = 0; changed(); }
   }
-  function stop() { clearTimeout(retryTimer); audio.pause(); audio.removeAttribute('src'); audio.load(); current = null; queue = []; index = -1; if (ms) { try { ms.metadata = null; ms.playbackState = 'none'; } catch { /* ignore */ } } changed(); }
-  const toggle = () => (audio.paused ? audio.play().catch(() => failed()) : audio.pause());
-  function seekTo(time) { if (current?.type === 'song' && audio.duration > 0) { audio.currentTime = Math.max(0, Math.min(audio.duration - 0.25, time)); position(); } }
+  function stop() {
+    clearTimeout(retryTimer); bridge.stop(); engine = 'audio';
+    audio.pause(); audio.removeAttribute('src'); audio.load(); current = null; queue = []; index = -1;
+    if (ms) { try { ms.metadata = null; ms.playbackState = 'none'; } catch { /* ignore */ } }
+    changed();
+  }
+  const resume = () => (engine === 'yt' ? bridge.resume() : audio.play().catch(() => failed()));
+  const pause = () => (engine === 'yt' ? bridge.pause() : audio.pause());
+  const toggle = () => (media.paused ? resume() : pause());
+  function seekTo(time) {
+    const d = media.duration;
+    if (current?.type !== 'song' || !(d > 0)) return;
+    const t = Math.max(0, Math.min(d - 0.25, time));
+    if (engine === 'yt') bridge.seek(t); else audio.currentTime = t;
+    position();
+  }
 
-  audio.addEventListener('play', () => { if (ms) ms.playbackState = 'playing'; changed(); });
-  audio.addEventListener('pause', () => { if (ms) ms.playbackState = 'paused'; changed(); });
-  audio.addEventListener('ended', () => { if (silent()) return; if (!step(1)) changed(); });
-  audio.addEventListener('error', () => { if (audio.getAttribute('src') && !silent()) failed(); });
-  audio.addEventListener('playing', () => { if (!silent()) failures = 0; position(); });
-  for (const ev of ['durationchange', 'seeked', 'ratechange']) audio.addEventListener(ev, position);
+  media.addEventListener('play', () => { if (ms) ms.playbackState = 'playing'; changed(); });
+  media.addEventListener('pause', () => { if (ms) ms.playbackState = 'paused'; changed(); });
+  media.addEventListener('ended', () => { if (engine === 'audio' && silent()) return; if (!step(1)) changed(); });
+  media.addEventListener('error', () => { if (engine === 'yt' || (audio.getAttribute('src') && !silent())) failed(); });
+  media.addEventListener('playing', () => { if (engine === 'yt' || !silent()) failures = 0; position(); });
+  for (const ev of ['durationchange', 'seeked', 'ratechange']) media.addEventListener(ev, position);
   if (ms) {
     const on = (name, fn) => { try { ms.setActionHandler(name, fn); } catch { /* not supported on this device */ } };
-    on('play', () => audio.play().catch(() => failed()));
-    on('pause', () => audio.pause());
+    on('play', resume);
+    on('pause', pause);
     on('stop', stop);
-    on('previoustrack', () => { if (audio.currentTime > 4 && current?.type === 'song') seekTo(0); else step(-1); });
+    on('previoustrack', () => { if (media.currentTime > 4 && current?.type === 'song') seekTo(0); else step(-1); });
     on('nexttrack', () => step(1));
     on('seekto', e => seekTo(e.seekTime));
-    on('seekbackward', e => seekTo(audio.currentTime - (e.seekOffset || 10)));
-    on('seekforward', e => seekTo(audio.currentTime + (e.seekOffset || 10)));
+    on('seekbackward', e => seekTo(media.currentTime - (e.seekOffset || 10)));
+    on('seekforward', e => seekTo(media.currentTime + (e.seekOffset || 10)));
   }
 
   const player = {
-    audio, start, step, stop, toggle, seekTo,
-    pause: () => audio.pause(),
+    audio: media, start, step, stop, toggle, seekTo, pause,
+    prepare: () => bridge.load().catch(() => {}),   // loads the YouTube bridge ahead of the first tap
+    bridge: bridge.host,
+    get engine() { return engine; },
     get current() { return current; },
     get queue() { return queue; },
     get index() { return index; },
-    get paused() { return audio.paused; },
+    get paused() { return media.paused; },
     set onProblem(fn) { onProblem = fn; },
   };
-  window.StreamBoxMusic = { ...pure, data, player, favs, favourite, pause: () => audio.pause(), stop, render: () => {} };
+  window.StreamBoxMusic = { ...pure, data, player, favs, favourite, pause, stop, render: () => {} };
 })();
