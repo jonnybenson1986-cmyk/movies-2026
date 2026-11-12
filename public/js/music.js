@@ -1,10 +1,15 @@
 /* Music: where the music comes from, what the app keeps about it, favourites, and the player itself.
    The page (shelves, genres, now playing) is in music-ui.js.
-     Audius            songs, playlists and artists: an open platform where artists publish their own music
-     Openverse         Creative Commons songs (from Jamendo), found through Openverse's open search API
-     Internet Archive  live concerts (the Live Music Archive) and netlabel albums
-     SomaFM            listener-supported radio channels
-     Radio Browser     community directory of internet radio stations
+
+     YouTube Music    trending songs, searches and playlists, through the same community backends the
+                      open-source streaming apps in github.com/chayotic/Open-Source-Music-Streaming-Apps use.
+                      Served by the site's /api/music-yt function so every browser can reach the instances
+     Audius           songs, playlists and artists: an open platform where artists publish their own music
+     Openverse        Creative Commons songs (from Jamendo), found through Openverse's open search API
+     Internet Archive live concerts (the Live Music Archive) and netlabel albums
+     SomaFM           listener-supported radio channels
+     Radio Browser    community directory of internet radio stations
+
    None of them needs a key. Favourites are saved in localStorage as sb:music, which account.js syncs to the
    signed-in person's account. The first half is plain logic (no page code) so it can be tested on its own. */
 (() => {
@@ -14,8 +19,8 @@
   const OPENVERSE = 'https://api.openverse.org/v1/audio/';
   const ARCHIVE = 'https://archive.org';
   const RADIO_HOSTS = ['de1', 'fi1', 'nl1', 'at1'].map(h => `https://${h}.api.radio-browser.info`);
+  const YT = '/api/music-yt';
   const FAV_KEY = 'sb:music', FAV_MAX = 300;
-
   // One list of genres for every source. audius: its exact genre name; q: search word for Openverse and the Archive;
   // radio: Radio Browser tag; soma: SomaFM genre names; c: tile colours.
   const G = (id, name, audius, q, radio, soma, c) => ({ id, name, audius, q, radio, soma, c });
@@ -95,6 +100,16 @@
     if (!p || !p.id || !str(p.playlist_name)) return null;
     return { kind: 'playlist', id: String(p.id), name: str(p.playlist_name), by: str(p.user?.name), byId: str(p.user?.id), art: art480(p.artwork), count: p.track_count | 0, note: str(p.description), href: '#music/playlist/' + encodeURIComponent(p.id) };
   }
+  function ytSong(v) {   // a YouTube Music song as the music-yt function sent it
+    const id = str(v?.id);
+    if (!/^[A-Za-z0-9_-]{11}$/.test(id) || !str(v?.name)) return null;
+    return { key: 'y:' + id, type: 'song', src: 'yt', id, name: str(v.name), artist: str(v.artist), art: https(v.art), duration: Number.isFinite(v.duration) ? Math.round(v.duration) : 0, genre: '' };
+  }
+  function ytPlaylist(p) {   // a YouTube Music playlist; its id gets the yt- prefix so the routes can tell it apart
+    const id = str(p?.id);
+    if (!/^[\w-]{10,64}$/.test(id) || !str(p?.name)) return null;
+    return { kind: 'playlist', id: 'yt-' + id, name: str(p.name), by: str(p.by), art: https(p.art), count: p.count | 0, note: '', href: '#music/playlist/' + encodeURIComponent('yt-' + id) };
+  }
   function albumItem(d) {   // Internet Archive item (a concert or a netlabel release)
     const id = str(d?.identifier);
     if (!id) return null;
@@ -107,7 +122,37 @@
 
   // The artwork at its largest (for the Now Playing screen and the lock screen)
   const bigArt = item => (item?.art || '').replace(/\/480x480\.jpg$/, '/1000x1000.jpg');
-  const streamUrl = item => https(item.url) || `${AUDIUS}/tracks/${encodeURIComponent(item.id)}/stream?app_name=${APP}`;
+  // A YouTube Music song is played by its id: the music-yt function finds a working audio address for it
+  const streamUrl = item => https(item.url) || (item.src === 'yt' ? '' : `${AUDIUS}/tracks/${encodeURIComponent(item.id)}/stream?app_name=${APP}`);
+
+  // YouTube titles carry extras ("(Official Video)", "[4K Remaster]", "ft. …") and channels end in " - Topic" or
+  // "VEVO"; stripping them gives searches on other sources a real chance of finding the same song.
+  const cleanTitle = t => str(t)
+    .replace(/[(\[][^)\]]*(official|video|audio|lyric|visuali[sz]er|remaster|hd|4k|mv|music|explicit|clean|live|version)[^)\]]*[)\]]/gi, ' ')
+    .replace(/\b(official\s+(music\s+)?(video|audio)|lyrics?\s+video|ft\.?|feat\.?)\b.*$/i, ' ')
+    .replace(/[|•].*$/, ' ').replace(/\s+/g, ' ').trim();
+  const cleanArtist = a => str(a).replace(/\s*-\s*topic$/i, '').replace(/vevo$/i, '').replace(/\s*official$/i, '').trim();
+  // The searches tried, most precise first, to find a YouTube song on Audius
+  function ytQueries(item) {
+    const artist = cleanArtist(item?.artist);
+    let title = cleanTitle(item?.name);
+    const dash = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);   // "Artist - Song"
+    let byTitle = '';
+    if (dash) { byTitle = dash[1]; title = dash[2]; }
+    const who = artist || byTitle;
+    return [...new Set([[title, who].filter(Boolean).join(' '), [title, byTitle].filter(Boolean).join(' '), title].map(q => q.trim()).filter(Boolean))];
+  }
+  // How closely another source's song matches a YouTube song: shared title words, plus the artist
+  const words = t => cleanTitle(t).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 1);
+  function matchScore(item, cand) {
+    const want = words(ytQueries(item).at(-1) || item.name), got = new Set(words(cand.name));
+    if (!want.length) return 0;
+    const hit = want.filter(w => got.has(w)).length / want.length;
+    const a = cleanArtist(item.artist).toLowerCase(), b = str(cand.artist).toLowerCase();
+    const extra = Math.min(0.3, 0.04 * [...got].filter(w => !want.includes(w) && !words(item.artist).includes(w)).length);
+    const variant = /\b(remix|cover|karaoke|instrumental|8d|sped|slowed|mix|edit|reblend|bootleg|flip|mashup|vip)\b/i;
+    return hit + (a && b && (a.includes(b) || b.includes(a)) ? 0.5 : 0) - extra - (variant.test(cand.name) && !variant.test(item.name) ? 0.3 : 0);
+  }
 
   // ---- addresses
   const qs = params => new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v != null)).toString();
@@ -138,11 +183,12 @@
   function toggleFav(list, item) {
     if (isFav(list, item.key)) return list.filter(i => i.key !== item.key);
     const { key, type, src, id, name, artist, artistId, art, url, duration, genre, album } = item;
-    const keep = { key, type, src, id, name, artist, art, genre, ...(artistId && { artistId }), ...(album && { album }), ...(src !== 'audius' && { url }), ...(duration && { duration }) };
+    const byId = src === 'audius' || src === 'yt';   // these are played by their id, so they keep no address
+    const keep = { key, type, src, id, name, artist, art, genre, ...(artistId && { artistId }), ...(album && { album }), ...(!byId && { url }), ...(duration && { duration }) };
     return [keep, ...list].slice(0, FAV_MAX);
   }
   const validFav = i => !!i && typeof i.key === 'string' && !!i.id && !!i.name
-    && ((i.type === 'radio' && !!https(i.url)) || (i.type === 'song' && (!i.src || i.src === 'audius' || !!https(i.url))));
+    && ((i.type === 'radio' && !!https(i.url)) || (i.type === 'song' && (!i.src || i.src === 'audius' || i.src === 'yt' || !!https(i.url))));
 
   // Shuffled copy that starts with `first`
   function shuffled(list, first, random = Math.random) {
@@ -166,7 +212,7 @@
     return { page: 'home' };
   }
 
-  const pure = { GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, albumItem, artistItem, bigArt, streamUrl, urls, isFav, toggleFav, validFav, shuffled, parseRoute, clock, seconds, esc, https };
+  const pure = { GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, ytSong, ytPlaylist, albumItem, artistItem, bigArt, streamUrl, cleanTitle, ytQueries, matchScore, urls, isFav, toggleFav, validFav, shuffled, parseRoute, clock, seconds, esc, https };
   if (typeof module !== 'undefined') module.exports = pure;
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
@@ -211,7 +257,29 @@
     album: async id => { const meta = await getJSON(urls.archiveItem(id)); return { info: albumItem({ ...meta.metadata, identifier: meta.metadata?.identifier }), tracks: iaTracks(meta), note: str(meta.metadata?.venue || meta.metadata?.coverage) }; },
     soma: async () => list((await getJSON(urls.soma())).channels, somaItem),
     stations: radioBrowser,
+    ytTrending: async region => list((await getJSON(`${YT}?${qs({ op: 'trending', region: region || '' })}`)).items, ytSong),
+    ytSearch: async (text, filter = 'music_songs') => {
+      const r = await getJSON(`${YT}?${qs({ op: 'search', q: text, filter })}`);
+      return list(r.items, filter === 'music_playlists' ? ytPlaylist : ytSong);
+    },
+    ytPlaylist: async id => {
+      const r = await getJSON(`${YT}?${qs({ op: 'playlist', id })}`);
+      const info = ytPlaylist({ ...r, id });
+      let tracks = list(r.videos, ytSong);
+      if (info && !tracks.length) {   // some backends can't list a playlist's own tracks; play matching songs instead
+        const alt = (await data.ytSearch(info.name).catch(() => [])).slice(0, 30);
+        if (alt.length) {
+          info.note = 'This playlist’s own track list isn’t available through the community backends right now, so matching songs are playing instead.';
+          tracks = alt;
+        }
+      }
+      return { info, tracks };
+    },
   };
+  // A YouTube Music playlist's id carries the yt- prefix; everything else belongs to Audius
+  data.playlist = async id => (/^yt-[\w-]{10,64}$/.test(String(id))
+    ? data.ytPlaylist(String(id).slice(3))
+    : { info: playlistItem((await getJSON(urls.playlist(id))).data?.[0]), tracks: list((await getJSON(urls.playlistTracks(id))).data, songItem) });
 
   // ================================================================ favourites
   const favs = () => { try { const l = JSON.parse(localStorage.getItem(FAV_KEY)); return Array.isArray(l) ? l.filter(validFav) : []; } catch { return []; } };
@@ -224,16 +292,137 @@
   }
 
   // ================================================================ player
-  // One <audio> element for everything. Phones keep an <audio> element playing with the screen off, and the
-  // Media Session below puts the song, its artwork and the controls on the lock screen. The next song is started
-  // from inside the "ended" event on the same element, which is what lets it carry on while the phone is locked.
+  // Two engines behind one set of controls:
+  //   - one <audio> element for Audius, Openverse, the Archive and radio. Phones keep an <audio> element playing
+  //     with the screen off, and the Media Session below puts the song, its artwork and the controls on the lock
+  //     screen. The next song is started from inside the "ended" event, which lets it carry on while locked.
+  //   - the YouTube bridge for YouTube Music songs: YouTube's own embedded player (the IFrame Player API), kept in a
+  //     small box on the page. The community backends that used to hand out YouTube audio addresses are blocked by
+  //     YouTube, so the official player is the one way a YouTube song reliably plays in the browser.
+  // `media` is what the page listens to: it looks like an <audio> element (paused, currentTime, duration, and the
+  // play / pause / playing / timeupdate / ended events) whichever engine is playing.
   const audio = document.createElement('audio');
   audio.preload = 'auto';
   audio.setAttribute('playsinline', '');
   audio.style.display = 'none';
   (document.body || document.documentElement).appendChild(audio);
   let queue = [], index = -1, current = null, failures = 0, retryTimer = 0, onProblem = () => {};
+  let engine = 'audio';   // 'audio' or 'yt': which one the current item plays on
   const ms = 'mediaSession' in navigator ? navigator.mediaSession : null;
+
+  const media = new EventTarget();
+  const emit = type => media.dispatchEvent(new Event(type));
+
+  // ---------------------------------------------------------------- YouTube bridge
+  const bridge = (() => {
+    const host = document.createElement('div');
+    host.id = 'sbYtBridge';
+    host.className = 'yt-bridge';
+    host.setAttribute('aria-hidden', 'true');
+    // The site sends "Referrer-Policy: no-referrer", but YouTube's player refuses to play without knowing which
+    // site embeds it (error 153). So the bridge builds its own iframe that sends just this site's origin.
+    const slot = document.createElement('iframe');
+    slot.title = 'YouTube player';
+    slot.allow = 'autoplay; encrypted-media; picture-in-picture';
+    slot.referrerPolicy = 'strict-origin-when-cross-origin';
+    slot.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+    const embed = new URLSearchParams({ enablejsapi: 1, autoplay: 0, controls: 0, disablekb: 1, fs: 0, playsinline: 1, rel: 0, iv_load_policy: 3, origin: location.origin });
+    host.appendChild(slot);
+    (document.body || document.documentElement).appendChild(host);
+
+    let yt = null, ready = null, ticker = 0, waiting = null, playing = false, lastId = '';
+    const S = { ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 };
+
+    // The API script is loaded once, as soon as the Music page is opened, so the player already exists by the time
+    // a song is tapped: browsers only let the embedded player start with sound inside (or right after) that tap.
+    function load() {
+      if (ready) return ready;
+      ready = new Promise((resolve, reject) => {
+        const make = () => {
+          try {
+            if (!slot.src) slot.src = 'https://www.youtube.com/embed/?' + embed;
+            yt = new window.YT.Player(slot, {
+              events: { onReady: () => resolve(yt), onStateChange: e => state(e.data), onError: e => problem(e.data) },
+            });
+          } catch (e) { reject(e); }
+        };
+        if (window.YT?.Player) return make();
+        const prev = window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady = () => { try { prev?.(); } catch { /* someone else's hook */ } make(); };
+        const s = document.createElement('script');
+        s.src = 'https://www.youtube.com/iframe_api';
+        s.async = true;
+        s.onerror = () => { ready = null; reject(new Error('YouTube player unavailable')); };
+        document.head.appendChild(s);
+        setTimeout(() => reject(new Error('YouTube player timed out')), 12000);
+      });
+      ready.catch(() => { ready = null; });
+      return ready;
+    }
+
+    function state(s) {
+      if (s === S.PLAYING) {
+        playing = true;
+        if (waiting) { waiting.resolve(); waiting = null; }
+        if (engine !== 'yt') return;
+        clearInterval(ticker); ticker = setInterval(() => emit('timeupdate'), 250);
+        emit('play'); emit('playing'); emit('durationchange');
+      } else if (s === S.PAUSED || s === S.ENDED) {
+        playing = false; clearInterval(ticker);
+        if (engine !== 'yt') return;
+        emit('pause');
+        if (s === S.ENDED) emit('ended');
+      }
+    }
+    // 2: bad id, 5: can't play in this browser, 100: removed or private, 101 / 150: the owner doesn't allow embedding,
+    // 153: no referrer reached YouTube
+    function problem(code) {
+      playing = false; clearInterval(ticker);
+      const err = new Error('YouTube error ' + code);
+      if (waiting) { waiting.reject(err); waiting = null; return; }
+      if (engine === 'yt') emit('error');
+    }
+
+    // Starts a song; resolves once it is really playing, rejects if YouTube won't play it here.
+    async function play(id) {
+      const p = await load();
+      if (waiting) waiting.reject(new Error('Replaced'));
+      const started = new Promise((resolve, reject) => { waiting = { resolve, reject }; });
+      lastId = id;
+      host.classList.add('on');
+      p.loadVideoById({ videoId: id, startSeconds: 0 });
+      p.unMute?.(); p.setVolume?.(100);
+      // Nothing after a while means the browser blocked it from starting (or YouTube is unreachable)
+      const timer = setTimeout(() => { if (waiting) { waiting.reject(new Error('YouTube player did not start')); waiting = null; } }, 9000);
+      try { await started; } finally { clearTimeout(timer); }
+    }
+    function stop() {
+      if (waiting) { waiting.reject(new Error('Stopped')); waiting = null; }
+      clearInterval(ticker); playing = false; lastId = '';
+      host.classList.remove('on');
+      try { yt?.stopVideo?.(); } catch { /* not ready yet */ }
+    }
+    return {
+      host, load, play, stop,
+      resume: () => { try { yt?.playVideo(); } catch { /* not ready */ } },
+      pause: () => { try { yt?.pauseVideo(); } catch { /* not ready */ } },
+      seek: t => { try { yt?.seekTo(t, true); emit('timeupdate'); } catch { /* not ready */ } },
+      get paused() { return !playing; },
+      get time() { try { return yt?.getCurrentTime?.() || 0; } catch { return 0; } },
+      get duration() { try { return yt?.getDuration?.() || NaN; } catch { return NaN; } },
+      get id() { return lastId; },
+    };
+  })();
+
+  Object.defineProperties(media, {
+    paused: { get: () => (engine === 'yt' ? bridge.paused : audio.paused) },
+    currentTime: { get: () => (engine === 'yt' ? bridge.time : audio.currentTime) },
+    duration: { get: () => (engine === 'yt' ? bridge.duration : audio.duration) },
+    playbackRate: { get: () => (engine === 'yt' ? 1 : audio.playbackRate) },
+  });
+  for (const ev of ['play', 'pause', 'playing', 'timeupdate', 'durationchange', 'seeked', 'ratechange', 'ended', 'error']) {
+    audio.addEventListener(ev, () => { if (engine === 'audio') emit(ev); });
+  }
 
   function describe(item) {
     if (!ms) return;
@@ -248,18 +437,94 @@
   function position() {
     if (!ms?.setPositionState) return;
     try {
-      if (current?.type === 'song' && audio.duration > 0 && Number.isFinite(audio.duration)) ms.setPositionState({ duration: audio.duration, position: Math.min(audio.currentTime, audio.duration), playbackRate: audio.playbackRate || 1 });
+      const d = media.duration;
+      if (current?.type === 'song' && d > 0 && Number.isFinite(d)) ms.setPositionState({ duration: d, position: Math.min(media.currentTime, d), playbackRate: media.playbackRate || 1 });
       else ms.setPositionState();
     } catch { /* not supported */ }
+  }
+  function useEngine(next) {
+    if (engine === next) return;
+    if (next === 'yt') { audio.pause(); } else bridge.stop();
+    engine = next;
+  }
+  function begin(item, url) {
+    useEngine('audio');
+    audio.src = url || streamUrl(item);
+    describe(item);
+    audio.play().then(() => { failures = 0; }).catch(e => { if (e?.name !== 'AbortError') failed(); });
+  }
+  // When the YouTube bridge can't play a song, the <audio> element takes over. Phones (Safari above all) refuse
+  // to start an <audio> element outside the tap that asked for it, so the tap itself starts a tiny silent clip,
+  // which unlocks the element; the stand-in song can then start on it once it has been found.
+  const SILENCE = (() => {   // a quarter-second of 8 kHz 8-bit mono silence as a WAV file
+    const n = 2000, b = new Uint8Array(44 + n).fill(128), v = new DataView(b.buffer);
+    [[0, 'RIFF'], [8, 'WAVE'], [12, 'fmt '], [36, 'data']].forEach(([o, t]) => [...t].forEach((c, i) => b[o + i] = c.charCodeAt(0)));
+    v.setUint32(4, 36 + n, true); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); v.setUint32(40, n, true);
+    let bin = ''; b.forEach(x => bin += String.fromCharCode(x));
+    return 'data:audio/wav;base64,' + btoa(bin);
+  })();
+  const silent = () => audio.src === SILENCE;
+  function unlock() {
+    try { audio.src = SILENCE; const p = audio.play(); if (p) p.catch(() => {}); } catch { /* nothing to unlock */ }
+  }
+  // Fallbacks for a YouTube song the bridge can't play (embedding turned off by its owner, or the browser blocked
+  // it): first a verified audio address from the music-yt function, then the same song found on Audius, by its
+  // cleaned-up title and artist, best match first.
+  async function ytStream(item) {
+    const r = await fetch(`${YT}?${qs({ op: 'streams', id: item.id })}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(9000) : undefined });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const url = https((await r.json()).url);
+    if (!url) throw new Error('No stream');
+    return url;
+  }
+  async function audiusTwin(item) {
+    let best = null, bestScore = -1;
+    for (const q of ytQueries(item)) {
+      const found = (await data.songSearch(q).catch(() => [])).filter(s => s.src === 'audius').slice(0, 15);
+      for (const s of found) { const sc = matchScore(item, s); if (sc > bestScore) { best = s; bestScore = sc; } }
+      if (bestScore >= 1.3) break;   // the title and the artist both matched
+    }
+    return best;
+  }
+  const fallbackSource = async item => {
+    try { return [item, await ytStream(item)]; }
+    catch {
+      const alt = await audiusTwin(item);
+      if (!alt) throw new Error('Nothing can play this song');
+      return [alt, streamUrl(alt)];
+    }
+  };
+  function playFallback(item) {
+    fallbackSource(item).then(([play, url]) => {
+      if (current !== item) return;
+      if (play !== item) {   // its Audius twin takes its place
+        current = play;
+        queue = queue.map(i => (i.key === item.key ? play : i));
+        changed();
+      }
+      begin(play, url);
+    }).catch(() => { if (current === item) failed(); });
   }
   function start(item, items, { shuffle = false } = {}) {
     clearTimeout(retryTimer);
     if (items) { queue = shuffle ? shuffled(items, item) : items; index = queue.findIndex(i => i.key === item.key); }
     current = item;
-    audio.src = streamUrl(item);
-    describe(item);
-    audio.play().then(() => { failures = 0; }).catch(e => { if (e?.name !== 'AbortError') failed(); });
     changed();
+    if (item.src !== 'yt') { begin(item); return; }
+    unlock();   // keeps the <audio> element ready in case the song has to be played from elsewhere
+    useEngine('yt');
+    describe(item);
+    bridge.play(item.id).then(() => {
+      if (current !== item) return;
+      audio.pause();
+      failures = 0;
+      changed();
+    }).catch(() => {
+      if (current !== item) return;
+      useEngine('audio');
+      playFallback(item);
+    });
   }
   function step(dir) {
     if (queue.length < 2) return false;
@@ -278,36 +543,51 @@
     onProblem(current);
     if (current.type === 'song' && queue.length > 1 && failures < 4) step(1); else { failures = 0; changed(); }
   }
-  function stop() { clearTimeout(retryTimer); audio.pause(); audio.removeAttribute('src'); audio.load(); current = null; queue = []; index = -1; if (ms) { try { ms.metadata = null; ms.playbackState = 'none'; } catch { /* ignore */ } } changed(); }
-  const toggle = () => (audio.paused ? audio.play().catch(() => failed()) : audio.pause());
-  function seekTo(time) { if (current?.type === 'song' && audio.duration > 0) { audio.currentTime = Math.max(0, Math.min(audio.duration - 0.25, time)); position(); } }
+  function stop() {
+    clearTimeout(retryTimer); bridge.stop(); engine = 'audio';
+    audio.pause(); audio.removeAttribute('src'); audio.load(); current = null; queue = []; index = -1;
+    if (ms) { try { ms.metadata = null; ms.playbackState = 'none'; } catch { /* ignore */ } }
+    changed();
+  }
+  const resume = () => (engine === 'yt' ? bridge.resume() : audio.play().catch(() => failed()));
+  const pause = () => (engine === 'yt' ? bridge.pause() : audio.pause());
+  const toggle = () => (media.paused ? resume() : pause());
+  function seekTo(time) {
+    const d = media.duration;
+    if (current?.type !== 'song' || !(d > 0)) return;
+    const t = Math.max(0, Math.min(d - 0.25, time));
+    if (engine === 'yt') bridge.seek(t); else audio.currentTime = t;
+    position();
+  }
 
-  audio.addEventListener('play', () => { if (ms) ms.playbackState = 'playing'; changed(); });
-  audio.addEventListener('pause', () => { if (ms) ms.playbackState = 'paused'; changed(); });
-  audio.addEventListener('ended', () => { if (!step(1)) changed(); });
-  audio.addEventListener('error', () => { if (audio.getAttribute('src')) failed(); });
-  audio.addEventListener('playing', () => { failures = 0; position(); });
-  for (const ev of ['durationchange', 'seeked', 'ratechange']) audio.addEventListener(ev, position);
+  media.addEventListener('play', () => { if (ms) ms.playbackState = 'playing'; changed(); });
+  media.addEventListener('pause', () => { if (ms) ms.playbackState = 'paused'; changed(); });
+  media.addEventListener('ended', () => { if (engine === 'audio' && silent()) return; if (!step(1)) changed(); });
+  media.addEventListener('error', () => { if (engine === 'yt' || (audio.getAttribute('src') && !silent())) failed(); });
+  media.addEventListener('playing', () => { if (engine === 'yt' || !silent()) failures = 0; position(); });
+  for (const ev of ['durationchange', 'seeked', 'ratechange']) media.addEventListener(ev, position);
   if (ms) {
     const on = (name, fn) => { try { ms.setActionHandler(name, fn); } catch { /* not supported on this device */ } };
-    on('play', () => audio.play().catch(() => failed()));
-    on('pause', () => audio.pause());
+    on('play', resume);
+    on('pause', pause);
     on('stop', stop);
-    on('previoustrack', () => { if (audio.currentTime > 4 && current?.type === 'song') seekTo(0); else step(-1); });
+    on('previoustrack', () => { if (media.currentTime > 4 && current?.type === 'song') seekTo(0); else step(-1); });
     on('nexttrack', () => step(1));
     on('seekto', e => seekTo(e.seekTime));
-    on('seekbackward', e => seekTo(audio.currentTime - (e.seekOffset || 10)));
-    on('seekforward', e => seekTo(audio.currentTime + (e.seekOffset || 10)));
+    on('seekbackward', e => seekTo(media.currentTime - (e.seekOffset || 10)));
+    on('seekforward', e => seekTo(media.currentTime + (e.seekOffset || 10)));
   }
 
   const player = {
-    audio, start, step, stop, toggle, seekTo,
-    pause: () => audio.pause(),
+    audio: media, start, step, stop, toggle, seekTo, pause,
+    prepare: () => bridge.load().catch(() => {}),   // loads the YouTube bridge ahead of the first tap
+    bridge: bridge.host,
+    get engine() { return engine; },
     get current() { return current; },
     get queue() { return queue; },
     get index() { return index; },
-    get paused() { return audio.paused; },
+    get paused() { return media.paused; },
     set onProblem(fn) { onProblem = fn; },
   };
-  window.StreamBoxMusic = { ...pure, data, player, favs, favourite, pause: () => audio.pause(), stop, render: () => {} };
+  window.StreamBoxMusic = { ...pure, data, player, favs, favourite, pause, stop, render: () => {} };
 })();
