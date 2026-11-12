@@ -1,6 +1,8 @@
 // Builds public/data/channels.json for the app from playlists/*.m3u and playlists/*.xspf (VLC).
 //   node scripts/build-channels.mjs           use the playlists in the repo
-//   node scripts/build-channels.mjs --fetch   first refresh playlists/iptv-org.m3u from iptv-org (used on every Netlify deploy)
+//   node scripts/build-channels.mjs --fetch   first refresh the playlists from their sources (used on every Netlify deploy)
+// Sources: iptv-org (publicly available channels worldwide), Free-TV/IPTV (free-to-air and free ad-supported
+// channels), and the free ad-supported services Samsung TV Plus, Pluto TV, Roku and Tubi (generated playlists).
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,21 +36,39 @@ const MERGE = {
 const sourceOf = url => {
   if (/jmp2\.uk\/plu-|pluto/i.test(url)) return 'Pluto TV';
   if (/jmp2\.uk\/stvp-|samsung/i.test(url)) return 'Samsung TV Plus';
+  if (/jmp2\.uk\/rok-/i.test(url)) return 'Roku';
   if (/tubi/i.test(url)) return 'Tubi';
   if (/roku/i.test(url)) return 'Roku';
   if (/plex/i.test(url)) return 'Plex';
   return '';
 };
 
-const IPTV_ORG = 'https://iptv-org.github.io/iptv/index.m3u';
+const FAST = 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/refs/heads/main/playlists';
+// file in playlists/  ->  where it is refreshed from
+const SOURCES = {
+  'iptv-org.m3u': 'https://iptv-org.github.io/iptv/index.m3u',
+  'free-tv.m3u': 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8',
+  'fast-samsung.m3u': `${FAST}/samsungtvplus_all.m3u`,
+  'fast-pluto.m3u': `${FAST}/plutotv_all.m3u`,
+  'fast-roku.m3u': `${FAST}/roku_all.m3u`,
+  'fast-tubi.m3u': `${FAST}/tubi_all.m3u`,
+};
+// How each extra playlist is read. countryGroups: its groups are countries, not kinds of channel. cc: every channel's country.
+const EXTRA = {
+  'free-tv.m3u': { countryGroups: true },
+  'fast-samsung.m3u': { countryGroups: true }, 'fast-pluto.m3u': { countryGroups: true },
+  'fast-roku.m3u': { cc: 'us' }, 'fast-tubi.m3u': { cc: 'us' },
+};
 if (process.argv.includes('--fetch')) {
-  try {
-    const res = await fetch(IPTV_ORG);
-    const text = await res.text();
-    if (!res.ok || !text.startsWith('#EXTM3U')) throw new Error(`HTTP ${res.status}`);
-    writeFileSync(join(root, 'playlists/iptv-org.m3u'), text);
-    console.log(`refreshed playlists/iptv-org.m3u (${(text.length / 1e6).toFixed(1)} MB)`);
-  } catch (e) { console.warn(`could not refresh iptv-org (${e.message}); using the copy in the repo`); }
+  for (const [file, url] of Object.entries(SOURCES)) {
+    try {
+      const res = await fetch(url);
+      const text = await res.text();
+      if (!res.ok || !text.startsWith('#EXTM3U')) throw new Error(`HTTP ${res.status}`);
+      writeFileSync(join(root, 'playlists', file), text);
+      console.log(`refreshed playlists/${file} (${(text.length / 1e6).toFixed(1)} MB)`);
+    } catch (e) { console.warn(`could not refresh ${file} (${e.message}); using the copy in the repo`); }
+  }
 }
 
 const channels = [];
@@ -58,12 +78,19 @@ const probePath = join(root, 'playlists/probe.json');
 const probe = existsSync(probePath) ? JSON.parse(readFileSync(probePath, 'utf8')) : {};
 const verified = new Set(Array.isArray(probe) ? probe : probe.verified || []);   // (older probe files were a plain list)
 const noCors = new Set(probe.noCors || []), dead = new Set(probe.dead || []);
+// http:// streams whose server also answers on https:// (found by the probe): the app can only play https
+const upgrade = new Set(probe.upgrade || []);
 
 // Shared by both parsers. `raw` has name, url, group, quality?, tvgId?, logo?, ua?, rf?
-function add({ name, url, group = '', quality = '', tvgId = '', logo = '', ua, rf, isPlaylist = false }) {
-  if (!url || seen.has(url)) return;
-  seen.add(url);
-  const category = (group && !/general|undefined/i.test(group) ? group : '')
+function add({ name, url, group = '', quality = '', tvgId = '', logo = '', ua, rf, isPlaylist = false, cc = '', looseGroups = false }) {
+  if (!url) return;
+  const upgraded = upgrade.has(url);
+  if (upgraded) url = url.replace(/^http:/, 'https:');
+  const key = /^https:\/\/jmp2\.uk\//.test(url) ? url.replace(/\.m3u8$/, '') : url;   // the same redirect, listed with and without .m3u8
+  if (seen.has(key)) return;
+  seen.add(key);
+  const known = g => (MERGE[g] || CATEGORIES.some(([c]) => c === g) || g === 'Entertainment' ? g : CATEGORIES.find(([, re]) => re.test(g))?.[0] || '');
+  const category = (group && !/general|undefined/i.test(group) ? (looseGroups ? known(group) : group) : '')
     || CATEGORIES.find(([, re]) => re.test(name))?.[0] || 'Entertainment';
   channels.push({
     n: name,
@@ -71,12 +98,15 @@ function add({ name, url, group = '', quality = '', tvgId = '', logo = '', ua, r
     c: MERGE[category] || category,
     q: quality,
     s: sourceOf(url),
-    // Streams that need custom headers or plain http won't play inside an https web app.
-    h: ua || rf ? 1 : 0,
+    // Streams that need custom headers or plain http won't play inside an https web app
+    // (unless the probe found the stream loads fine in a browser without them).
+    h: (ua || rf) && !verified.has(url) ? 1 : 0,
     p: isPlaylist ? 1 : 0,
     ...(verified.has(url) && { v: 1 }),
     ...(noCors.has(url) && { nc: 1 }),
     ...(dead.has(url) && { dd: 1 }),
+    ...(upgraded && { up: 1 }),
+    ...(cc && { cc }),
     ...(tvgId && { t: tvgId }),
     ...(logo && { l: logo }),
     // Header values are kept so "Open in VLC" playlists can send them (browsers can't)
@@ -88,20 +118,24 @@ const cleanName = title => title.replace(/\s*\(\d{3,4}p\)/, '').replace(/\s*\[[^
 
 const files = readdirSync(join(root, 'playlists'));
 
-// 1) M3U first: richest data (tvg-id for the TV guide, logos, headers)
-for (const file of files.filter(f => /\.m3u8?$/i.test(f))) {
+// 1) M3U first: richest data (tvg-id for the TV guide, logos, headers). iptv-org leads, so its details win for a shared stream.
+const m3us = files.filter(f => /\.m3u8?$/i.test(f)).sort((a, b) => (b === 'iptv-org.m3u') - (a === 'iptv-org.m3u') || a.localeCompare(b));
+for (const file of m3us) {
+  const extra = EXTRA[file] || {};
   let meta = null;
   for (const line of readFileSync(join(root, 'playlists', file), 'utf8').split(/\r?\n/)) {
     const l = line.trim();
     if (l.startsWith('#EXTINF')) {
       const attr = k => l.match(new RegExp(`${k}="([^"]*)"`))?.[1] || '';
       const title = l.slice(l.lastIndexOf(',') + 1).trim();
-      meta = { name: cleanName(title), quality: title.match(/\((\d{3,4}p)\)/)?.[1] || '', group: attr('group-title').split(';')[0], tvgId: attr('tvg-id'), logo: attr('tvg-logo') };
+      const country = (attr('tvg-country') || attr('channel-id').match(/-([a-z]{2})$/)?.[1] || extra.cc || '').toLowerCase();
+      meta = { name: cleanName(title.replace(/\s*[\u24B6-\u24E9]/g, '')), quality: title.match(/\((\d{3,4}p)\)/)?.[1] || '', group: extra.countryGroups ? '' : attr('group-title').split(';')[0], looseGroups: file !== 'iptv-org.m3u', tvgId: attr('tvg-id'), logo: attr('tvg-logo'),
+        cc: /^[a-z]{2}$/.test(country) ? (country === 'uk' ? 'gb' : country) : '' };
     } else if (l.startsWith('#EXTVLCOPT') && meta) {
       const m = /^#EXTVLCOPT:http-(user-agent|referrer)=(.*)$/.exec(l);
       if (m) meta[m[1] === 'referrer' ? 'rf' : 'ua'] = m[2];
     } else if (l && !l.startsWith('#') && meta) {
-      add({ ...meta, url: l });
+      if (!/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(l)) add({ ...meta, url: l });   // YouTube pages aren't streams a player can open
       meta = null;
     }
   }

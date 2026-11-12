@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-const { CITIES, url, alias, rows, pageHTML, detailHTML } = createRequire(import.meta.url)('../public/js/tv-guide.js');
+const { CITIES, url, alias, official, rows, pageHTML, detailHTML } = createRequire(import.meta.url)('../public/js/tv-guide.js');
 
 const H = 3600e3, NOW = Date.UTC(2026, 10, 11, 9, 30);
 const prog = (startH, hours, title, desc = '') => ({ start: NOW + startH * H, stop: NOW + (startH + hours) * H, title, desc });
@@ -60,6 +60,21 @@ test('the page shows now with progress, later times, Watch for streams, and esca
   assert.equal((html.match(/class="epg-row"/g) || []).length, 3);
   const only = pageHTML({ state: 'ready', city: 'Sydney', list, onlyWatchable: true, now: NOW });
   assert.equal((only.match(/class="epg-row"/g) || []).length, 1);
+});
+
+test('free-to-air channels without a stream link to the network’s own free service', () => {
+  assert.deepEqual(official('mjh-seven-syd'), { name: '7plus', url: 'https://7plus.com.au/live-tv' });
+  assert.equal(official('mjh-7mate-per').name, '7plus');
+  assert.equal(official('mjh-gem-vic').name, '9Now');
+  assert.equal(official('mjh-10peach-nsw').name, '10');
+  assert.equal(official('mjh-sbs-sbst').name, 'SBS On Demand');
+  assert.equal(official('mjh-abc-kids').name, 'ABC iview');
+  assert.equal(official('mjh-judgejudy-fast'), null);
+  assert.equal(official('mjh-sky-racing-1'), null);
+  const list = rows({ ids: ['mjh-seven-syd'], names: new Map([['mjh-seven-syd', 'Seven']]), byId: new Map([['mjh-seven-syd', [prog(-1, 2, 'Sunrise')]]]), now: NOW });
+  const html = pageHTML({ state: 'ready', city: 'Sydney', list, onlyWatchable: false, now: NOW });
+  assert.match(html, /href="https:\/\/7plus\.com\.au\/live-tv" target="_blank" rel="noopener noreferrer">7plus ↗/);
+  assert.ok(!html.includes('Guide only'));
 });
 
 test('loading, failed and off each say so', () => {

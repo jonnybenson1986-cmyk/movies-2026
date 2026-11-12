@@ -24,6 +24,19 @@
     return ALIASES[name] || name;
   }
 
+  // Free-to-air channels StreamBox has no stream for: where the network itself streams them, free
+  const OFFICIAL = [
+    [/^mjh-(seven|7two|7mate|7flix|7bravo)\b/, '7plus', 'https://7plus.com.au/live-tv'],
+    [/^mjh-(channel-9|gem|go|life|rush)-/, '9Now', 'https://www.9now.com.au/live'],
+    [/^mjh-10/, '10', 'https://10.com.au/live'],
+    [/^mjh-sbs-/, 'SBS On Demand', 'https://www.sbs.com.au/ondemand/live'],
+    [/^mjh-abc-/, 'ABC iview', 'https://iview.abc.net.au/'],
+  ];
+  function official(id) {
+    const hit = OFFICIAL.find(([re]) => re.test(id));
+    return hit ? { name: hit[1], url: hit[2] } : null;
+  }
+
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clock = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
@@ -51,7 +64,7 @@
     return `<section class="epg-row" data-name="${esc(row.name.toLowerCase())}">
       <div class="epg-ch"><b>${esc(row.name)}</b>${row.stream
         ? `<button type="button" class="btn btn-play epg-watch" data-key="${esc(row.stream.key)}" aria-label="Watch ${esc(row.name)}">▶ Watch</button>`
-        : '<small>Guide only</small>'}</div>
+        : (o => (o ? `<a class="btn btn-more epg-watch" href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">${esc(o.name)} ↗</a>` : '<small>Guide only</small>'))(official(row.id))}</div>
       <div class="epg-track">${progs}</div></section>`;
   }
 
@@ -72,7 +85,7 @@
         <a class="chip ${onlyWatchable ? 'active' : ''}" href="#guide/watch">Watch in StreamBox · ${watchable}</a>
         <input class="country-filter" id="epgFilter" type="search" placeholder="Find a channel…" autocomplete="off"></div>
       ${body}
-      <p class="epg-note">Guide data: i.mjh.nz (free-to-air and streaming channels, ${esc(city === 'off' ? 'off' : city)} times shown in your device’s time zone). “Guide only” channels have a schedule but no stream in StreamBox.</p></div>`;
+      <p class="epg-note">Guide data: i.mjh.nz (free-to-air and streaming channels, ${esc(city === 'off' ? 'off' : city)} times shown in your device’s time zone). Channels without a Watch button have no stream in StreamBox; where the network streams the channel itself, the button opens its free app or site.</p></div>`;
   }
 
   function detailHTML(name, p) {
@@ -82,7 +95,7 @@
       <p>${esc(p.desc || 'No description for this programme.')}</p>`;
   }
 
-  const api = { CITIES, url, alias, rows, pageHTML, detailHTML };
+  const api = { CITIES, url, alias, official, rows, pageHTML, detailHTML };
   if (typeof window !== 'undefined') window.StreamBoxGuide = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();
