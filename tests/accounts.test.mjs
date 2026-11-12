@@ -246,3 +246,14 @@ test('being signed out stops the syncing instead of looping', async () => {
   d.localStorage.setItem('sb:history', JSON.stringify([movie(1)])); await d.account.flush();
   assert.equal(d.requests.filter(r => r.method === 'PUT').length, 0);
 });
+
+test('favourite music is saved to the person’s account and kept apart from other people’s', async () => {
+  const handler = createHandler({ getStore: () => memoryStore() }), store = memoryStore(), h = createHandler({ getStore: () => store });
+  const music = { at: Date.now(), items: [{ key: 's:1', type: 'song', id: '1', name: 'Song', artist: 'A' }, { key: 'r:1', type: 'radio', id: '1', name: 'Station', url: 'https://live.example/s.mp3' }, { key: 'x', type: 'radio', id: '2', name: 'No stream' }] };
+  assert.equal((await call(h, 'PUT', { cookie: BB }, { music })).status, 200);
+  const mine = (await (await call(h, 'GET', { cookie: BB })).json()).data;
+  assert.deepEqual(mine.music.items.map(i => i.key), ['s:1', 'r:1'], 'the station without a stream is dropped');
+  assert.deepEqual(mine.mylist.items, [], 'other lists are untouched');
+  assert.deepEqual((await (await call(h, 'GET', { cookie: JB })).json()).data.music.items, []);
+  assert.deepEqual((await (await call(handler, 'GET', { cookie: BB })).json()).data.music, { at: 0, items: [] }, 'a new account starts with no favourites');
+});

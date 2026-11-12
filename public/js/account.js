@@ -1,11 +1,12 @@
-/* Saves each signed-in person's My List, Continue Watching and video progress to their account, so they
+/* Saves each signed-in person's My List, Continue Watching, favourite music and video progress to their account, so they
    follow the person from phone to tablet. It watches the app's saved lists, then:
      - on start, and whenever the app comes back to the screen, it pulls the account's data and merges it
      - a couple of seconds after a change, and when the page is hidden, it pushes the change
    Without an account system (running locally, or another host) /api/me isn't there and this does nothing. */
 (() => {
   'use strict';
-  const FIELDS = { 'sb:mylist': 'mylist', 'sb:history': 'history', 'sb:progress': 'progress' };
+  const FIELDS = { 'sb:mylist': 'mylist', 'sb:history': 'history', 'sb:music': 'music', 'sb:progress': 'progress' };
+  const LISTS = ['mylist', 'history', 'music'];
   const META = 'sb:acct-meta';   // who this device's lists belong to, and when each list last changed
   const read = key => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };
   const rawSet = Storage.prototype.setItem;
@@ -13,7 +14,7 @@
   let applying = false, enabled = null, user = '', timer = 0, ready = Promise.resolve();
   const dirty = new Set();
 
-  const meta = () => Object.assign({ user: '', mylistAt: 0, historyAt: 0 }, read(META) || {});
+  const meta = () => Object.assign({ user: '', mylistAt: 0, historyAt: 0, musicAt: 0 }, read(META) || {});
   const writeRaw = (key, value) => { applying = true; try { rawSet.call(localStorage, key, JSON.stringify(value)); } catch { /* storage full */ } finally { applying = false; } };
   const saveMeta = m => writeRaw(META, m);
 
@@ -65,14 +66,14 @@
     // A different person on this device: their lists replace the previous person's
     if (m.user && m.user !== name) {
       for (const key of Object.keys(FIELDS)) localStorage.removeItem(key);
-      m = { user: '', mylistAt: 0, historyAt: 0 };
+      m = { user: '', mylistAt: 0, historyAt: 0, musicAt: 0 };
     }
     const firstUse = !m.user;
     m.user = name;
 
     const out = {};
     let changed = false;
-    for (const field of ['mylist', 'history']) {
+    for (const field of LISTS) {
       const server = data?.[field] || { at: 0, items: [] };
       const local = Array.isArray(read('sb:' + field)) ? read('sb:' + field) : [];
       if (firstUse && local.length && server.items.length) {

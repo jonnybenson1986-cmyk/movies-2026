@@ -594,6 +594,7 @@
       case 'australia': window.StreamBoxAustralia.render(view, arg, { streams: channels.filter(c => !(settings.hideBad && isBad(c))), card: cardHTML }); break;
       case 'countries': renderCountries(arg); break;
       case 'guide': renderGuide(arg); break;
+      case 'music': window.StreamBoxMusic.render(view, arg, { toast, isCurrent: () => version === routeVersion }); break;
       case 'country': renderCountry(arg); break;
       case 'movies': movies.render(view, arg); break;
       case 'library': await window.StreamBoxLibrary.render(view, { play }); break;
@@ -744,6 +745,7 @@
 
   async function play(item, list = [], force = false) {
     stopHero();
+    window.StreamBoxMusic?.pause();   // one thing playing at a time
     saveProgress(true);   // where the previous video was up to
     progressKey = resumeFrom = null;
     teardown();

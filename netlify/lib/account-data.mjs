@@ -1,8 +1,8 @@
-// What is saved for each signed-in person: My List, Continue Watching, and where they are up to in
-// videos. Everything arriving from a browser is re-built field by field here, so a stored account can
+// What is saved for each signed-in person: My List, Continue Watching, favourite music, and where they are
+// up to in videos. Everything arriving from a browser is re-built field by field here, so a stored account can
 // only ever hold plain, size-limited data.
 
-export const LIMITS = { mylist: 200, history: 30, progress: 400, bytes: 400_000 };
+export const LIMITS = { mylist: 200, history: 30, music: 300, progress: 400, bytes: 400_000 };
 const ITEM_TYPES = new Set(['live', 'movie']);
 const TEXT = { name: 300, url: 1000, cat: 80, quality: 20, source: 80, logo: 1000, tvgId: 120, ua: 300, rf: 300, id: 120, catalog: 40, mediaType: 20, overview: 700, year: 8, vote: 8, embedId: 120, cc: 3 };
 
@@ -21,10 +21,24 @@ export function cleanItem(raw) {
   return item;
 }
 
-export function cleanList(list, limit) {
+// A favourite song (Audius) or radio station (Radio Browser)
+const MUSIC_TEXT = { id: 80, name: 300, artist: 300, genre: 80 };
+const httpsUrl = (value, max) => (typeof value === 'string' && value.length <= max && /^https:\/\/[^\s"'<>]+$/.test(value) ? value : '');
+export function cleanMusicItem(raw) {
+  if (!raw || typeof raw !== 'object' || typeof raw.key !== 'string' || !raw.key || (raw.type !== 'song' && raw.type !== 'radio')) return null;
+  const item = { key: text(raw.key, 120), type: raw.type };
+  for (const [field, max] of Object.entries(MUSIC_TEXT)) { const v = text(raw[field], max); if (v) item[field] = v; }
+  if (!item.id || !item.name) return null;
+  const art = httpsUrl(raw.art, 600); if (art) item.art = art;
+  if (item.type === 'radio') { const url = httpsUrl(raw.url, 1000); if (!url) return null; item.url = url; }   // a station is its stream address
+  if (Number.isFinite(raw.duration) && raw.duration > 0) item.duration = Math.min(Math.round(raw.duration), 1e6);
+  return item;
+}
+
+export function cleanList(list, limit, clean = cleanItem) {
   const seen = new Set(), out = [];
   for (const raw of Array.isArray(list) ? list : []) {
-    const item = cleanItem(raw);
+    const item = clean(raw);
     if (!item || seen.has(item.key)) continue;
     seen.add(item.key); out.push(item);
     if (out.length >= limit) break;
@@ -45,14 +59,15 @@ export function cleanProgress(map) {
   return Object.fromEntries(entries.sort((a, b) => b[1].at - a[1].at).slice(0, LIMITS.progress));
 }
 
-export const EMPTY = () => ({ v: 1, mylist: { at: 0, items: [] }, history: { at: 0, items: [] }, progress: {} });
+export const EMPTY = () => ({ v: 1, mylist: { at: 0, items: [] }, history: { at: 0, items: [] }, music: { at: 0, items: [] }, progress: {} });
+const LISTS = ['mylist', 'history', 'music'];
 
 // Clean whatever fields are present. Absent fields stay absent (a partial update).
 export function cleanData(raw) {
   const out = {};
   if (!raw || typeof raw !== 'object') return out;
-  for (const name of ['mylist', 'history']) {
-    if (raw[name] && typeof raw[name] === 'object') out[name] = { at: stamp(raw[name].at), items: cleanList(raw[name].items, LIMITS[name]) };
+  for (const name of LISTS) {
+    if (raw[name] && typeof raw[name] === 'object') out[name] = { at: stamp(raw[name].at), items: cleanList(raw[name].items, LIMITS[name], name === 'music' ? cleanMusicItem : cleanItem) };
   }
   if (raw.progress && typeof raw.progress === 'object') out.progress = cleanProgress(raw.progress);
   return out;
@@ -62,7 +77,7 @@ export function cleanData(raw) {
 export function mergeData(stored, incoming) {
   const base = { ...EMPTY(), ...cleanData(stored) };
   const out = { ...base };
-  for (const name of ['mylist', 'history']) if (incoming[name] && incoming[name].at >= base[name].at) out[name] = incoming[name];
+  for (const name of LISTS) if (incoming[name] && incoming[name].at >= base[name].at) out[name] = incoming[name];
   if (incoming.progress) {
     const merged = { ...base.progress };
     for (const [key, v] of Object.entries(incoming.progress)) if (!merged[key] || v.at >= merged[key].at) merged[key] = v;

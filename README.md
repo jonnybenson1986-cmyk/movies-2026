@@ -120,6 +120,18 @@ Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other
 - **Limits:** some channels have no programme data from this source (for example Sky Racing, Sky News and ausbiz), and some app channels have no guide channel; those simply show no Now / Next. The guide covers roughly the next 36 hours. The code is in `public/js/tv-guide.js` (tested in `tests/tv-guide.test.mjs`) and `public/css/guide.css`.
 - Guides you add yourself in Settings still work and are merged in.
 
+## Music
+
+**Music** (`#music`, in the top bar and the phone tab bar) has three parts:
+
+- **Songs** – trending tracks, 15 genres and search, from [Audius](https://audius.co), an open music platform where artists publish their own tracks and which offers a public API for apps. Tap a cover to play; **Play all** queues the list and the next song starts by itself.
+- **Radio** – live stations from the [Radio Browser](https://www.radio-browser.info) community directory: Australian stations first, then by style (pop, rock, hits, jazz, classical…) or by name. Only stations with an `https` stream are listed, because a browser won't play `http` audio on an `https` site.
+- **Favourites** – tap the ♥ on any song or station (or in the player). Favourites are saved to the signed-in person's account, so each person has their own and they follow them to their other devices.
+
+A **mini player** stays at the bottom while you browse the rest of the app (play/pause, previous/next, a position bar for songs, ♥, close), and the phone's lock-screen media controls work with it. Opening a TV channel or a video pauses the music.
+
+The code is `public/js/music.js` and `public/css/music.css` (tests in `tests/music.test.mjs`); no API keys are needed. The [Open-Source-Music-Streaming-Apps](https://github.com/chayotic/Open-Source-Music-Streaming-Apps) list that prompted this is a catalogue of separate phone and desktop apps rather than code or a music source, so nothing from it is embedded; the page links to it. Most of the "streaming clients" on that list play from YouTube Music or Spotify without a licence, which is why StreamBox uses Audius and public radio streams instead.
+
 ## Why some channels don't play in the app (and what fixes each)
 
 A browser is stricter than VLC. When a channel shows "Channel unavailable", the message now says why:

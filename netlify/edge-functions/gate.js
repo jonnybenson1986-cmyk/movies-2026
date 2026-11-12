@@ -68,7 +68,7 @@ function signedOutPage(secure) {
   const headers = new Headers({ 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
   for (const name of [SESSION_COOKIE, MARKER_COOKIE]) headers.append('set-cookie', `${name}=; Path=/; Max-Age=0; SameSite=Lax${secure}`);
   const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="robots" content="noindex"><title>StreamBox</title>
-<script>try{sessionStorage.removeItem('sb_unlocked');for(const k of ['mylist','history','progress','acct-meta'])localStorage.removeItem('sb:'+k)}catch(e){}location.replace('/')</script></head>
+<script>try{sessionStorage.removeItem('sb_unlocked');for(const k of ['mylist','history','music','progress','acct-meta'])localStorage.removeItem('sb:'+k)}catch(e){}location.replace('/')</script></head>
 <body style="background:#000"></body></html>`;
   return new Response(html, { status: 200, headers });
 }
