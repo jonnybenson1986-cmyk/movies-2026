@@ -31,8 +31,8 @@ export function cleanMusicItem(raw) {
   if (!item.id || !item.name) return null;
   const art = httpsUrl(raw.art, 600); if (art) item.art = art;
   const url = httpsUrl(raw.url, 1000); if (url) item.url = url;
-  // A station is its stream address, and so is a song from anywhere but Audius (those are played by their id)
-  if (!item.url && (item.type === 'radio' || (item.src && item.src !== 'audius'))) return null;
+  // A station is its stream address, and so is a song from anywhere but Audius or YouTube Music (those are played by their id)
+  if (!item.url && (item.type === 'radio' || (item.src && item.src !== 'audius' && item.src !== 'yt'))) return null;
   if (Number.isFinite(raw.duration) && raw.duration > 0) item.duration = Math.min(Math.round(raw.duration), 1e6);
   return item;
 }

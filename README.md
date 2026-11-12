@@ -124,7 +124,7 @@ Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other
 
 **Music** (`#music`, in the top bar and the phone tab bar) is laid out the way Apple Music is:
 
-- **Listen Now** – large featured playlists, then shelves: Trending Songs, Radio Stations, Popular Playlists, Underground, Top Pop / Electronic / Hip-Hop / Rock, Creative Commons Picks, Live Concerts, and Browse by Genre.
+- **Listen Now** – shelves in priority order: Trending Songs (YouTube Music), Featured playlists (YouTube Music), Playlists on Audius, Trending on Audius, Radio Stations, More Playlists on Audius, Underground, Top Pop / Electronic / Hip-Hop / Rock, Creative Commons Picks, Live Concerts, and Browse by Genre.
 - **Browse** – 22 genre tiles. A genre page gathers that genre from every source: top songs (with Play and Shuffle), Creative Commons picks, radio, and netlabel albums.
 - **Radio** – SomaFM's commercial-free channels with their logos, Australian stations first, then stations by genre or by name.
 - **Library** – your favourites: tap the ♥ on any song or station. Saved to the signed-in person's account, so each person has their own and it follows them to their other devices.
@@ -135,6 +135,7 @@ Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other
 
 | Source | What it gives |
 |---|---|
+| YouTube Music | Trending songs, search and playlists, first in every list — reached the same way the [Open-Source-Music-Streaming-Apps](https://github.com/chayotic/Open-Source-Music-Streaming-Apps) apps do it, through community Piped and Invidious instances fronted by the site's `/api/music-yt` function |
 | [Audius](https://audius.co) | Songs, playlists and artists, published by the artists themselves |
 | [Openverse](https://openverse.org) | Creative Commons songs (Jamendo's catalogue), searched by genre |
 | [Internet Archive](https://archive.org/details/etree) | Live concerts (the Live Music Archive) and netlabel albums |
@@ -147,7 +148,7 @@ Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other
 
 **Screen off.** Music keeps playing when the phone is locked or the app is in the background: it plays through a single audio element, and the phone's lock screen and notification shade show the song, its artwork and play / pause / next / previous / scrub controls (the Media Session API). The next song starts by itself while locked, and a radio station that drops out on a patchy connection is reconnected. On iPhone and iPad this works in Safari and in the app added to the Home Screen; opening a TV channel or a video pauses the music.
 
-The code is `public/js/music.js` (sources, favourites, player), `public/js/music-ui.js` (pages, mini player, Now Playing) and `public/css/music.css`, with tests in `tests/music.test.mjs`. Openverse allows a couple of hundred anonymous searches a day per network, so its answers are kept for six hours. The [Open-Source-Music-Streaming-Apps](https://github.com/chayotic/Open-Source-Music-Streaming-Apps) list that prompted the page is a catalogue of separate apps, most of which play from YouTube Music or Spotify without a licence, which is why StreamBox uses the open sources above instead.
+The code is `public/js/music.js` (sources, favourites, player), `public/js/music-ui.js` (pages, mini player, Now Playing), `public/css/music.css`, `netlify/functions/music-yt.mjs` (the YouTube Music backend) and `netlify/lib/account-data.mjs`, with tests in `tests/music.test.mjs` and `tests/music-yt.test.mjs`. Openverse allows a couple of hundred anonymous searches a day per network, so its answers are kept for six hours. The [Open-Source-Music-Streaming-Apps](https://github.com/chayotic/Open-Source-Music-Streaming-Apps) list that prompted the page is a catalogue of separate apps; StreamBox now uses the YouTube Music backends those apps use, kept behind the site's own function and prioritised over the open sources, so a failing instance never breaks the page.
 
 ## Why some channels don't play in the app (and what fixes each)
 

@@ -67,7 +67,7 @@
       <div class="am-top"><nav class="am-tabs" aria-label="Music sections">${TABS.map(([path, label, id]) => `<a href="#music${path ? '/' + path : ''}" class="${active === id ? 'active' : ''}"${active === id ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
         <form class="am-search" id="amSearch" role="search">${ICON.search}<input type="search" name="q" maxlength="80" value="${esc(r.search || '')}" placeholder="Artists, songs, stations" autocomplete="off" aria-label="Search music"></form></div>
       ${body}
-      <p class="am-note">Songs, playlists and artist pictures from <a href="https://audius.co" target="_blank" rel="noopener noreferrer">Audius</a> (published by the artists). Creative Commons songs from Jamendo via <a href="https://openverse.org" target="_blank" rel="noopener noreferrer">Openverse</a>. Concerts and netlabel albums from the <a href="https://archive.org/details/etree" target="_blank" rel="noopener noreferrer">Internet Archive</a>. Radio from <a href="https://somafm.com" target="_blank" rel="noopener noreferrer">SomaFM</a> and <a href="https://www.radio-browser.info" target="_blank" rel="noopener noreferrer">Radio Browser</a>.</p></div>`;
+      <p class="am-note">Trending songs, search and playlists come from YouTube Music, reached the way the <a href="https://github.com/chayotic/Open-Source-Music-Streaming-Apps" target="_blank" rel="noopener noreferrer">open-source streaming apps</a> do it, through community Piped and Invidious instances. Songs, playlists and artist pictures on Audius (published by the artists). Creative Commons songs from Jamendo via <a href="https://openverse.org" target="_blank" rel="noopener noreferrer">Openverse</a>. Concerts and netlabel albums from the <a href="https://archive.org/details/etree" target="_blank" rel="noopener noreferrer">Internet Archive</a>. Radio from <a href="https://somafm.com" target="_blank" rel="noopener noreferrer">SomaFM</a> and <a href="https://www.radio-browser.info" target="_blank" rel="noopener noreferrer">Radio Browser</a>.</p></div>`;
   }
   const title = (text, sub = '') => `<header class="am-title"><h1>${esc(text)}</h1>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
   const empty = text => `<div class="empty">${text}</div>`;
@@ -95,10 +95,12 @@
       const favs = M.favs();
       const picks = [genreById('pop'), genreById('electronic'), genreById('hiphop'), genreById('rock')];
       sections(view, r, live, title('Listen Now'), [
-        async () => { const p = await data.playlists(); return p.length ? `<section class="am-features"><div class="am-feature-track">${p.slice(0, 8).map((c, i) => featureCard(c, i === 0 ? 'Featured playlist' : 'Playlist')).join('')}</div></section>` : ''; },
-        async () => songShelf('Trending Songs', await data.trending('', 30), favs),
+        async () => songShelf('Trending Songs', await data.ytTrending('AU'), favs),
+        async () => { const p = await data.ytSearch('top hits', 'music_playlists'); return p.length ? `<section class="am-features"><div class="am-feature-track">${p.slice(0, 8).map((c, i) => featureCard(c, i === 0 ? 'Featured playlist' : 'Playlist')).join('')}</div></section>` : ''; },
+        async () => { const p = await data.playlists(); return p.length ? shelf('Playlists on Audius', p.slice(0, 8).map(linkCard).join('')) : ''; },
+        async () => songShelf('Trending on Audius', await data.trending('', 30), favs),
         async () => { const s = await data.soma(); return songShelf('Radio Stations', s.slice(0, 20), favs, { href: '#music/radio' }); },
-        async () => { const p = await data.playlists(); return shelf('Popular Playlists', p.slice(8).map(linkCard).join('')); },
+        async () => { const p = await data.playlists(); return shelf('More Playlists on Audius', p.slice(8).map(linkCard).join('')); },
         async () => songShelf('Underground: New & Rising', await data.underground(), favs),
         ...picks.map(g => async () => songShelf(`Top ${g.name}`, await data.trending(g.audius, 20), favs, { href: '#music/genre/' + g.id })),
         async () => songShelf('Creative Commons Picks', await data.cc('pop rock', 20), favs),
@@ -113,7 +115,8 @@
       const g = genreById(r.genre), favs = M.favs();
       const head = `<header class="am-banner" style="--g1:${g.c[0]};--g2:${g.c[1]}"><a class="am-back" href="#music/browse">‹ Browse</a><h1>${esc(g.name)}</h1></header>`;
       sections(view, r, live, head, [
-        async () => { const t = await data.trending(g.audius, 40); if (!t.length) return ''; const li = reg(t); return `<div class="am-sec-head"><h2>Top Songs</h2>${playButtons(li)}</div>${rows(t.slice(0, 10), favs)}${t.length > 10 ? songShelf('More ' + g.name, t.slice(10), favs) : ''}`; },
+        async () => { const s = await data.ytSearch(`${g.name} music`); if (!s.length) return ''; const li = reg(s); return `<div class="am-sec-head"><h2>Top Songs</h2>${playButtons(li)}</div>${rows(s.slice(0, 10), favs, { artistLinks: false })}${s.length > 10 ? songShelf('More ' + g.name, s.slice(10), favs) : ''}`; },
+        async () => { const t = await data.trending(g.audius, 40); if (!t.length) return ''; const li = reg(t); return `<div class="am-sec-head"><h2>Top Songs on Audius</h2>${playButtons(li)}</div>${rows(t.slice(0, 10), favs)}${t.length > 10 ? songShelf('More ' + g.name + ' on Audius', t.slice(10), favs) : ''}`; },
         async () => songShelf('Creative Commons Picks', await data.cc(g.q, 20), favs),
         async () => {
           const [soma, rb] = await Promise.all([data.soma().catch(() => []), data.stations({ tag: g.radio, limit: 30 }).catch(() => [])]);
@@ -147,9 +150,11 @@
       const favs = M.favs(), text = r.search;
       if (!text) { view.innerHTML = chrome(r, `${title('Search')}${empty('Type an artist, a song or a station above.')}`); return; }
       sections(view, r, live, title('Search', `Results for “${text}”`), [
-        async () => shelf('Artists', (await data.artistSearch(text)).map(artistCard).join(''), { cls: 'am-artists' }),
-        async () => { const s = await data.songSearch(text); return s.length ? `<div class="am-sec-head"><h2>Songs</h2></div>${rows(s.slice(0, 12), favs)}${s.length > 12 ? songShelf('More songs', s.slice(12), favs) : ''}` : ''; },
-        async () => shelf('Playlists', (await data.playlistSearch(text)).map(linkCard).join('')),
+        async () => { const s = await data.ytSearch(text); return s.length ? `<div class="am-sec-head"><h2>Songs</h2></div>${rows(s.slice(0, 12), favs, { artistLinks: false })}${s.length > 12 ? songShelf('More songs', s.slice(12), favs) : ''}` : ''; },
+        async () => shelf('Playlists', (await data.ytSearch(text, 'music_playlists')).map(linkCard).join('')),
+        async () => shelf('Artists on Audius', (await data.artistSearch(text)).map(artistCard).join(''), { cls: 'am-artists' }),
+        async () => { const s = await data.songSearch(text); return s.length ? `<div class="am-sec-head"><h2>Songs on Audius</h2></div>${rows(s.slice(0, 12), favs)}${s.length > 12 ? songShelf('More songs on Audius', s.slice(12), favs) : ''}` : ''; },
+        async () => shelf('Playlists on Audius', (await data.playlistSearch(text)).map(linkCard).join('')),
         async () => songShelf('Creative Commons Songs', await data.cc(text, 20), favs),
         async () => songShelf('Stations', await data.stations({ name: text, limit: 30 }), favs),
         async () => shelf('Albums & Concerts', (await data.albumSearch(text)).map(linkCard).join('')),
