@@ -4,7 +4,7 @@
 // list below is used: only salted SHA-256 hashes are stored here, never the passwords.
 // Short numeric passwords can still be guessed, so prefer longer ones in USERS.
 
-export const SESSION_COOKIE = 'sb_gate';     // "<user>:<password>", HttpOnly, session-only
+export const SESSION_COOKIE = 'sb_gate';     // "<user>:<password>", or "pk.<signed token>" after a Face ID / fingerprint sign-in. HttpOnly, session-only
 export const MARKER_COOKIE = 'sb_gate_on';   // readable by the page: a gate is in front of the app
 export const SALT = 'streambox-user|';
 export const MAX_USER = 32;
@@ -44,6 +44,40 @@ function envUsers() {
   } catch { return null; }
 }
 
+// Is this still one of the accounts? (A passkey only works while its account exists.)
+export function userExists(userInput) {
+  const user = normalizeUser(userInput);
+  return !!user && Object.hasOwn(envUsers() || DEFAULT_USERS, user);
+}
+
+// ---- signed tokens (for passkey challenges and passkey sessions). The key is the SESSION_SECRET environment
+// variable when set; otherwise it is derived from the account list, which is no weaker than that list already is.
+const enc = new TextEncoder();
+export const b64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+export const fromB64url = text => Uint8Array.from(atob(String(text).replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+async function signingKey() {
+  const secret = globalThis.Netlify?.env?.get?.('SESSION_SECRET') ?? globalThis.process?.env?.SESSION_SECRET
+    ?? 'streambox-session|' + JSON.stringify(envUsers() || DEFAULT_USERS);
+  return crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+}
+const mac = async text => b64url(await crypto.subtle.sign('HMAC', await signingKey(), enc.encode(text)));
+// kind keeps a token made for one purpose from being used for another
+export async function signToken(kind, payload, seconds) {
+  const body = b64url(enc.encode(JSON.stringify({ ...payload, exp: Date.now() + seconds * 1000 })));
+  return `${body}.${await mac(kind + '.' + body)}`;
+}
+export async function readToken(kind, token) {
+  if (typeof token !== 'string' || token.length > 2000) return null;
+  const [body, sig, extra] = token.split('.');
+  if (!body || !sig || extra !== undefined || !safeEqual(sig, await mac(kind + '.' + body))) return null;
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(fromB64url(body)));
+    return payload && typeof payload === 'object' && payload.exp > Date.now() ? payload : null;
+  } catch { return null; }
+}
+const PASSKEY_SESSION_DAYS = 30;   // the cookie itself still ends when the browser closes
+export const passkeySessionValue = async user => 'pk.' + await signToken('session', { u: user }, PASSKEY_SESSION_DAYS * 86400);
+
 // Returns the normalised username when the pair is right, otherwise ''
 export async function verifyLogin(userInput, password) {
   const user = normalizeUser(userInput);
@@ -69,6 +103,10 @@ export const sessionCookieValue = (user, password) => encodeURIComponent(user + 
 export async function sessionUser(request) {
   if (cookieValue(request, MARKER_COOKIE) !== '1') return '';
   const value = cookieValue(request, SESSION_COOKIE);
+  if (value.startsWith('pk.')) {   // signed in with a passkey
+    const payload = await readToken('session', value.slice(3));
+    return payload && userExists(payload.u) ? normalizeUser(payload.u) : '';
+  }
   const i = value.indexOf(':');
   return i > 0 ? verifyLogin(value.slice(0, i), value.slice(i + 1)) : '';
 }

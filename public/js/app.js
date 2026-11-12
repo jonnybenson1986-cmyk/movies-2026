@@ -1146,13 +1146,49 @@
   function movieUpdateText(status) {
     return status.message + (status.checkedAt ? ' Last updated: ' + new Date(status.checkedAt).toLocaleString() : '');
   }
+  // ---- Face ID / fingerprint sign-in (passkeys): the section in Settings, and a one-time offer after signing in
+  async function renderPasskeys() {
+    const box = $('#passkeyBox');
+    if (!box) return;
+    const pk = window.StreamBoxPasskey;
+    if (!pk.supported()) { box.innerHTML = '<p style="color:var(--muted)">This browser doesn’t support Face ID or fingerprint sign-in.</p>'; return; }
+    const [can, mine] = await Promise.all([pk.available(), pk.list().catch(() => null)]);
+    if (!$('#passkeyBox')) return;
+    if (mine === null) { box.innerHTML = '<p style="color:var(--muted)">Face ID sign-in isn’t available right now.</p>'; return; }
+    const when = t => new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+    box.innerHTML = `<p style="color:var(--muted)">Sign in with your face or fingerprint instead of typing your password. Your face or fingerprint never leaves this device: it only unlocks a key that proves it’s you.</p>
+      <ul class="src-list">${mine.map(p => `<li><span>${esc(p.label)} · added ${esc(when(p.at))}</span><button class="btn btn-more" style="padding:4px 10px;font-size:12px" data-act="pkremove" data-id="${esc(p.id)}">Remove</button></li>`).join('') || '<li><span style="color:var(--muted)">Not set up on any device yet.</span></li>'}</ul>
+      ${can ? '<button class="btn btn-red" data-act="pkadd" style="font-size:14px;padding:8px 16px">Set up on this device</button>' : '<p style="color:var(--muted);font-size:13px">This device has no Face ID, Touch ID, fingerprint or Windows Hello set up, so it can’t be added here.</p>'}`;
+  }
+  async function setUpPasskey(button) {
+    if (button) button.disabled = true;
+    try {
+      const saved = await window.StreamBoxPasskey.setUp();
+      toast(`Face ID / fingerprint sign-in is on for this ${saved.label || 'device'}`);
+      if ($('#passkeyBox')) renderPasskeys(); else closeModal();
+    } catch (e) { if (e.message !== 'Cancelled') toast(e.message); if (button) button.disabled = false; if (e.message === 'This device is already set up' && $('#passkeyBox')) renderPasskeys(); }
+  }
+  // Offered once per device, a moment after the app opens, to someone who signed in with their password
+  async function offerPasskey() {
+    const pk = window.StreamBoxPasskey;
+    if (!window.StreamBoxAccount?.enabled || pk.known || store.get('passkeyAsked', false) || !(await pk.available())) return;
+    if (!player.hidden || !modal.hidden) return;
+    store.set('passkeyAsked', true);
+    openModal(`<div class="modal-body" style="padding-top:28px"><h2>Sign in with your face next time?</h2>
+      <p style="color:var(--muted);line-height:1.5;margin:10px 0 18px">Use Face ID, Touch ID or your fingerprint on this device instead of typing your password. You can change this any time in Settings.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-red" data-act="pkadd">Set it up</button><button class="btn btn-more" data-act="pklater">Not now</button></div></div>`);
+  }
+  window.StreamBoxAccount?.ready?.then(() => setTimeout(offerPasskey, 2500));
+
   function showSettings() {
     openModal(`
       <div class="modal-body" style="padding-top:28px">
         <h2 style="font-size:24px;margin-bottom:6px">Settings</h2>
         ${window.StreamBoxAccount?.enabled ? `<h3>Account</h3>
         <p style="color:var(--muted)">Signed in as <b style="color:#fff">${esc(window.StreamBoxAccount.user)}</b>. Your My List, Continue Watching and your place in your own videos are saved to your account and follow you to your other devices.</p>
-        <button class="btn btn-more" data-act="signout" style="font-size:13px;padding:6px 12px">Sign out</button>` : ''}
+        <button class="btn btn-more" data-act="signout" style="font-size:13px;padding:6px 12px">Sign out</button>
+        <h3>Face ID / fingerprint sign-in</h3>
+        <div id="passkeyBox"><p style="color:var(--muted)">Checking this device…</p></div>` : ''}
         <h3>Movie updates</h3>
         <p>Checks for new movies on launch and once a day while the app is open. Saved titles stay available offline.</p>
         <p id="movieUpdateStatus" role="status" style="color:var(--muted)">${esc(movieUpdateText(movies.updates.status))}</p>
@@ -1197,6 +1233,7 @@
         ${isInstalled() ? '<p style="color:var(--green)">StreamBox is installed on this device ✓</p>' : '<button class="btn btn-red" data-act="install" style="font-size:13px;padding:6px 12px">Download StreamBox</button>'}
         <p style="margin-top:8px"><b>iPhone / iPad:</b> open in Safari → Share → <i>Add to Home Screen</i>.<br><b>Android:</b> open in Chrome → ⋮ menu → <i>Install app</i>.<br><b>Windows / Mac:</b> open in Chrome or Edge → install icon in the address bar.</p>
       </div>`);
+    renderPasskeys();
   }
 
   const artworkKey = () => (/^[a-f0-9]{32}$/i.test(settings.tmdbKey || '') ? settings.tmdbKey : '');
@@ -1292,6 +1329,9 @@
       else if (a === 'refreshmovies') movies.updates.refresh({ force: true });
       else if (a === 'clearhist') { store.set('history', []); toast('History cleared'); }
       else if (a === 'opensettings') showSettings();
+      else if (a === 'pkadd') setUpPasskey(act);
+      else if (a === 'pkremove') { act.disabled = true; window.StreamBoxPasskey.remove(act.dataset.id).then(() => { toast('Removed'); renderPasskeys(); }).catch(e => { toast(e.message); act.disabled = false; }); }
+      else if (a === 'pklater') closeModal();
       else if (a === 'signout') { toast('Signing out…'); Promise.resolve(window.StreamBoxAccount?.flush()).finally(() => { location.href = '/__gate/logout'; }); }
       else if (a === 'saveart') saveArtworkKey($('#artInput').value.trim());
       else if (a === 'clearart') { settings.tmdbKey = ''; saveSettings(); window.StreamBoxArt?.reload(); toast('Using the built-in key'); route(); showSettings(); }

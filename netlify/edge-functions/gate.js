@@ -12,8 +12,9 @@ import {
 
 const FAIL_DELAY_MS = 800;   // slows down guessing
 
-// Reachable without signing in: what a browser needs to show the lock screen and install the app
-const isPublic = path => path === '/manifest.webmanifest' || path.startsWith('/icons/');
+// Reachable without signing in: what a browser needs to show the lock screen and install the app, and the two
+// requests that sign someone in with Face ID / fingerprint (netlify/functions/passkey.mjs checks those itself)
+const isPublic = path => path === '/manifest.webmanifest' || path.startsWith('/icons/') || path === '/api/passkey/login/options' || path === '/api/passkey/login';
 
 // Only ever redirect to a path on this site
 const safeNext = value => (typeof value === 'string' && /^\/(?![/\\])/.test(value) ? value : '/');
@@ -38,17 +39,61 @@ function lockPage(next, error, user = '') {
   input:focus{outline:2px solid #fff;outline-offset:-2px}
   button{width:100%;margin-top:6px;padding:14px;border:0;border-radius:999px;background:#f5f5f7;color:#000;font-size:17px;font-weight:600;cursor:pointer}
   .err{color:#ff453a;font-size:14px;margin:0 0 14px}
+  #pk{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;background:#1c1c1e;color:#f5f5f7}
+  #pk[hidden],#pkErr[hidden],#or[hidden]{display:none}
+  #pk.main{background:#f5f5f7;color:#000}
+  #pk svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  #pk:disabled{opacity:.6}
+  #or{color:#636366;font-size:13px;margin:0 0 14px}
+  body.haspk form button{background:#1c1c1e;color:#f5f5f7}
 </style></head>
 <body><main>
   <h1>STREAMBOX</h1><p>Sign in to continue</p>
   ${error ? '<p class="err">Wrong username or password. Try again.</p>' : ''}
+  <button type="button" id="pk" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 9v1.5M15 9v1.5M12 9v4h-1M9 15.5c1.8 1.4 4.2 1.4 6 0"/></svg><span>Sign in with Face ID or fingerprint</span></button>
+  <p class="err" id="pkErr" role="alert" hidden></p>
+  <p id="or" hidden>or use your password</p>
   <form method="post" action="/__gate">
     <input type="hidden" name="next" value="${esc(next)}">
     <input name="user" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="${MAX_USER}" placeholder="Username" value="${esc(user)}" ${user ? '' : 'autofocus'} required aria-label="Username">
     <input name="code" type="password" autocomplete="current-password" maxlength="${MAX_PASSWORD}" placeholder="Password" ${user ? 'autofocus' : ''} required aria-label="Password">
     <button type="submit">Sign in</button>
   </form>
-</main></body></html>`;
+</main>
+<script>
+// Face ID / fingerprint sign-in (a passkey). Offered on devices that support it; it is the main button on a
+// device where it has been set up (Settings in the app), and it opens by itself there, like other apps do.
+(function () {
+  if (!window.PublicKeyCredential || !navigator.credentials) return;
+  var btn = document.getElementById('pk'), err = document.getElementById('pkErr'), next = ${JSON.stringify(next).replace(/</g, '\\u003c')};
+  var known = false, auto = true;
+  try { known = localStorage.getItem('sb:passkey') === '1'; auto = sessionStorage.getItem('sb_no_auto') !== '1'; sessionStorage.removeItem('sb_no_auto'); } catch (e) {}
+  var enc = function (buf) { return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/[+]/g, '-').replace(/[/]/g, '_').replace(/=+$/, ''); };
+  var dec = function (s) { return Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), function (c) { return c.charCodeAt(0); }); };
+  var post = function (path, body) { return fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Sign-in failed'); return j; }); }); };
+  function signIn(quiet) {
+    err.hidden = true; btn.disabled = true;
+    post('/api/passkey/login/options').then(function (o) {
+      return navigator.credentials.get({ publicKey: { challenge: dec(o.challenge), rpId: o.rpId, timeout: o.timeout, userVerification: o.userVerification } }).then(function (c) {
+        return post('/api/passkey/login', { token: o.token, id: c.id, clientDataJSON: enc(c.response.clientDataJSON), authenticatorData: enc(c.response.authenticatorData), signature: enc(c.response.signature) });
+      });
+    }).then(function () {
+      try { sessionStorage.setItem('sb_unlocked', '1'); localStorage.setItem('sb:passkey', '1'); } catch (e) {}
+      location.replace(next);
+    }).catch(function (e) {
+      btn.disabled = false;
+      var cancelled = e && (e.name === 'NotAllowedError' || e.name === 'AbortError');   // dismissed, or the browser wants a tap first
+      if (quiet || cancelled) return;
+      err.textContent = e && e.message ? e.message : 'Face ID or fingerprint sign-in didn’t work. Use your password.'; err.hidden = false;
+    });
+  }
+  btn.hidden = false; document.getElementById('or').hidden = false;
+  if (known) { btn.className = 'main'; document.body.className = 'haspk'; var focused = document.activeElement; if (focused && focused.blur) focused.blur(); }   // Face ID leads; no keyboard popping up
+  btn.onclick = function () { signIn(false); };
+  if (known && auto) signIn(true);
+})();
+</script>
+</body></html>`;
   return new Response(html, {
     status: 401,   // not 200, so the app's offline cache never stores the lock screen
     headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' },
@@ -68,7 +113,7 @@ function signedOutPage(secure) {
   const headers = new Headers({ 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
   for (const name of [SESSION_COOKIE, MARKER_COOKIE]) headers.append('set-cookie', `${name}=; Path=/; Max-Age=0; SameSite=Lax${secure}`);
   const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="robots" content="noindex"><title>StreamBox</title>
-<script>try{sessionStorage.removeItem('sb_unlocked');for(const k of ['mylist','history','music','progress','acct-meta'])localStorage.removeItem('sb:'+k)}catch(e){}location.replace('/')</script></head>
+<script>try{sessionStorage.removeItem('sb_unlocked');sessionStorage.setItem('sb_no_auto','1');for(const k of ['mylist','history','music','progress','acct-meta'])localStorage.removeItem('sb:'+k)}catch(e){}location.replace('/')</script></head>
 <body style="background:#000"></body></html>`;
   return new Response(html, { status: 200, headers });
 }

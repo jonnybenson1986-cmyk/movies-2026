@@ -43,6 +43,18 @@ People never see each other's data. Signing out clears the lists from that devic
 
 **Tests:** `npm test` covers the sign-in (`tests/gate.test.mjs`), the stored data and sync (`tests/accounts.test.mjs`).
 
+## Sign in with Face ID or a fingerprint
+
+Each person can sign in with their face or fingerprint instead of typing their password, the way banking and other apps do. On the web this is a **passkey**: the device's own Face ID, Touch ID, fingerprint reader or Windows Hello.
+
+- **Turning it on:** sign in with your password once. The app offers it a moment later (once per device), or use *Settings → Face ID / fingerprint sign-in → Set up on this device*. Settings lists each device you've set up, with a **Remove** button.
+- **Signing in:** the sign-in screen shows **Sign in with Face ID or fingerprint**. On a device where it's set up it is the main button and opens by itself when you open the app (it doesn't pop back up right after you sign out). The password form is always still there.
+- **What is stored:** your face or fingerprint never leaves the device. The device keeps a private key and proves it has it by signing a one-time challenge; the server keeps only the matching public key (Netlify Blobs, next to the account data). A passkey only works on the site address it was made for.
+- **Sessions:** a Face ID sign-in gives the same session-only cookies as a password (asked again when the app is closed), but the cookie holds a signed token rather than the password. Set a `SESSION_SECRET` environment variable in Netlify (any long random text) to sign these with your own secret; without it the key is derived from the account list, so changing the `USERS` list signs passkey sessions out. Removing a person from the list stops their passkeys working.
+- **Needs:** a device with a face or fingerprint lock set up and a recent browser (Safari 16+, Chrome, Edge, Firefox 122+), on `https`. Up to 10 passkeys per person.
+
+The code: `netlify/lib/webauthn.mjs` (the checks), `netlify/functions/passkey.mjs` (`/api/passkey/*`), the button on the sign-in screen in `netlify/edge-functions/gate.js`, and `public/js/passkey.js` for Settings. `tests/passkey.test.mjs` runs the whole flow against a software "device" and checks that a wrong site, a stale or swapped challenge, an unverified face, a changed signature or someone else's key are all refused.
+
 ## Install on your phone
 
 - **iPhone / iPad:** open the site in **Safari** → Share button → **Add to Home Screen**.
