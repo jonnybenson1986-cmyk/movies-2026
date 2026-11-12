@@ -77,6 +77,28 @@ test('every genre maps to each source, and stream and search addresses are built
   assert.equal(s.get('countrycode'), 'AU'); assert.equal(s.get('is_https'), 'true'); assert.equal(s.has('tag'), false);
 });
 
+test('a YouTube Music song is played by its id, and its playlists carry the yt- prefix', () => {
+  const v = { id: 'khnokW3Mw24', name: ' Instant Crush ', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', duration: 338 };
+  assert.deepEqual(m.ytSong(v), { key: 'y:khnokW3Mw24', type: 'song', src: 'yt', id: 'khnokW3Mw24', name: 'Instant Crush', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', duration: 338, genre: '' });
+  assert.equal(m.ytSong({ ...v, art: 'http://plain.example/x.jpg' }).art, '', 'only https artwork is used');
+  assert.equal(m.ytSong({ ...v, id: 'too short' }), null);
+  assert.equal(m.ytSong({ ...v, name: '' }), null);
+  assert.equal(m.ytSong(null), null);
+  const p = m.ytPlaylist({ id: 'PLrAXtmErZgOdP_8GztsuPi9g_pyC8S1ys', name: 'Today’s hits', by: 'YouTube Music', count: 50, art: 'https://p.example/c.jpg' });
+  assert.deepEqual(p, { kind: 'playlist', id: 'yt-PLrAXtmErZgOdP_8GztsuPi9g_pyC8S1ys', name: 'Today’s hits', by: 'YouTube Music', art: 'https://p.example/c.jpg', count: 50, note: '', href: '#music/playlist/yt-PLrAXtmErZgOdP_8GztsuPi9g_pyC8S1ys' });
+  assert.equal(m.ytPlaylist({ id: 'short', name: 'x' }), null);
+});
+
+test('a YouTube Music favourite keeps no stream address: it is re-resolved when played', () => {
+  const y = m.ytSong({ id: 'khnokW3Mw24', name: 'Instant Crush', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', duration: 338 });
+  const list = m.toggleFav([], y);
+  assert.equal('url' in list[0], false);
+  assert.ok(m.validFav(list[0]));
+  assert.ok(!m.validFav({ ...list[0], src: 'other' }), 'a song from an unknown source still needs its own address');
+  assert.equal(m.streamUrl(y), '', 'the address is looked up through /api/music-yt when the song starts');
+  assert.deepEqual(JSON.parse(JSON.stringify(list[0])), { key: 'y:khnokW3Mw24', type: 'song', src: 'yt', id: 'khnokW3Mw24', name: 'Instant Crush', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', genre: '', duration: 338 });
+});
+
 test('favourites: newest first, no duplicates, and tapping again removes', () => {
   const a = m.songItem(track()), b = m.stationItem(station()), c = m.ccItem(cc());
   let list = m.toggleFav(m.toggleFav(m.toggleFav([], a), b), c);
@@ -123,6 +145,9 @@ test('favourite music is rebuilt from safe fields before it is stored', () => {
   assert.equal(cleanMusicItem(ccFav).url, 'https://prod-1.storage.jamendo.com/?trackid=1227396&format=mp32');
   assert.equal(cleanMusicItem(ccFav).album, 'Midnight Grooves');
   assert.equal(cleanMusicItem({ ...ccFav, url: 'javascript:alert(1)' }), null, 'a song from outside Audius must have an https address');
+  const yt = m.ytSong({ id: 'khnokW3Mw24', name: 'Instant Crush', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', duration: 338 });
+  assert.deepEqual(cleanMusicItem(yt), { key: 'y:khnokW3Mw24', type: 'song', src: 'yt', id: 'khnokW3Mw24', name: 'Instant Crush', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', duration: 338 }, 'a YouTube Music song is kept without an address and replayed by its id');
+  assert.equal(cleanMusicItem({ ...yt, src: 'random', url: '' }), null, 'a song from an unknown source still needs an https address');
   assert.equal(cleanMusicItem({ ...radio, url: 'http://plain.example/s' }), null, 'a station must have an https stream');
   assert.equal(cleanMusicItem({ ...song, art: 'https://x.example/" onerror="alert(1)' }).art, undefined, 'artwork must be a clean https address');
   assert.ok(cleanMusicItem({ key: 's:1', type: 'song', id: '1', name: 'Saved before sources were added' }));

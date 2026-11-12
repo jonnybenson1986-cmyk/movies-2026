@@ -1,10 +1,15 @@
 /* Music: where the music comes from, what the app keeps about it, favourites, and the player itself.
    The page (shelves, genres, now playing) is in music-ui.js.
-     Audius            songs, playlists and artists: an open platform where artists publish their own music
-     Openverse         Creative Commons songs (from Jamendo), found through Openverse's open search API
-     Internet Archive  live concerts (the Live Music Archive) and netlabel albums
-     SomaFM            listener-supported radio channels
-     Radio Browser     community directory of internet radio stations
+
+     YouTube Music    trending songs, searches and playlists, through the same community backends the
+                      open-source streaming apps in github.com/chayotic/Open-Source-Music-Streaming-Apps use.
+                      Served by the site's /api/music-yt function so every browser can reach the instances
+     Audius           songs, playlists and artists: an open platform where artists publish their own music
+     Openverse        Creative Commons songs (from Jamendo), found through Openverse's open search API
+     Internet Archive live concerts (the Live Music Archive) and netlabel albums
+     SomaFM           listener-supported radio channels
+     Radio Browser    community directory of internet radio stations
+
    None of them needs a key. Favourites are saved in localStorage as sb:music, which account.js syncs to the
    signed-in person's account. The first half is plain logic (no page code) so it can be tested on its own. */
 (() => {
@@ -14,8 +19,8 @@
   const OPENVERSE = 'https://api.openverse.org/v1/audio/';
   const ARCHIVE = 'https://archive.org';
   const RADIO_HOSTS = ['de1', 'fi1', 'nl1', 'at1'].map(h => `https://${h}.api.radio-browser.info`);
+  const YT = '/api/music-yt';
   const FAV_KEY = 'sb:music', FAV_MAX = 300;
-
   // One list of genres for every source. audius: its exact genre name; q: search word for Openverse and the Archive;
   // radio: Radio Browser tag; soma: SomaFM genre names; c: tile colours.
   const G = (id, name, audius, q, radio, soma, c) => ({ id, name, audius, q, radio, soma, c });
@@ -95,6 +100,16 @@
     if (!p || !p.id || !str(p.playlist_name)) return null;
     return { kind: 'playlist', id: String(p.id), name: str(p.playlist_name), by: str(p.user?.name), byId: str(p.user?.id), art: art480(p.artwork), count: p.track_count | 0, note: str(p.description), href: '#music/playlist/' + encodeURIComponent(p.id) };
   }
+  function ytSong(v) {   // a YouTube Music song as the music-yt function sent it
+    const id = str(v?.id);
+    if (!/^[A-Za-z0-9_-]{11}$/.test(id) || !str(v?.name)) return null;
+    return { key: 'y:' + id, type: 'song', src: 'yt', id, name: str(v.name), artist: str(v.artist), art: https(v.art), duration: Number.isFinite(v.duration) ? Math.round(v.duration) : 0, genre: '' };
+  }
+  function ytPlaylist(p) {   // a YouTube Music playlist; its id gets the yt- prefix so the routes can tell it apart
+    const id = str(p?.id);
+    if (!/^[\w-]{10,64}$/.test(id) || !str(p?.name)) return null;
+    return { kind: 'playlist', id: 'yt-' + id, name: str(p.name), by: str(p.by), art: https(p.art), count: p.count | 0, note: '', href: '#music/playlist/' + encodeURIComponent('yt-' + id) };
+  }
   function albumItem(d) {   // Internet Archive item (a concert or a netlabel release)
     const id = str(d?.identifier);
     if (!id) return null;
@@ -107,7 +122,8 @@
 
   // The artwork at its largest (for the Now Playing screen and the lock screen)
   const bigArt = item => (item?.art || '').replace(/\/480x480\.jpg$/, '/1000x1000.jpg');
-  const streamUrl = item => https(item.url) || `${AUDIUS}/tracks/${encodeURIComponent(item.id)}/stream?app_name=${APP}`;
+  // A YouTube Music song is played by its id: the music-yt function finds a working audio address for it
+  const streamUrl = item => https(item.url) || (item.src === 'yt' ? '' : `${AUDIUS}/tracks/${encodeURIComponent(item.id)}/stream?app_name=${APP}`);
 
   // ---- addresses
   const qs = params => new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v != null)).toString();
@@ -138,11 +154,12 @@
   function toggleFav(list, item) {
     if (isFav(list, item.key)) return list.filter(i => i.key !== item.key);
     const { key, type, src, id, name, artist, artistId, art, url, duration, genre, album } = item;
-    const keep = { key, type, src, id, name, artist, art, genre, ...(artistId && { artistId }), ...(album && { album }), ...(src !== 'audius' && { url }), ...(duration && { duration }) };
+    const byId = src === 'audius' || src === 'yt';   // these are played by their id, so they keep no address
+    const keep = { key, type, src, id, name, artist, art, genre, ...(artistId && { artistId }), ...(album && { album }), ...(!byId && { url }), ...(duration && { duration }) };
     return [keep, ...list].slice(0, FAV_MAX);
   }
   const validFav = i => !!i && typeof i.key === 'string' && !!i.id && !!i.name
-    && ((i.type === 'radio' && !!https(i.url)) || (i.type === 'song' && (!i.src || i.src === 'audius' || !!https(i.url))));
+    && ((i.type === 'radio' && !!https(i.url)) || (i.type === 'song' && (!i.src || i.src === 'audius' || i.src === 'yt' || !!https(i.url))));
 
   // Shuffled copy that starts with `first`
   function shuffled(list, first, random = Math.random) {
@@ -166,7 +183,7 @@
     return { page: 'home' };
   }
 
-  const pure = { GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, albumItem, artistItem, bigArt, streamUrl, urls, isFav, toggleFav, validFav, shuffled, parseRoute, clock, seconds, esc, https };
+  const pure = { GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, ytSong, ytPlaylist, albumItem, artistItem, bigArt, streamUrl, urls, isFav, toggleFav, validFav, shuffled, parseRoute, clock, seconds, esc, https };
   if (typeof module !== 'undefined') module.exports = pure;
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
@@ -211,7 +228,29 @@
     album: async id => { const meta = await getJSON(urls.archiveItem(id)); return { info: albumItem({ ...meta.metadata, identifier: meta.metadata?.identifier }), tracks: iaTracks(meta), note: str(meta.metadata?.venue || meta.metadata?.coverage) }; },
     soma: async () => list((await getJSON(urls.soma())).channels, somaItem),
     stations: radioBrowser,
+    ytTrending: async region => list((await getJSON(`${YT}?${qs({ op: 'trending', region: region || '' })}`)).items, ytSong),
+    ytSearch: async (text, filter = 'music_songs') => {
+      const r = await getJSON(`${YT}?${qs({ op: 'search', q: text, filter })}`);
+      return list(r.items, filter === 'music_playlists' ? ytPlaylist : ytSong);
+    },
+    ytPlaylist: async id => {
+      const r = await getJSON(`${YT}?${qs({ op: 'playlist', id })}`);
+      const info = ytPlaylist({ ...r, id });
+      let tracks = list(r.videos, ytSong);
+      if (info && !tracks.length) {   // some backends can't list a playlist's own tracks; play matching songs instead
+        const alt = (await data.ytSearch(info.name).catch(() => [])).slice(0, 30);
+        if (alt.length) {
+          info.note = 'This playlist’s own track list isn’t available through the community backends right now, so matching songs are playing instead.';
+          tracks = alt;
+        }
+      }
+      return { info, tracks };
+    },
   };
+  // A YouTube Music playlist's id carries the yt- prefix; everything else belongs to Audius
+  data.playlist = async id => (/^yt-[\w-]{10,64}$/.test(String(id))
+    ? data.ytPlaylist(String(id).slice(3))
+    : { info: playlistItem((await getJSON(urls.playlist(id))).data?.[0]), tracks: list((await getJSON(urls.playlistTracks(id))).data, songItem) });
 
   // ================================================================ favourites
   const favs = () => { try { const l = JSON.parse(localStorage.getItem(FAV_KEY)); return Array.isArray(l) ? l.filter(validFav) : []; } catch { return []; } };
@@ -252,14 +291,37 @@
       else ms.setPositionState();
     } catch { /* not supported */ }
   }
+  function begin(item, url) {
+    audio.src = url || streamUrl(item);
+    describe(item);
+    audio.play().then(() => { failures = 0; }).catch(e => { if (e?.name !== 'AbortError') failed(); });
+  }
+  // The music-yt function turns a YouTube Music song's id into an audio address that is checked to
+  // really be audio. When no instance can provide one, the same song is found on Audius instead.
+  const ytStream = async item => https((await getJSON(`${YT}?${qs({ op: 'streams', id: item.id })}`)).url);
+  const playSource = async item => {
+    if (item.src !== 'yt') return [item, streamUrl(item)];
+    try { return [item, await ytStream(item)]; }
+    catch {
+      const alt = (await data.songSearch([item.name, item.artist].filter(Boolean).join(' '))).find(s => s.src !== 'yt');
+      if (!alt) throw new Error('Nothing can play this song');
+      return [alt, streamUrl(alt)];
+    }
+  };
   function start(item, items, { shuffle = false } = {}) {
     clearTimeout(retryTimer);
     if (items) { queue = shuffle ? shuffled(items, item) : items; index = queue.findIndex(i => i.key === item.key); }
     current = item;
-    audio.src = streamUrl(item);
-    describe(item);
-    audio.play().then(() => { failures = 0; }).catch(e => { if (e?.name !== 'AbortError') failed(); });
     changed();
+    playSource(item).then(([play, url]) => {
+      if (current !== item) return;
+      if (play !== item) {   // a YouTube song without a working stream: its Audius twin takes its place
+        current = play;
+        queue = queue.map(i => (i.key === item.key ? play : i));
+        changed();
+      }
+      begin(play, url);
+    }).catch(() => { if (current === item) failed(); });
   }
   function step(dir) {
     if (queue.length < 2) return false;
