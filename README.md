@@ -64,7 +64,7 @@ node scripts/probe-streams.mjs           # re-check every stream (takes a while)
 
 **Live TV opens this page.** The Live TV button (top bar and phone tab bar) goes straight to the country list, with Australia first; the old all-channels list is one tap away from the "All channels" chip.
 
-Channels are bundled by **country / area of origin**, taken from the country code in each channel's iptv-org ID (for example `BBCOne.uk@SD` is the United Kingdom). That covers about 11,200 of the 11,600 channels across roughly 175 countries. The rest appear under *International / Other*.
+Channels are bundled by **country / area of origin**, taken from the country code in each channel's iptv-org ID (for example `BBCOne.uk@SD` is the United Kingdom) or the country its source lists it under. That covers most of the 18,700 channels across roughly 175 countries. The rest appear under *International / Other*.
 
 - **Countries** (top menu, or the 🌍 chip on Live TV, or the *Browse by country* row on Home): every country grouped by area (Americas, Europe, Asia, Middle East, Africa, Oceania, International), biggest first, with a find-a-country box.
 - **A country's page** bundles all its channels, with category filters (News, Sports, Kids…) and **Play in VLC** to export the whole bundle as one playlist.
@@ -132,7 +132,7 @@ A browser is stricter than VLC. When a channel shows "Channel unavailable", the 
 | (VLC badge) | needs custom headers, or plain `http://` | the stream proxy, or open in VLC |
 
 What the app does to help:
-- **Hides what can't play.** The probe (`scripts/probe-streams.mjs`) classifies every channel: *verified* (loads fine), *needs a proxy* (live, but its server sends no CORS header), or *dead* (404). Without a proxy, the Live TV lists show only channels that can play on your device and say how many more need VLC or a proxy. Dead channels are never listed. On phones (iOS/Android) the platform's own HLS player ignores CORS, so those "needs a proxy" channels are offered there.
+- **Hides what can't play.** The probe (`scripts/probe-streams.mjs`) classifies every channel: *verified* (loads fine), *needs a proxy* (live, but its server sends no CORS header), or *dead* (404). It also **rescues channels**: an `http://` stream whose server answers on `https://` too is switched to https (the app can only play https), and a channel listed with a special user agent or referrer is tried without them, so if it loads anyway it stops being VLC-only. The last run (November 2026) found 8,204 verified, 3,083 that need a proxy and 582 dead; it switched 142 streams to https and cleared 270 from VLC-only. Without a proxy, the Live TV lists show only channels that can play on your device and say how many more need VLC or a proxy. Dead channels are never listed. On phones (iOS/Android) the platform's own HLS player ignores CORS, so those "needs a proxy" channels are offered there.
 - **Verified first**, plus a **Verified** chip on Live TV.
 - **Playback fallback chain:** direct, then the browser's own HLS player, then your proxy, each only when needed. A CORS block now fails instantly with a plain explanation, a **Set up proxy** button and **Next working channel**.
 - **Learns on your device:** channels that fail are hidden for 12 hours (Settings → show them again).
