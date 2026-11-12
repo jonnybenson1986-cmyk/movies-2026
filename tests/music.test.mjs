@@ -168,3 +168,13 @@ test('favourites sync like the other lists: size-limited, newest list wins, othe
   assert.equal(merged.music.items.length, 5);
   assert.equal(merged.mylist.items.length, 1);
 });
+
+test('a YouTube song is looked up elsewhere by its cleaned title and artist, closest match first', () => {
+  assert.equal(m.cleanTitle('Never Gonna Give You Up (Official Video) (4K Remaster)'), 'Never Gonna Give You Up');
+  assert.deepEqual(m.ytQueries({ name: 'Rick Astley - Never Gonna Give You Up (Official Video)', artist: 'Rick Astley' }), ['Never Gonna Give You Up Rick Astley', 'Never Gonna Give You Up']);
+  assert.deepEqual(m.ytQueries({ name: 'Blinding Lights', artist: 'The Weeknd - Topic' }), ['Blinding Lights The Weeknd', 'Blinding Lights']);
+  const yt = { name: 'Blinding Lights', artist: 'The Weeknd - Topic' };
+  const exact = m.matchScore(yt, { name: 'The Weeknd - Blinding Lights', artist: 'x' });
+  assert.ok(exact > m.matchScore(yt, { name: 'Blinding Lights (DJ Velocity Remix)', artist: 'y' }));
+  assert.ok(exact > m.matchScore(yt, { name: 'Something Else', artist: 'z' }));
+});

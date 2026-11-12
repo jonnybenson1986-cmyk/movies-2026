@@ -125,6 +125,35 @@
   // A YouTube Music song is played by its id: the music-yt function finds a working audio address for it
   const streamUrl = item => https(item.url) || (item.src === 'yt' ? '' : `${AUDIUS}/tracks/${encodeURIComponent(item.id)}/stream?app_name=${APP}`);
 
+  // YouTube titles carry extras ("(Official Video)", "[4K Remaster]", "ft. …") and channels end in " - Topic" or
+  // "VEVO"; stripping them gives searches on other sources a real chance of finding the same song.
+  const cleanTitle = t => str(t)
+    .replace(/[(\[][^)\]]*(official|video|audio|lyric|visuali[sz]er|remaster|hd|4k|mv|music|explicit|clean|live|version)[^)\]]*[)\]]/gi, ' ')
+    .replace(/\b(official\s+(music\s+)?(video|audio)|lyrics?\s+video|ft\.?|feat\.?)\b.*$/i, ' ')
+    .replace(/[|•].*$/, ' ').replace(/\s+/g, ' ').trim();
+  const cleanArtist = a => str(a).replace(/\s*-\s*topic$/i, '').replace(/vevo$/i, '').replace(/\s*official$/i, '').trim();
+  // The searches tried, most precise first, to find a YouTube song on Audius
+  function ytQueries(item) {
+    const artist = cleanArtist(item?.artist);
+    let title = cleanTitle(item?.name);
+    const dash = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);   // "Artist - Song"
+    let byTitle = '';
+    if (dash) { byTitle = dash[1]; title = dash[2]; }
+    const who = artist || byTitle;
+    return [...new Set([[title, who].filter(Boolean).join(' '), [title, byTitle].filter(Boolean).join(' '), title].map(q => q.trim()).filter(Boolean))];
+  }
+  // How closely another source's song matches a YouTube song: shared title words, plus the artist
+  const words = t => cleanTitle(t).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 1);
+  function matchScore(item, cand) {
+    const want = words(ytQueries(item).at(-1) || item.name), got = new Set(words(cand.name));
+    if (!want.length) return 0;
+    const hit = want.filter(w => got.has(w)).length / want.length;
+    const a = cleanArtist(item.artist).toLowerCase(), b = str(cand.artist).toLowerCase();
+    const extra = Math.min(0.3, 0.04 * [...got].filter(w => !want.includes(w) && !words(item.artist).includes(w)).length);
+    const variant = /\b(remix|cover|karaoke|instrumental|8d|sped|slowed|mix|edit|reblend|bootleg|flip|mashup|vip)\b/i;
+    return hit + (a && b && (a.includes(b) || b.includes(a)) ? 0.5 : 0) - extra - (variant.test(cand.name) && !variant.test(item.name) ? 0.3 : 0);
+  }
+
   // ---- addresses
   const qs = params => new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v != null)).toString();
   const au = (path, params = {}) => `${AUDIUS}/${path}?${qs({ app_name: APP, ...params })}`;
@@ -183,7 +212,7 @@
     return { page: 'home' };
   }
 
-  const pure = { GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, ytSong, ytPlaylist, albumItem, artistItem, bigArt, streamUrl, urls, isFav, toggleFav, validFav, shuffled, parseRoute, clock, seconds, esc, https };
+  const pure = { GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, ytSong, ytPlaylist, albumItem, artistItem, bigArt, streamUrl, cleanTitle, ytQueries, matchScore, urls, isFav, toggleFav, validFav, shuffled, parseRoute, clock, seconds, esc, https };
   if (typeof module !== 'undefined') module.exports = pure;
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
@@ -296,14 +325,45 @@
     describe(item);
     audio.play().then(() => { failures = 0; }).catch(e => { if (e?.name !== 'AbortError') failed(); });
   }
+  // A YouTube song's audio address takes a moment to find, and phones (Safari above all) refuse to start an
+  // <audio> element outside the tap that asked for it. So the tap itself starts a tiny silent clip, which unlocks
+  // the element; the real song can then start on it once its address arrives.
+  const SILENCE = (() => {   // a quarter-second of 8 kHz 8-bit mono silence as a WAV file
+    const n = 2000, b = new Uint8Array(44 + n).fill(128), v = new DataView(b.buffer);
+    [[0, 'RIFF'], [8, 'WAVE'], [12, 'fmt '], [36, 'data']].forEach(([o, t]) => [...t].forEach((c, i) => b[o + i] = c.charCodeAt(0)));
+    v.setUint32(4, 36 + n, true); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); v.setUint32(40, n, true);
+    let bin = ''; b.forEach(x => bin += String.fromCharCode(x));
+    return 'data:audio/wav;base64,' + btoa(bin);
+  })();
+  const silent = () => audio.src === SILENCE;
+  function unlock() {
+    try { audio.src = SILENCE; const p = audio.play(); if (p) p.catch(() => {}); } catch { /* nothing to unlock */ }
+  }
   // The music-yt function turns a YouTube Music song's id into an audio address that is checked to
-  // really be audio. When no instance can provide one, the same song is found on Audius instead.
-  const ytStream = async item => https((await getJSON(`${YT}?${qs({ op: 'streams', id: item.id })}`)).url);
+  // really be audio. When no instance can provide one (YouTube often blocks them all), the same song is
+  // found on Audius instead, by its cleaned-up title and artist, best match first.
+  async function ytStream(item) {
+    const r = await fetch(`${YT}?${qs({ op: 'streams', id: item.id })}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(9000) : undefined });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const url = https((await r.json()).url);
+    if (!url) throw new Error('No stream');
+    return url;
+  }
+  async function audiusTwin(item) {
+    let best = null, bestScore = -1;
+    for (const q of ytQueries(item)) {
+      const found = (await data.songSearch(q).catch(() => [])).filter(s => s.src === 'audius').slice(0, 15);
+      for (const s of found) { const sc = matchScore(item, s); if (sc > bestScore) { best = s; bestScore = sc; } }
+      if (bestScore >= 1.3) break;   // the title and the artist both matched
+    }
+    return best;
+  }
   const playSource = async item => {
     if (item.src !== 'yt') return [item, streamUrl(item)];
     try { return [item, await ytStream(item)]; }
     catch {
-      const alt = (await data.songSearch([item.name, item.artist].filter(Boolean).join(' '))).find(s => s.src !== 'yt');
+      const alt = await audiusTwin(item);
       if (!alt) throw new Error('Nothing can play this song');
       return [alt, streamUrl(alt)];
     }
@@ -313,6 +373,7 @@
     if (items) { queue = shuffle ? shuffled(items, item) : items; index = queue.findIndex(i => i.key === item.key); }
     current = item;
     changed();
+    if (item.src === 'yt') unlock();
     playSource(item).then(([play, url]) => {
       if (current !== item) return;
       if (play !== item) {   // a YouTube song without a working stream: its Audius twin takes its place
@@ -346,9 +407,9 @@
 
   audio.addEventListener('play', () => { if (ms) ms.playbackState = 'playing'; changed(); });
   audio.addEventListener('pause', () => { if (ms) ms.playbackState = 'paused'; changed(); });
-  audio.addEventListener('ended', () => { if (!step(1)) changed(); });
-  audio.addEventListener('error', () => { if (audio.getAttribute('src')) failed(); });
-  audio.addEventListener('playing', () => { failures = 0; position(); });
+  audio.addEventListener('ended', () => { if (silent()) return; if (!step(1)) changed(); });
+  audio.addEventListener('error', () => { if (audio.getAttribute('src') && !silent()) failed(); });
+  audio.addEventListener('playing', () => { if (!silent()) failures = 0; position(); });
   for (const ev of ['durationchange', 'seeked', 'ratechange']) audio.addEventListener(ev, position);
   if (ms) {
     const on = (name, fn) => { try { ms.setActionHandler(name, fn); } catch { /* not supported on this device */ } };
