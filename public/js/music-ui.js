@@ -243,6 +243,7 @@
   function render(view, arg, ctx = {}) {
     toast = ctx.toast || toast;
     player.onProblem = item => toast(`Couldn’t play “${item.name}”`);
+    player.prepare?.();   // the YouTube bridge is loaded before the first song is tapped
     const live = ctx.isCurrent || (() => true);
     const r = M.parseRoute(arg);
     shown = new Map(); lists = [];
@@ -282,8 +283,8 @@
   document.body.append(bar, np);
   const audio = player.audio, seek = $('#npSeek');
 
-  const openNP = () => { if (!player.current) return; np.hidden = false; document.body.classList.add('np-open'); sync(); $('#npDown').focus({ preventScroll: true }); };
-  const closeNP = () => { if (np.hidden) return; np.hidden = true; document.body.classList.remove('np-open'); };
+  const openNP = () => { if (!player.current) return; np.hidden = false; document.body.classList.add('np-open'); sync(); placeBridge?.(); $('#npDown').focus({ preventScroll: true }); };
+  const closeNP = () => { if (np.hidden) return; np.hidden = true; document.body.classList.remove('np-open'); placeBridge?.(); };
 
   function mark() {   // highlight what is playing, and keep the hearts right, on the page behind
     const key = player.current?.key, favs = M.favs();
@@ -323,6 +324,21 @@
       $('#npQueue').innerHTML = next.length ? `<h3>Up Next</h3>${next.map((s, n) => `<button type="button" class="np-next" data-np="${n + 1}">${cover(s, 'am-row-art')}<span class="am-row-text"><b>${esc(s.name)}</b><small>${esc(s.artist || '')}</small></span></button>`).join('')}` : '';
     }
   }
+  // The YouTube bridge (YouTube's own player) is shown over the artwork while Now Playing is open and a YouTube
+  // song plays on it; the rest of the time it waits in a small box out of view, still playing.
+  const bridge = player.bridge;
+  function placeBridge() {
+    if (!bridge) return;
+    const show = !np.hidden && player.engine === 'yt';
+    bridge.classList.toggle('shown', show);
+    if (!show) return;
+    const r = $('#npArt').getBoundingClientRect();
+    Object.assign(bridge.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+  }
+  addEventListener('resize', placeBridge);
+  np.addEventListener('transitionend', placeBridge);
+  np.addEventListener('animationend', placeBridge);
+  document.addEventListener('sb-music', placeBridge);
   function tick() {
     const d = audio.duration, t = audio.currentTime;
     if (!(d > 0) || !Number.isFinite(d)) return;
