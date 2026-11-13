@@ -19,6 +19,7 @@
     down: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
     shuffle: '<svg viewBox="0 0 24 24"><path d="M3 7h3c4 0 6 10 10 10h5M3 17h3c1.5 0 2.7-1.4 3.8-3.2M21 7h-5c-1.300 0-2.400 1-3.400 2.400M18 4l3 3-3 3M18 14l3 3-3 3"/></svg>',
     note: '<svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>',
+    spotify: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#1db954" stroke="none"/><path d="M7 9.5c3.5-1 7-.8 10 .9M7.6 12.6c2.8-.8 5.7-.5 8.2.9M8.2 15.5c2.2-.6 4.4-.4 6.4.7" stroke="#000" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>',
     search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
     check: '<svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg>',
   };
@@ -65,9 +66,10 @@
     const active = tabOf(r.page);
     return `<div class="page am" id="amRoot">
       <div class="am-top"><nav class="am-tabs" aria-label="Music sections">${TABS.map(([path, label, id]) => `<a href="#music${path ? '/' + path : ''}" class="${active === id ? 'active' : ''}"${active === id ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
+        <button type="button" class="am-dest" data-m-dest aria-pressed="${dest() === 'spotify'}" title="Where chart and YouTube songs play">${destLabel()}</button>
         <form class="am-search" id="amSearch" role="search">${ICON.search}<input type="search" name="q" maxlength="80" value="${esc(r.search || '')}" placeholder="Artists, songs, stations" autocomplete="off" aria-label="Search music"></form></div>
       ${body}
-      <p class="am-note">Today’s Top Songs is <a href="https://music.apple.com/au/browse" target="_blank" rel="noopener noreferrer">Apple Music’s chart</a> for Australia, updated daily, with its official artwork. Chart songs, searches and playlists play in full in YouTube’s own player. Songs, playlists and artist pictures on Audius (published by the artists). Creative Commons songs from Jamendo via Openverse. Concerts and netlabel albums from the Internet Archive. Radio from SomaFM and Radio Browser.</p></div>`;
+      <p class="am-note">Today’s Top Songs is <a href="https://music.apple.com/au/browse" target="_blank" rel="noopener noreferrer">Apple Music’s chart</a> for Australia, updated daily, with its official artwork. Chart and YouTube songs open in the Spotify app (the switch at the top changes this: they then play in full in YouTube’s own player here). Songs, playlists and artist pictures on Audius (published by the artists). Creative Commons songs from Jamendo via Openverse. Concerts and netlabel albums from the Internet Archive. Radio from SomaFM and Radio Browser.</p></div>`;
   }
   const title = (text, sub = '') => `<header class="am-title"><h1>${esc(text)}</h1>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
   const empty = text => `<div class="empty">${text}</div>`;
@@ -214,6 +216,24 @@
 
   // ---- one click handler for the whole Music page
   let rerender = null;
+  // Where chart and YouTube songs play: in the Spotify app (the default) or here in StreamBox (YouTube's player)
+  const DEST = 'sb:music-dest';
+  const dest = () => { try { return localStorage.getItem(DEST) === 'here' ? 'here' : 'spotify'; } catch { return 'spotify'; } };
+  function setDest(value) {
+    try { localStorage.setItem(DEST, value); } catch { /* private mode */ }
+    document.querySelectorAll('[data-m-dest]').forEach(b => { b.innerHTML = destLabel(); b.setAttribute('aria-pressed', String(value === 'spotify')); });
+    toast(value === 'spotify' ? 'Songs open in the Spotify app' : 'Songs play here in StreamBox');
+  }
+  const destLabel = () => (dest() === 'spotify' ? `${ICON.spotify}<span>Songs open in Spotify</span>` : `${ICON.note}<span>Songs play in StreamBox</span>`);
+  // Opened from inside the tap (phones only let a tap open another app). The Spotify app opens at the song.
+  function openSpotify(item) {
+    if (!player.paused) player.pause();
+    const a = document.createElement('a');
+    a.href = M.spotifyUrl(item); a.target = '_blank'; a.rel = 'noopener noreferrer';
+    document.body.appendChild(a); a.click(); a.remove();
+    toast(`Opening “${item.name}” in Spotify`);
+  }
+
   function onClick(e) {
     const fav = e.target.closest('[data-m-fav]');
     if (fav) { const item = shown.get(fav.dataset.mFav) || (player.current?.key === fav.dataset.mFav ? player.current : null); if (item) toast(M.favourite(item) ? 'Added to your Library' : 'Removed from your Library'); return; }
@@ -225,10 +245,12 @@
       player.start(shuffle ? list[Math.floor(Math.random() * list.length)] : list[0], list, { shuffle });
       return;
     }
+    if (e.target.closest('[data-m-dest]')) { setDest(dest() === 'spotify' ? 'here' : 'spotify'); return; }
     const hit = e.target.closest('[data-m="play"]')?.closest('[data-m-play]');
     if (!hit) return;
     const item = shown.get(hit.dataset.mPlay);
     if (!item) return;
+    if (dest() === 'spotify' && M.onSpotify(item)) { openSpotify(item); return; }   // played in the Spotify app
     if (player.current?.key === item.key) player.toggle();
     else player.start(item, (lists[+hit.dataset.mList] || [item]).filter(i => i.type === item.type));
   }
@@ -285,6 +307,7 @@
         <div class="np-scrub" id="npScrub"><input type="range" id="npSeek" min="0" max="1000" value="0" aria-label="Position in the song"><div class="np-times"><span id="npElapsed">0:00</span><span id="npLeft"></span></div></div>
         <div class="np-live" id="npLive" hidden><span class="dot"></span>LIVE RADIO</div>
         <div class="np-controls"><button class="icon-btn" id="npPrev" type="button" aria-label="Previous">${ICON.prev}</button><button class="icon-btn np-play" id="npPlay" type="button" aria-label="Pause">${ICON.pause}</button><button class="icon-btn" id="npNext" type="button" aria-label="Next">${ICON.next}</button></div>
+        <a class="np-spotify" id="npSpotify" target="_blank" rel="noopener noreferrer" hidden>${ICON.spotify}<span>Play the full song on Spotify</span></a>
         <p class="np-hint">Keeps playing with the screen off. Use the lock-screen controls to pause or skip.</p>
       </div>
       <div class="np-queue" id="npQueue"></div>
@@ -326,6 +349,7 @@
     for (const id of ['#musicPlay', '#npPlay']) { const b = $(id); b.innerHTML = paused ? ICON.play : ICON.pause; b.setAttribute('aria-label', paused ? 'Play' : 'Pause'); }
     for (const id of ['#musicPrev', '#musicNext', '#npPrev', '#npNext']) $(id).disabled = !many;
     np.classList.toggle('paused', paused);
+    const sp = $('#npSpotify'); sp.hidden = !M.onSpotify(c); if (!sp.hidden) sp.href = M.spotifyUrl(c);
     const fav = M.isFav(M.favs(), c.key);
     $('#npFav').classList.toggle('on', fav); $('#npFav').setAttribute('aria-pressed', String(fav));
     if (!np.hidden) {
@@ -371,6 +395,7 @@
   $('#musicNext').onclick = $('#npNext').onclick = () => player.step(1);
   $('#musicClose').onclick = () => player.stop();
   $('#npDown').onclick = closeNP;
+  $('#npSpotify').addEventListener('click', () => { if (!player.paused) player.pause(); });   // the Spotify app takes over
   $('#npFav').onclick = () => { if (player.current) toast(M.favourite(player.current) ? 'Added to your Library' : 'Removed from your Library'); };
   $('#npArtist').addEventListener('click', closeNP);
   seek.addEventListener('input', () => { if (audio.duration > 0) player.seekTo((seek.value / 1000) * audio.duration); });

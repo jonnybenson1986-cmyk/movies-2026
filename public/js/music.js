@@ -150,6 +150,10 @@
     const who = artist || byTitle;
     return [...new Set([[title, who].filter(Boolean).join(' '), [title, byTitle].filter(Boolean).join(' '), title].map(q => q.trim()).filter(Boolean))];
   }
+  // The song in Spotify: a search for its title and artist, which opens the Spotify app where it's installed
+  // (the web player otherwise). Spotify doesn't let a site start one exact song without a developer key.
+  const spotifyUrl = item => `https://open.spotify.com/search/${encodeURIComponent(`${cleanTitle(item?.name)} ${cleanArtist(item?.artist)}`.trim())}`;
+  const onSpotify = item => item?.type === 'song' && (item.src === 'chart' || item.src === 'yt');   // mainstream songs; open music and radio aren't on Spotify
   // How closely another source's song matches a YouTube song: shared title words, plus the artist
   const words = t => cleanTitle(t).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 1);
   function matchScore(item, cand) {
@@ -221,7 +225,7 @@
     return { page: 'home' };
   }
 
-  const pure = { GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, ytSong, chartItem, ytPlaylist, albumItem, artistItem, bigArt, streamUrl, cleanTitle, ytQueries, matchScore, urls, isFav, toggleFav, validFav, shuffled, parseRoute, clock, seconds, esc, https };
+  const pure = { spotifyUrl, onSpotify, GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, ytSong, chartItem, ytPlaylist, albumItem, artistItem, bigArt, streamUrl, cleanTitle, ytQueries, matchScore, urls, isFav, toggleFav, validFav, shuffled, parseRoute, clock, seconds, esc, https };
   if (typeof module !== 'undefined') module.exports = pure;
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 

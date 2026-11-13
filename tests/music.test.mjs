@@ -191,3 +191,16 @@ test('a song from Apple’s chart is kept by its Apple id, with its official art
   assert.deepEqual(cleanMusicItem(fav), { key: 'ch:1844932150', type: 'song', id: '1844932150', name: "Choosin' Texas", artist: 'Ella Langley', genre: 'Country', src: 'chart', art: 'https://is1-ssl.mzstatic.com/x/600x600bb.jpg' });
   assert.deepEqual(m.parseRoute('charts'), { page: 'charts' });
 });
+
+test('a chart or YouTube song can be opened in Spotify by its title and artist', () => {
+  const c = m.chartItem({ id: '1844932152', rank: 3, name: 'Man I Need', artist: 'Olivia Dean', art: '', genre: 'Pop' });
+  assert.equal(m.spotifyUrl(c), 'https://open.spotify.com/search/Man%20I%20Need%20Olivia%20Dean');
+  const y = m.ytSong({ id: 'oIv_Y2RPQ_A', name: 'Olivia Dean - Man I Need (Official Video)', artist: 'OliviaDeanVEVO' });
+  assert.match(m.spotifyUrl(y), /^https:\/\/open\.spotify\.com\/search\//);
+  assert.ok(!decodeURIComponent(m.spotifyUrl(y)).includes('Official Video'), 'YouTube extras are left out of the search');
+  assert.ok(!decodeURIComponent(m.spotifyUrl(y)).includes('VEVO'));
+  assert.equal(m.spotifyUrl({ name: 'a/b?c#d', artist: '' }), 'https://open.spotify.com/search/a%2Fb%3Fc%23d', 'the search can’t break out of the address');
+  assert.ok(m.onSpotify(c) && m.onSpotify(y));
+  assert.ok(!m.onSpotify(m.songItem({ id: 'x', title: 'Indie', user: { name: 'A' } })), 'Audius songs play here');
+  assert.ok(!m.onSpotify(m.stationItem({ stationuuid: 's', name: 'Radio', url_resolved: 'https://r.example/s' })), 'radio plays here');
+});
