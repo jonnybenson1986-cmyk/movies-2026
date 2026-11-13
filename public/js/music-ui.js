@@ -67,9 +67,10 @@
     return `<div class="page am" id="amRoot">
       <div class="am-top"><nav class="am-tabs" aria-label="Music sections">${TABS.map(([path, label, id]) => `<a href="#music${path ? '/' + path : ''}" class="${active === id ? 'active' : ''}"${active === id ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
         <button type="button" class="am-dest" data-m-dest aria-pressed="${dest() === 'spotify'}" title="Where chart and YouTube songs play">${destLabel()}</button>
+        ${dest() === 'spotify' && !window.StreamBoxSpotify?.connected ? '<button type="button" class="am-connect" data-m-sp="connect">Connect Spotify</button>' : ''}
         <form class="am-search" id="amSearch" role="search">${ICON.search}<input type="search" name="q" maxlength="80" value="${esc(r.search || '')}" placeholder="Artists, songs, stations" autocomplete="off" aria-label="Search music"></form></div>
       ${body}
-      <p class="am-note">Today’s Top Songs is <a href="https://music.apple.com/au/browse" target="_blank" rel="noopener noreferrer">Apple Music’s chart</a> for Australia, updated daily, with its official artwork. Chart and YouTube songs open in the Spotify app (the switch at the top changes this: they then play in full in YouTube’s own player here). Songs, playlists and artist pictures on Audius (published by the artists). Creative Commons songs from Jamendo via Openverse. Concerts and netlabel albums from the Internet Archive. Radio from SomaFM and Radio Browser.</p></div>`;
+      <p class="am-note">Today’s Top Songs is <a href="https://music.apple.com/au/browse" target="_blank" rel="noopener noreferrer">Apple Music’s chart</a> for Australia, updated daily, with its official artwork. Chart and YouTube songs play through Spotify: once Spotify is connected (Premium), StreamBox starts them in the Spotify app in the background and shows them here; until then they open in the Spotify app. The switch at the top plays them in YouTube’s own player here instead. Songs, playlists and artist pictures on Audius (published by the artists). Creative Commons songs from Jamendo via Openverse. Concerts and netlabel albums from the Internet Archive. Radio from SomaFM and Radio Browser.</p></div>`;
   }
   const title = (text, sub = '') => `<header class="am-title"><h1>${esc(text)}</h1>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
   const empty = text => `<div class="empty">${text}</div>`;
@@ -97,14 +98,14 @@
     charts(view, r, live) {
       const favs = M.favs();
       sections(view, r, live, title('Today’s Top Songs', 'Australia · Apple Music chart, updated daily'), [
-        async () => { const t = await data.charts('au'); if (!t.length) return ''; player.warm(t); const li = reg(t); return `<div class="am-sec-head"><h2>Top ${t.length}</h2>${playButtons(li)}</div>${rows(t, favs, { numbered: true, artistLinks: false })}`; },
+        async () => { const t = await data.charts('au'); if (!t.length) return ''; player.warm(t); if (dest() === 'spotify') player.warmSpotify(t); const li = reg(t); return `<div class="am-sec-head"><h2>Top ${t.length}</h2>${playButtons(li)}</div>${rows(t, favs, { numbered: true, artistLinks: false })}`; },
       ]);
     },
     home(view, r, live) {
       const favs = M.favs();
       const picks = [genreById('pop'), genreById('electronic'), genreById('hiphop'), genreById('rock')];
       sections(view, r, live, title('Listen Now'), [
-        async () => { const t = await data.charts('au'); player.warm(t); return songShelf('Today’s Top Songs · Australia', t, favs, { href: '#music/charts' }); },
+        async () => { const t = await data.charts('au'); player.warm(t); if (dest() === 'spotify') player.warmSpotify(t); return songShelf('Today’s Top Songs · Australia', t, favs, { href: '#music/charts' }); },
         async () => { const p = await data.ytSearch('top hits', 'music_playlists'); return p.length ? `<section class="am-features"><div class="am-feature-track">${p.slice(0, 8).map((c, i) => featureCard(c, i === 0 ? 'Featured playlist' : 'Playlist')).join('')}</div></section>` : ''; },
         async () => { const p = await data.playlists(); return p.length ? shelf('Playlists on Audius', p.slice(0, 8).map(linkCard).join('')) : ''; },
         async () => songShelf('Trending on Audius', await data.trending('', 30), favs),
@@ -153,7 +154,8 @@
         body = `${songs.length ? `<div class="am-sec-head"><h2>Songs <small>${songs.length}</small></h2>${playButtons(li)}</div>${rows(songs, favs)}` : ''}
           ${radios.length ? `<div class="am-sec-head"><h2>Stations <small>${radios.length}</small></h2></div>${grid(radios, favs)}` : ''}`;
       }
-      view.innerHTML = chrome(r, `${title('Library', 'Your favourites')}${body}`);
+      const spotifyLine = window.StreamBoxSpotify?.connected ? '<p class="am-muted am-sp-line">Spotify is connected on this device. <button type="button" class="am-link-btn" data-m-sp="disconnect">Disconnect Spotify</button></p>' : '';
+      view.innerHTML = chrome(r, `${title('Library', 'Your favourites')}${spotifyLine}${body}`);
     },
     search(view, r, live) {
       const favs = M.favs(), text = r.search;
@@ -224,7 +226,31 @@
     document.querySelectorAll('[data-m-dest]').forEach(b => { b.innerHTML = destLabel(); b.setAttribute('aria-pressed', String(value === 'spotify')); });
     toast(value === 'spotify' ? 'Songs open in the Spotify app' : 'Songs play here in StreamBox');
   }
-  const destLabel = () => (dest() === 'spotify' ? `${ICON.spotify}<span>Songs open in Spotify</span>` : `${ICON.note}<span>Songs play in StreamBox</span>`);
+  const destLabel = () => (dest() !== 'spotify' ? `${ICON.note}<span>Songs play in StreamBox</span>`
+    : window.StreamBoxSpotify?.connected ? `${ICON.spotify}<span>Playing through Spotify</span>` : `${ICON.spotify}<span>Songs open in Spotify</span>`);
+  // ---- connecting Spotify (remote control: StreamBox picks, the Spotify app plays in the background)
+  async function connectSpotify(view) {
+    try { await window.StreamBoxSpotify.connect(location.hash || '#music'); }
+    catch (e) { if (e.code === 'no-client') showSetup(view); else toast(e.message); }
+  }
+  function showSetup(view) {
+    const root = view.querySelector('#amRoot'), old = view.querySelector('#amSetup');
+    if (!root || old) { old?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    const redirect = window.StreamBoxSpotify.redirectUri(location.origin);
+    root.querySelector('.am-top').insertAdjacentHTML('afterend', `<section class="am-setup" id="amSetup">
+      <h2>Connect Spotify</h2>
+      <p>StreamBox picks the songs and shows Now Playing; the Spotify app plays them in the background, so you never have to switch apps. It needs <b>Spotify Premium</b>, and a free Spotify developer app (one-off, about two minutes):</p>
+      <ol><li>Open <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer">developer.spotify.com/dashboard</a>, sign in, and choose <b>Create app</b>.</li>
+        <li>Any name and description. Under <b>Redirect URIs</b> add exactly: <code>${esc(redirect)}</code></li>
+        <li>Tick <b>Web API</b>, save, then copy the app's <b>Client ID</b> into the box below.</li>
+        <li>In the app's <b>User Management</b>, add the Spotify email of everyone who will use it.</li></ol>
+      <form id="amSetupForm"><input name="id" maxlength="32" autocomplete="off" spellcheck="false" placeholder="Client ID (32 letters and numbers)" aria-label="Spotify Client ID"><button class="btn am-btn" type="submit">Save and connect</button></form>
+      <p class="am-muted">The Client ID isn't secret. To set it for every device at once, add it in Netlify as the environment variable <code>SPOTIFY_CLIENT_ID</code>.</p></section>`);
+    view.querySelector('#amSetupForm').addEventListener('submit', e => {
+      e.preventDefault();
+      try { window.StreamBoxSpotify.setClientId(new FormData(e.currentTarget).get('id')); connectSpotify(view); } catch (err) { toast(err.message); }
+    });
+  }
   // Opened from inside the tap (phones only let a tap open another app). The Spotify app opens at the song.
   function openSpotify(item) {
     if (!player.paused) player.pause();
@@ -242,17 +268,24 @@
       const list = (lists[+act.dataset.mList] || []).filter(i => i.type === 'song');
       if (!list.length) return;
       const shuffle = act.dataset.mAct === 'shuffle';
-      player.start(shuffle ? list[Math.floor(Math.random() * list.length)] : list[0], list, { shuffle });
+      player.start(shuffle ? list[Math.floor(Math.random() * list.length)] : list[0], list, { shuffle, spotify: dest() === 'spotify' && !!window.StreamBoxSpotify?.connected });
       return;
     }
-    if (e.target.closest('[data-m-dest]')) { setDest(dest() === 'spotify' ? 'here' : 'spotify'); return; }
+    if (e.target.closest('[data-m-dest]')) { setDest(dest() === 'spotify' ? 'here' : 'spotify'); rerender?.(); return; }
+    const sp = e.target.closest('[data-m-sp]');
+    if (sp) {
+      if (sp.dataset.mSp === 'connect') connectSpotify(sp.closest('#view') || document.querySelector('#view'));
+      else if (sp.dataset.mSp === 'disconnect') { window.StreamBoxSpotify.disconnect(); if (player.engine === 'spotify') player.stop(); toast('Spotify disconnected on this device'); rerender?.(); }
+      return;
+    }
     const hit = e.target.closest('[data-m="play"]')?.closest('[data-m-play]');
     if (!hit) return;
     const item = shown.get(hit.dataset.mPlay);
     if (!item) return;
-    if (dest() === 'spotify' && M.onSpotify(item)) { openSpotify(item); return; }   // played in the Spotify app
+    const viaSpotify = dest() === 'spotify' && !!window.StreamBoxSpotify?.connected;
+    if (dest() === 'spotify' && M.onSpotify(item) && !viaSpotify) { openSpotify(item); return; }   // not connected yet: opens in the Spotify app
     if (player.current?.key === item.key) player.toggle();
-    else player.start(item, (lists[+hit.dataset.mList] || [item]).filter(i => i.type === item.type));
+    else player.start(item, (lists[+hit.dataset.mList] || [item]).filter(i => i.type === item.type), { spotify: viaSpotify });
   }
 
   // The app keeps the same page container and replaces its contents, so the listeners are attached once
@@ -308,6 +341,8 @@
         <div class="np-live" id="npLive" hidden><span class="dot"></span>LIVE RADIO</div>
         <div class="np-controls"><button class="icon-btn" id="npPrev" type="button" aria-label="Previous">${ICON.prev}</button><button class="icon-btn np-play" id="npPlay" type="button" aria-label="Pause">${ICON.pause}</button><button class="icon-btn" id="npNext" type="button" aria-label="Next">${ICON.next}</button></div>
         <a class="np-spotify" id="npSpotify" target="_blank" rel="noopener noreferrer" hidden>${ICON.spotify}<span>Play the full song on Spotify</span></a>
+        <p class="np-via" id="npVia" hidden>${ICON.spotify}<span></span></p>
+        <div class="np-wake" id="npWake" hidden><p>Open the Spotify app once, then come back: StreamBox will start the song on it and keep control from here.</p><a class="np-spotify" href="spotify://">${ICON.spotify}<span>Open Spotify</span></a></div>
         <p class="np-hint">Keeps playing with the screen off. Use the lock-screen controls to pause or skip.</p>
       </div>
       <div class="np-queue" id="npQueue"></div>
@@ -349,7 +384,12 @@
     for (const id of ['#musicPlay', '#npPlay']) { const b = $(id); b.innerHTML = paused ? ICON.play : ICON.pause; b.setAttribute('aria-label', paused ? 'Play' : 'Pause'); }
     for (const id of ['#musicPrev', '#musicNext', '#npPrev', '#npNext']) $(id).disabled = !many;
     np.classList.toggle('paused', paused);
-    const sp = $('#npSpotify'); sp.hidden = !M.onSpotify(c); if (!sp.hidden) sp.href = M.spotifyUrl(c);
+    const onSp = player.engine === 'spotify';
+    const sp = $('#npSpotify'); sp.hidden = onSp || !M.onSpotify(c); if (!sp.hidden) sp.href = M.spotifyUrl(c);
+    const via = $('#npVia'); via.hidden = !onSp || player.needsSpotify; via.querySelector('span').textContent = `Playing through Spotify${player.spotifyDevice ? ` on ${player.spotifyDevice}` : ''}`;
+    $('#npWake').hidden = !player.needsSpotify;
+    if (player.needsSpotify && np.hidden && !wakeShown) { wakeShown = true; openNP(); }
+    if (!player.needsSpotify) wakeShown = false;
     const fav = M.isFav(M.favs(), c.key);
     $('#npFav').classList.toggle('on', fav); $('#npFav').setAttribute('aria-pressed', String(fav));
     if (!np.hidden) {
@@ -360,7 +400,7 @@
   // The YouTube bridge (YouTube's own player) is shown over the artwork while Now Playing is open and a YouTube
   // song plays on it; the rest of the time it waits in a small box out of view, still playing.
   const bridge = player.bridge;
-  let tapShown = false;
+  let tapShown = false, wakeShown = false;
   function placeBridge() {
     if (!bridge) return;
     // The phone stopped the player starting by itself: show it, so one tap on it starts the full song

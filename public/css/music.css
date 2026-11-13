@@ -215,3 +215,20 @@ body.np-open { overflow: hidden; }
 .np-spotify svg circle { fill: #000; }
 .np-spotify svg path { stroke: #1db954; }
 @media (max-width: 640px) { .am-dest { order: 3; } }
+/* Spotify remote control */
+.am-connect { padding: 8px 16px; border: 0; border-radius: 999px; background: #1db954; color: #000; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.am-setup { margin: 4px var(--gutter) 18px; padding: 18px 20px; border-radius: 16px; background: rgba(29,185,84,.1); border: 1px solid rgba(29,185,84,.35); max-width: 760px; line-height: 1.55; }
+.am-setup h2 { font-size: 20px; margin-bottom: 6px; }
+.am-setup ol { margin: 10px 0 14px 20px; }
+.am-setup li { margin: 4px 0; }
+.am-setup a { color: #1ed760; text-decoration: underline; }
+.am-setup code { padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,.1); font-size: 13px; overflow-wrap: anywhere; user-select: all; }
+.am-setup form { display: flex; gap: 8px; flex-wrap: wrap; }
+.am-setup input { flex: 1 1 260px; min-width: 0; padding: 10px 14px; border-radius: 12px; border: 0; background: rgba(118,118,128,.24); color: #fff; font: inherit; font-size: 16px; font-family: ui-monospace, monospace; }
+.am-muted { color: #8e8e93; font-size: 13px; margin-top: 10px; }
+.np-via { display: flex; align-items: center; justify-content: center; gap: 8px; margin: -6px 0 0; color: #1ed760; font-size: 14px; font-weight: 600; }
+.np-via[hidden], .np-wake[hidden] { display: none; }
+.np-via svg { width: 18px; height: 18px; }
+.np-wake { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; color: #e5e5ea; font-size: 15px; line-height: 1.45; }
+.am-sp-line { padding: 0 var(--gutter); }
+.am-link-btn { border: 0; background: none; color: #1ed760; font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }

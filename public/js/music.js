@@ -448,11 +448,63 @@
     };
   })();
 
+  // ---------------------------------------------------------------- Spotify remote
+  // The Spotify app (in the background on this device) plays; StreamBox reads what it's doing every second or two
+  // and shows it. The songs after the one picked go to Spotify as one list, so it carries on through them by
+  // itself, screen off included.
+  const remote = (() => {
+    const SP = () => window.StreamBoxSpotify;
+    let st = null, seenAt = 0, deviceId = '', poll = 0, tick = 0, byUri = new Map(), active = false;
+    const time = () => (!st ? 0 : Math.min(st.duration, st.progress + (st.playing ? (Date.now() - seenAt) / 1000 : 0)));
+    async function refresh() {
+      if (!active) return;
+      let next;
+      try { next = await SP().state(); } catch { return; }
+      if (!active) return;
+      const was = st;
+      st = next; seenAt = Date.now();
+      if (!st) { if (was?.playing) emit('pause'); return; }
+      if (st.deviceId) deviceId = st.deviceId;
+      if (st.uri !== was?.uri && byUri.has(st.uri)) onTrack(byUri.get(st.uri));   // Spotify moved on to the next song by itself
+      if (!was || was.playing !== st.playing) { emit(st.playing ? 'play' : 'pause'); if (st.playing) emit('playing'); }
+      emit('durationchange'); emit('timeupdate');
+    }
+    function begin() {
+      active = true; clearInterval(poll); clearInterval(tick);
+      poll = setInterval(() => { if (!document.hidden) refresh(); }, 1500);
+      tick = setInterval(() => { if (st?.playing) emit('timeupdate'); }, 500);
+      refresh();
+    }
+    function halt(pauseSpotify = true) {
+      if (active && pauseSpotify && st?.playing) SP().pause(deviceId).catch(() => {});
+      active = false; clearInterval(poll); clearInterval(tick); st = null; byUri = new Map();
+    }
+    const nudge = playing => { if (st) { st = { ...st, progress: time(), playing }; seenAt = Date.now(); } emit(playing ? 'play' : 'pause'); setTimeout(refresh, 700); };
+    return {
+      begin, halt, refresh,
+      set(device, pairs) { deviceId = device; byUri = new Map(pairs); st = null; begin(); },
+      has: item => [...byUri.values()].includes(item),
+      pause() { SP().pause(deviceId).catch(() => {}); nudge(false); },
+      resume() { SP().resume(deviceId).catch(() => {}); nudge(true); },
+      next() { SP().next(deviceId).catch(() => {}); setTimeout(refresh, 700); },
+      previous() { SP().previous(deviceId).catch(() => {}); setTimeout(refresh, 700); },
+      seek(t) { SP().seek(deviceId, t).catch(() => {}); if (st) { st = { ...st, progress: t }; seenAt = Date.now(); } emit('timeupdate'); },
+      get paused() { return !st?.playing; },
+      get time() { return time(); },
+      get duration() { return st?.duration || NaN; },
+      get device() { return st?.device || ''; },
+    };
+  })();
+  function onTrack(item) {   // what Spotify is playing changed to another song of the list
+    if (current === item) return;
+    current = item; index = queue.indexOf(item); describe(item); changed();
+  }
+
   Object.defineProperties(media, {
-    paused: { get: () => (engine === 'yt' ? bridge.paused : audio.paused) },
-    currentTime: { get: () => (engine === 'yt' ? bridge.time : audio.currentTime) },
-    duration: { get: () => (engine === 'yt' ? bridge.duration : audio.duration) },
-    playbackRate: { get: () => (engine === 'yt' ? 1 : audio.playbackRate) },
+    paused: { get: () => (engine === 'spotify' ? remote.paused : engine === 'yt' ? bridge.paused : audio.paused) },
+    currentTime: { get: () => (engine === 'spotify' ? remote.time : engine === 'yt' ? bridge.time : audio.currentTime) },
+    duration: { get: () => (engine === 'spotify' ? remote.duration : engine === 'yt' ? bridge.duration : audio.duration) },
+    playbackRate: { get: () => (engine === 'yt' || engine === 'spotify' ? 1 : audio.playbackRate) },
   });
   for (const ev of ['play', 'pause', 'playing', 'timeupdate', 'durationchange', 'seeked', 'ratechange', 'ended', 'error']) {
     audio.addEventListener(ev, () => { if (engine === 'audio') emit(ev); });
@@ -478,7 +530,10 @@
   }
   function useEngine(next) {
     if (engine === next) return;
-    if (next === 'yt') { audio.pause(); } else bridge.stop();
+    if (engine === 'spotify') remote.halt();
+    if (next === 'yt') audio.pause();
+    else if (next === 'spotify') { audio.pause(); bridge.stop(); }
+    else bridge.stop();
     engine = next;
   }
   function begin(item, url) {
@@ -558,12 +613,50 @@
       begin(alt);
     }).catch(() => { if (current === item) failed(); });
   }
-  function start(item, items, { shuffle = false } = {}) {
+  // Through the Spotify app: the song (and the ones after it that are already looked up) start there
+  let viaSpotify = false, needsSpotify = false;   // needsSpotify: the Spotify app has to be opened once
+  async function startSpotify(item) {
+    useEngine('spotify'); describe(item);
+    const SP = window.StreamBoxSpotify;
+    try {
+      const track = await SP.findTrack(item, matchScore);
+      if (current !== item) return;
+      if (!track) { problemReason = 'not found on Spotify'; useEngine('audio'); failed(); return; }
+      const after = [...queue.slice(index + 1), ...queue.slice(0, Math.max(0, index))].filter(i => onSpotify(i)).map(i => [i, SP.cached(i)]).filter(([, t]) => t).slice(0, 60);
+      const dev = await SP.device();
+      if (current !== item) return;
+      if (!dev) { needsSpotify = true; changed(); return; }
+      await SP.play(dev.id, [track.uri, ...after.map(([, t]) => t.uri)]);
+      if (current !== item) return;
+      remote.set(dev.id, [[track.uri, item], ...after.map(([i, t]) => [t.uri, i])]);
+      needsSpotify = false; failures = 0; changed();
+      warmSpotify(queue.slice(index + 1, index + 30));   // look up the rest, ready for next time
+    } catch (e) {
+      if (current !== item) return;
+      if (e.code === 'no-device') { needsSpotify = true; changed(); return; }
+      useEngine('audio');
+      onProblem(item, e.code === 'premium' ? 'Spotify Premium is needed to play songs from StreamBox' : e.code === 'signed-out' ? 'connect Spotify again (Music page)' : e.message);
+      changed();   // stays on this song rather than skipping through the whole list
+    }
+  }
+  let spWarming = Promise.resolve();
+  function warmSpotify(items) {
+    const SP = window.StreamBoxSpotify;
+    if (!SP?.connected) return spWarming;
+    for (const item of (items || []).filter(i => onSpotify(i) && !SP.cached(i)).slice(0, 30)) spWarming = spWarming.then(() => SP.findTrack(item, matchScore)).catch(() => {});
+    return spWarming;
+  }
+  // Coming back from the Spotify app after opening it: try again
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && needsSpotify && current && engine === 'spotify') startSpotify(current); else if (!document.hidden && engine === 'spotify') remote.refresh(); });
+
+  function start(item, items, { shuffle = false, spotify } = {}) {
     clearTimeout(retryTimer);
     if (items) { queue = shuffle ? shuffled(items, item) : items; index = queue.findIndex(i => i.key === item.key); }
+    if (spotify !== undefined) viaSpotify = !!spotify;
     current = item;
-    needsTap = false;
+    needsTap = false; needsSpotify = false;
     changed();
+    if (viaSpotify && onSpotify(item) && window.StreamBoxSpotify?.connected) { startSpotify(item); return; }
     if (item.src !== 'yt' && item.src !== 'chart') { begin(item); return; }
     unlock();   // keeps the <audio> element ready in case the song has to be played from elsewhere
     useEngine('yt');
@@ -599,7 +692,13 @@
   function step(dir) {
     if (queue.length < 2) return false;
     index = ((index + dir) % queue.length + queue.length) % queue.length;
-    start(queue[index]);
+    const target = queue[index];
+    if (engine === 'spotify' && remote.has(target) && remote.has(current)) {   // it's in the list Spotify already has
+      dir > 0 ? remote.next() : remote.previous();
+      onTrack(target);
+      return true;
+    }
+    start(target);
     return true;
   }
   function failed() {
@@ -614,19 +713,19 @@
     if (current.type === 'song' && queue.length > 1 && failures < 4) step(1); else { failures = 0; changed(); }
   }
   function stop() {
-    clearTimeout(retryTimer); bridge.stop(); engine = 'audio';
+    clearTimeout(retryTimer); bridge.stop(); if (engine === 'spotify') remote.halt(); engine = 'audio'; needsSpotify = false;
     audio.pause(); audio.removeAttribute('src'); audio.load(); current = null; queue = []; index = -1;
     if (ms) { try { ms.metadata = null; ms.playbackState = 'none'; } catch { /* ignore */ } }
     changed();
   }
-  const resume = () => (engine === 'yt' ? bridge.resume() : audio.play().catch(() => failed()));
-  const pause = () => (engine === 'yt' ? bridge.pause() : audio.pause());
+  const resume = () => (engine === 'spotify' ? remote.resume() : engine === 'yt' ? bridge.resume() : audio.play().catch(() => failed()));
+  const pause = () => (engine === 'spotify' ? remote.pause() : engine === 'yt' ? bridge.pause() : audio.pause());
   const toggle = () => (media.paused ? resume() : pause());
   function seekTo(time) {
     const d = media.duration;
     if (current?.type !== 'song' || !(d > 0)) return;
     const t = Math.max(0, Math.min(d - 0.25, time));
-    if (engine === 'yt') bridge.seek(t); else audio.currentTime = t;
+    if (engine === 'spotify') remote.seek(t); else if (engine === 'yt') bridge.seek(t); else audio.currentTime = t;
     position();
   }
 
@@ -660,7 +759,9 @@
     set onProblem(fn) { onProblem = fn; },
     set onNotice(fn) { onNotice = fn; },
     get needsTap() { return needsTap; },
-    warm,
+    get needsSpotify() { return needsSpotify; },
+    get spotifyDevice() { return engine === 'spotify' ? remote.device : ''; },
+    warm, warmSpotify,
   };
   window.StreamBoxMusic = { ...pure, data, player, favs, favourite, pause, stop, render: () => {} };
 })();

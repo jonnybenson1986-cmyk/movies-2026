@@ -43,6 +43,17 @@ People never see each other's data. Signing out clears the lists from that devic
 
 **Tests:** `npm test` covers the sign-in (`tests/gate.test.mjs`), the stored data and sync (`tests/accounts.test.mjs`).
 
+## Connecting Spotify (one-off setup)
+
+Spotify remote control needs a free Spotify developer app (no secret is used: the sign-in is OAuth with PKCE, and each device keeps its own tokens for the signed-in StreamBox person; signing out of StreamBox forgets them).
+
+1. At [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) choose **Create app**. Under **Redirect URIs** add `https://<your-site>/spotify-callback.html` (the Music page shows the exact address). Tick **Web API** and save.
+2. Copy the app's **Client ID** into Netlify as the environment variable `SPOTIFY_CLIENT_ID` (or paste it into the box the Music page shows; that only sets it on that device).
+3. While the Spotify app is in development mode, add the Spotify account email of each person who will use it under **User Management**.
+4. Each person taps **Connect Spotify** once. **Library → Disconnect Spotify** undoes it on a device.
+
+The code is `public/js/spotify.js`, `public/spotify-callback.html` and `netlify/functions/spotify-config.mjs`, with tests in `tests/spotify.test.mjs`.
+
 ## Sign in with Face ID or a fingerprint
 
 Each person can sign in with their face or fingerprint instead of typing their password, the way banking and other apps do. On the web this is a **passkey**: the device's own Face ID, Touch ID, fingerprint reader or Windows Hello.
@@ -149,7 +160,7 @@ Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other
 
 | Source | What it gives |
 |---|---|
-| Spotify | **Chart and YouTube songs open in the Spotify app** by default (on a phone or tablet with Spotify installed; the Spotify web player otherwise), at a search for the song's title and artist, so the full song plays in Spotify. The switch at the top of the Music page (*Songs open in Spotify* / *Songs play in StreamBox*) changes this and is remembered; Now Playing always has a *Play the full song on Spotify* button. Radio and the open music sources still play in StreamBox. Spotify only lets a site open one exact song with a developer key, so StreamBox opens a search |
+| Spotify | **Chart and YouTube songs play through Spotify.** Once someone connects Spotify (*Connect Spotify* on the Music page; needs **Spotify Premium**), StreamBox remote-controls the Spotify app through Spotify's official Web API (Spotify Connect): you pick songs in StreamBox, the Spotify app on the same device plays them in the background, and StreamBox shows Now Playing with the artwork, play / pause, skip, scrubbing and progress ("Playing through Spotify on <device>"). The song and the ones after it go to Spotify as one list, so it carries on by itself with the screen off. If the Spotify app isn't running, Now Playing asks you to open it once and then carries on when you come back. Until Spotify is connected, songs open in the Spotify app instead. The switch at the top (*Songs play in StreamBox*) plays them in YouTube's own player here instead. Spotify's sound never passes through StreamBox: Spotify doesn't allow that, and an iPad doesn't let one app play another's audio |
 | Apple Music charts | Today's Top Songs: Apple's official most-played chart for Australia (`rss.marketingtools.apple.com`), refreshed daily, with official artwork. Each song plays **in full** in YouTube's own player, matched by title and artist (live versions, remixes and covers are passed over). The best few uploads are kept, so if the owner of one (often the official video) has switched off playing it on other sites, the next one (usually YouTube Music's official audio) plays. If a phone stops the player starting by itself, Now Playing opens with the player and one tap on it starts the song. A song with no playable upload is played from Audius if the same artist published it there, otherwise skipped. No 30-second previews |
 | YouTube Music | Search and playlists, first in every list — reached the same way the [Open-Source-Music-Streaming-Apps](https://github.com/chayotic/Open-Source-Music-Streaming-Apps) apps do it, through community Piped and Invidious instances fronted by the site's `/api/music-yt` function |
 | [Audius](https://audius.co) | Songs, playlists and artists, published by the artists themselves |
