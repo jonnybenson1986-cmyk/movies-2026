@@ -191,5 +191,8 @@ html, body { background: #000; color: var(--text); font-family: var(--font); -we
 #appFsBtn { flex: none; }
 .player-nav #playerFsTop { width: 44px; height: 44px; }
 .player-bar #playerAirplay.on { color: #0a84ff; }   /* sending to an Apple TV */
+.player-nav #playerAirTop { width: 44px; height: 44px; }
+.player-nav #playerAirTop.on { color: #0a84ff; }
+.player-nav #playerAirTop[hidden] { display: none; }
 .player-bar #playerAirplay[hidden], .player-bar #playerPip[hidden] { display: none; }
 @media (max-width: 600px) { #appFsBtn { display: none; } }   /* phones: the player has its own full screen, and the top bar is full */

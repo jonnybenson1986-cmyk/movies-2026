@@ -774,6 +774,7 @@
       movieFrame.hidden = movieTools.hidden = true;
       player.classList.add('movie-mode');
       video.controls = true;
+      syncPlayerUI();   // shows the AirPlay button when an Apple TV or speaker is nearby
       // Pick up a place saved from another device a moment ago (but never wait long for it)
       if (window.StreamBoxAccount?.enabled) await Promise.race([window.StreamBoxAccount.sync(), new Promise(r => setTimeout(r, 1500))]);
       if (current !== item) return;
@@ -809,6 +810,7 @@
       movieFrame.title = item.name + ' player';
       player.classList.add('movie-mode');
       msg.hidden = true;
+      syncPlayerUI();
       moviePlayback.start(item, movieChoices(item));
       return;
     }
@@ -977,7 +979,7 @@
 
   const playBtn = $('#playerPlay'), muteBtn = $('#playerMute'), volInput = $('#playerVol');
   const fsBtn = $('#playerFs'), pipBtn = $('#playerPip'), playerHint = $('#playerHint');
-  const fsTopBtn = $('#playerFsTop'), airBtn = $('#playerAirplay');
+  const fsTopBtn = $('#playerFsTop'), airBtn = $('#playerAirplay'), airTopBtn = $('#playerAirTop');
   const volumeState = Object.assign({ v: 1, m: false }, store.get('volume', {}));
 
   function applyVolume() {
@@ -998,6 +1000,12 @@
     airBtn.hidden = !airplayAvailable;
     airBtn.classList.toggle('on', !!video.webkitCurrentPlaybackTargetIsWireless);
     airBtn.setAttribute('aria-label', video.webkitCurrentPlaybackTargetIsWireless ? 'Playing on AirPlay. Tap to change' : 'AirPlay');
+    // The same button at the top of the movie player, for a video StreamBox plays itself (not one inside another site's frame)
+    const ownMovie = player.classList.contains('movie-mode') && !video.hidden;
+    airTopBtn.innerHTML = ICON.airplay;
+    airTopBtn.hidden = !(ownMovie && airplayAvailable);
+    airTopBtn.classList.toggle('on', !!video.webkitCurrentPlaybackTargetIsWireless);
+    airTopBtn.setAttribute('aria-label', airBtn.getAttribute('aria-label'));
     syncAppFullscreen();
     player.classList.toggle('fullscreen', full);
     pipBtn.innerHTML = ICON.pip;
@@ -1008,7 +1016,7 @@
   let airplayAvailable = false;
   video.addEventListener('webkitplaybacktargetavailabilitychanged', e => { airplayAvailable = e.availability === 'available'; syncPlayerUI(); });
   video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', syncPlayerUI);
-  airBtn.onclick = () => { try { video.webkitShowPlaybackTargetPicker(); } catch { toast('AirPlay isn’t available right now'); } };
+  airBtn.onclick = airTopBtn.onclick = () => { try { video.webkitShowPlaybackTargetPicker(); } catch { toast('AirPlay isn’t available right now'); } };
 
   function togglePlayback() {
     if (!video.paused) { video.pause(); return; }
