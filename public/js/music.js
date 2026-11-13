@@ -105,6 +105,11 @@
     if (!/^[A-Za-z0-9_-]{11}$/.test(id) || !str(v?.name)) return null;
     return { key: 'y:' + id, type: 'song', src: 'yt', id, name: str(v.name), artist: str(v.artist), art: https(v.art), duration: Number.isFinite(v.duration) ? Math.round(v.duration) : 0, genre: '' };
   }
+  function chartItem(c) {   // a song from Apple Music's chart (by its Apple id), played through YouTube's player
+    const id = str(c?.id);
+    if (!/^\d{1,20}$/.test(id) || !str(c?.name)) return null;
+    return { key: 'ch:' + id, type: 'song', src: 'chart', id, name: str(c.name), artist: str(c.artist), art: https(c.art), duration: 0, genre: str(c.genre), rank: c.rank | 0 };
+  }
   function ytPlaylist(p) {   // a YouTube Music playlist; its id gets the yt- prefix so the routes can tell it apart
     const id = str(p?.id);
     if (!/^[\w-]{10,64}$/.test(id) || !str(p?.name)) return null;
@@ -121,9 +126,9 @@
   }
 
   // The artwork at its largest (for the Now Playing screen and the lock screen)
-  const bigArt = item => (item?.art || '').replace(/\/480x480\.jpg$/, '/1000x1000.jpg');
+  const bigArt = item => (item?.art || '').replace(/\/480x480\.jpg$/, '/1000x1000.jpg').replace(/\/600x600bb\.(jpg|png)$/, '/1000x1000bb.$1');
   // A YouTube Music song is played by its id: the music-yt function finds a working audio address for it
-  const streamUrl = item => https(item.url) || (item.src === 'yt' ? '' : `${AUDIUS}/tracks/${encodeURIComponent(item.id)}/stream?app_name=${APP}`);
+  const streamUrl = item => https(item.url) || (item.src === 'yt' || item.src === 'chart' ? '' : `${AUDIUS}/tracks/${encodeURIComponent(item.id)}/stream?app_name=${APP}`);
 
   // YouTube titles carry extras ("(Official Video)", "[4K Remaster]", "ft. …") and channels end in " - Topic" or
   // "VEVO"; stripping them gives searches on other sources a real chance of finding the same song.
@@ -183,12 +188,12 @@
   function toggleFav(list, item) {
     if (isFav(list, item.key)) return list.filter(i => i.key !== item.key);
     const { key, type, src, id, name, artist, artistId, art, url, duration, genre, album } = item;
-    const byId = src === 'audius' || src === 'yt';   // these are played by their id, so they keep no address
+    const byId = src === 'audius' || src === 'yt' || src === 'chart';   // these are played by their id, so they keep no address
     const keep = { key, type, src, id, name, artist, art, genre, ...(artistId && { artistId }), ...(album && { album }), ...(!byId && { url }), ...(duration && { duration }) };
     return [keep, ...list].slice(0, FAV_MAX);
   }
   const validFav = i => !!i && typeof i.key === 'string' && !!i.id && !!i.name
-    && ((i.type === 'radio' && !!https(i.url)) || (i.type === 'song' && (!i.src || i.src === 'audius' || i.src === 'yt' || !!https(i.url))));
+    && ((i.type === 'radio' && !!https(i.url)) || (i.type === 'song' && (!i.src || i.src === 'audius' || i.src === 'yt' || i.src === 'chart' || !!https(i.url))));
 
   // Shuffled copy that starts with `first`
   function shuffled(list, first, random = Math.random) {
@@ -201,6 +206,7 @@
   function parseRoute(arg = '') {
     const [a = '', ...rest] = String(arg).split('/');
     const tail = rest.join('/');
+    if (a === 'charts') return { page: 'charts' };
     if (a === 'browse') return { page: 'browse' };
     if (a === 'genre') return genreById(rest[0]) ? { page: 'genre', genre: rest[0] } : { page: 'browse' };
     if (a === 'radio') return rest[0] === 'search' ? { page: 'radio', search: rest.slice(1).join('/') } : { page: 'radio', genre: genreById(rest[0]) ? rest[0] : '' };
@@ -212,7 +218,7 @@
     return { page: 'home' };
   }
 
-  const pure = { GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, ytSong, ytPlaylist, albumItem, artistItem, bigArt, streamUrl, cleanTitle, ytQueries, matchScore, urls, isFav, toggleFav, validFav, shuffled, parseRoute, clock, seconds, esc, https };
+  const pure = { GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, ytSong, chartItem, ytPlaylist, albumItem, artistItem, bigArt, streamUrl, cleanTitle, ytQueries, matchScore, urls, isFav, toggleFav, validFav, shuffled, parseRoute, clock, seconds, esc, https };
   if (typeof module !== 'undefined') module.exports = pure;
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
@@ -257,7 +263,8 @@
     album: async id => { const meta = await getJSON(urls.archiveItem(id)); return { info: albumItem({ ...meta.metadata, identifier: meta.metadata?.identifier }), tracks: iaTracks(meta), note: str(meta.metadata?.venue || meta.metadata?.coverage) }; },
     soma: async () => list((await getJSON(urls.soma())).channels, somaItem),
     stations: radioBrowser,
-    ytTrending: async region => list((await getJSON(`${YT}?${qs({ op: 'trending', region: region || '' })}`)).items, ytSong),
+    charts: async region => list((await getJSON(`${YT}?${qs({ op: 'charts', region: String(region || 'au').toLowerCase() })}`)).items, chartItem),
+    ytTrending: async region => data.charts(region),
     ytSearch: async (text, filter = 'music_songs') => {
       const r = await getJSON(`${YT}?${qs({ op: 'search', q: text, filter })}`);
       return list(r.items, filter === 'music_playlists' ? ytPlaylist : ytSong);
@@ -307,7 +314,7 @@
   audio.style.display = 'none';
   (document.body || document.documentElement).appendChild(audio);
   let queue = [], index = -1, current = null, failures = 0, retryTimer = 0, onProblem = () => {};
-  let engine = 'audio';   // 'audio' or 'yt': which one the current item plays on
+  let engine = 'audio', onNotice = () => {};   // 'audio' or 'yt': which one the current item plays on
   const ms = 'mediaSession' in navigator ? navigator.mediaSession : null;
 
   const media = new EventTarget();
@@ -468,15 +475,31 @@
   function unlock() {
     try { audio.src = SILENCE; const p = audio.play(); if (p) p.catch(() => {}); } catch { /* nothing to unlock */ }
   }
-  // Fallbacks for a YouTube song the bridge can't play (embedding turned off by its owner, or the browser blocked
-  // it): first a verified audio address from the music-yt function, then the same song found on Audius, by its
-  // cleaned-up title and artist, best match first.
-  async function ytStream(item) {
-    const r = await fetch(`${YT}?${qs({ op: 'streams', id: item.id })}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(9000) : undefined });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const url = https((await r.json()).url);
-    if (!url) throw new Error('No stream');
-    return url;
+  // A song from the charts (or a YouTube song the embedded player can't play) needs another way in:
+  //   - a chart song is matched to the same song on YouTube Music (by title and artist) and played in YouTube's player
+  //   - if that can't play it (the owner turned embedding off, or the browser blocked it), Apple's official 30-second
+  //     preview of the exact song plays instead, and failing that, the same song if an artist published it on Audius.
+  const ytMatches = new Map();   // Apple id -> YouTube video id
+  async function ytTwin(item) {
+    if (ytMatches.has(item.id)) return ytMatches.get(item.id);
+    let best = null, bestScore = -1;
+    for (const q of [`${item.name} ${item.artist}`.trim(), item.name]) {
+      const found = (await data.ytSearch(q).catch(() => [])).slice(0, 12);
+      for (const s of found) { const sc = matchScore(item, s); if (sc > bestScore) { best = s; bestScore = sc; } }
+      if (bestScore >= 1.3) break;
+    }
+    const id = best && bestScore >= 1 ? best.id : '';   // the title has to match; a wrong song is worse than a preview
+    if (id) ytMatches.set(item.id, id);
+    return id;
+  }
+  async function applyPreview(item) {   // Apple's official preview (iTunes Search API): by Apple id, else by title and artist
+    const pick = results => (results || []).filter(r => https(r.previewUrl)).map(r => ({ r, sc: matchScore(item, { name: r.trackName, artist: r.artistName }) })).sort((a, b) => b.sc - a.sc)[0];
+    if (item.src === 'chart') {
+      const hit = (await getJSON(`https://itunes.apple.com/lookup?${qs({ id: item.id, country: 'au', entity: 'song' })}`).catch(() => null))?.results?.find(r => https(r.previewUrl));
+      if (hit) return hit.previewUrl;
+    }
+    const best = pick((await getJSON(`https://itunes.apple.com/search?${qs({ term: `${cleanTitle(item.name)} ${cleanArtist(item.artist)}`.trim(), media: 'music', entity: 'song', country: 'au', limit: 10 })}`).catch(() => null))?.results);
+    return best && best.sc >= 1 ? best.r.previewUrl : '';
   }
   async function audiusTwin(item) {
     let best = null, bestScore = -1;
@@ -485,24 +508,24 @@
       for (const s of found) { const sc = matchScore(item, s); if (sc > bestScore) { best = s; bestScore = sc; } }
       if (bestScore >= 1.3) break;   // the title and the artist both matched
     }
-    return best;
+    return bestScore >= 1.3 ? best : null;
   }
   const fallbackSource = async item => {
-    try { return [item, await ytStream(item)]; }
-    catch {
-      const alt = await audiusTwin(item);
-      if (!alt) throw new Error('Nothing can play this song');
-      return [alt, streamUrl(alt)];
-    }
+    const preview = await applyPreview(item).catch(() => '');
+    if (preview) return [item, preview, true];
+    const alt = await audiusTwin(item);
+    if (!alt) throw new Error('Nothing can play this song');
+    return [alt, streamUrl(alt), false];
   };
   function playFallback(item) {
-    fallbackSource(item).then(([play, url]) => {
+    fallbackSource(item).then(([play, url, isPreview]) => {
       if (current !== item) return;
       if (play !== item) {   // its Audius twin takes its place
         current = play;
         queue = queue.map(i => (i.key === item.key ? play : i));
         changed();
       }
+      if (isPreview) onNotice(`Playing Apple Music’s 30-second preview of “${item.name}”. The full song isn’t available to play here.`);
       begin(play, url);
     }).catch(() => { if (current === item) failed(); });
   }
@@ -511,11 +534,12 @@
     if (items) { queue = shuffle ? shuffled(items, item) : items; index = queue.findIndex(i => i.key === item.key); }
     current = item;
     changed();
-    if (item.src !== 'yt') { begin(item); return; }
+    if (item.src !== 'yt' && item.src !== 'chart') { begin(item); return; }
     unlock();   // keeps the <audio> element ready in case the song has to be played from elsewhere
     useEngine('yt');
     describe(item);
-    bridge.play(item.id).then(() => {
+    const videoId = item.src === 'chart' ? ytTwin(item) : Promise.resolve(item.id);
+    videoId.then(id => { if (!id) throw new Error('No match on YouTube'); if (current !== item) return null; return bridge.play(id); }).then(() => {
       if (current !== item) return;
       audio.pause();
       failures = 0;
@@ -588,6 +612,7 @@
     get index() { return index; },
     get paused() { return media.paused; },
     set onProblem(fn) { onProblem = fn; },
+    set onNotice(fn) { onNotice = fn; },
   };
   window.StreamBoxMusic = { ...pure, data, player, favs, favourite, pause, stop, render: () => {} };
 })();

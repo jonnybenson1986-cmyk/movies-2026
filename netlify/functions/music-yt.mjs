@@ -4,19 +4,21 @@
 // This function sits on the site so the browser doesn't need any instance to send CORS headers,
 // and it tries the instances in order until one answers.
 //
-//   ?op=search&q=...&filter=music_songs|music_playlists   songs or playlists matching a search
-//   ?op=trending                                          today's chart songs
+//   ?op=search&q=...&filter=music_songs|music_playlists   songs or playlists matching a search (song and video ids)
+//   ?op=charts&region=au                                  Apple Music's Top Songs chart for a country, today
+//   ?op=trending                                          the same chart (kept for older copies of the app)
 //   ?op=playlist&id=PL...                                 the tracks of a playlist
-//   ?op=streams&id=<videoId>                              a verified playable https audio address,
-//                                                         or nothing when no instance can provide one
-//                                                         (the app then plays the song from Audius)
+// Songs play in YouTube's own embedded player (the IFrame Player API) by their video id; nothing here hands out
+// audio addresses.
 //
 // Every op is an allowlisted GET; nothing from the request is passed through except these values.
 
 const PIPED = ['https://api.piped.private.coffee', 'https://pipedapi.ducks.party', 'https://pipedapi.adminforge.de'];
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36';
 const FILTERS = new Set(['music_songs', 'music_playlists']);
-const CHARTS_QUERY = 'global top 50 songs';   // answered with today's chart hits by YouTube Music search
+// Apple's official chart feed: the most-played songs on Apple Music in a country, refreshed daily, with official artwork
+const APPLE_CHARTS = cc => `https://rss.marketingtools.apple.com/api/v2/${cc}/music/most-played/100/songs.json`;
+const COUNTRIES = new Set(['au', 'nz', 'us', 'gb', 'ca', 'ie', 'za', 'in', 'sg', 'ph', 'jp', 'kr', 'de', 'fr', 'es', 'it', 'nl', 'se', 'br', 'mx']);
 const TIMEOUT = 4000;
 
 const httpsUrl = v => (typeof v === 'string' && /^https:\/\/[^\s"'<>]+$/.test(v) ? v : '');
@@ -40,17 +42,14 @@ export function playlistDetail(r) {
   const streams = (Array.isArray(r?.relatedStreams) && r.relatedStreams.length ? r.relatedStreams : Array.isArray(r?.videos) ? r.videos : []);
   return { info, count: Number.isFinite(r?.videos) ? r.videos : streams.length, videos: streams.map(songFromPiped).filter(Boolean) };
 }
-// The best audio of a Piped result: https only, preferring m4a (plays everywhere), loudest first
-export function pickPipedAudio(streams) {
-  const audio = (Array.isArray(streams) ? streams : []).filter(s => httpsUrl(s?.url) && String(s.mimeType || '').startsWith('audio/'));
-  if (!audio.length) return '';
-  const m4a = audio.filter(s => s.mimeType.startsWith('audio/mp4'));
-  const pool = (m4a.length ? m4a : audio).sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-  return httpsUrl(pool[0].url);
+// One song of Apple's chart: the largest official artwork, and its Apple id (used for the official 30-second preview)
+export function chartSong(r, rank) {
+  const id = text(String(r?.id || ''), 20);
+  if (!/^\d{1,20}$/.test(id) || !text(r?.name)) return null;
+  const art = httpsUrl(r.artworkUrl100).replace(/\/\d+x\d+bb\.(jpg|png)$/, '/600x600bb.$1');
+  const genre = text((Array.isArray(r.genres) ? r.genres : []).map(g => g?.name).find(n => n && n !== 'Music') || '', 60);
+  return { id, rank, name: text(r.name), artist: text(r.artistName), art, genre, released: text(r.releaseDate, 10), src: 'chart' };
 }
-// A proxied stream is only handed to the player once it has answered with real audio, not an error page
-export const isAudio = (contentType, bytes) => (contentType || '').startsWith('audio/')
-  || (!!bytes && !(bytes[0] === 0x3c || bytes[0] === 0x7b || bytes[0] === 0x5b));   // '<', '{', '['
 
 // ---- backends: the first one that answers wins
 const fetchJSON = async (url, timeout = TIMEOUT) => {
@@ -78,34 +77,21 @@ const ops = {
     const map = f === 'music_playlists' ? playlistFromSearch : songFromPiped;
     return { items: (data.items || []).map(map).filter(Boolean).slice(0, 40) };
   },
-  // YouTube Music's own charts aren't exposed by the backends, so the trending shelf is what its
-  // search returns for a chart query, with the hour-long mixes and live streams filtered out.
-  async trending() {
-    const data = await fromPiped(`/search?q=${encodeURIComponent(CHARTS_QUERY)}&filter=music_songs`);
-    if (!data) return null;
-    return { items: (data.items || []).map(songFromPiped).filter(v => v && v.duration >= 60 && v.duration <= 700).slice(0, 30) };
+  // Today's real chart, from Apple (YouTube Music's own charts aren't exposed by the backends, and searching for
+  // "top songs" returned remixes and compilations rather than the chart)
+  async charts({ region }) {
+    const cc = COUNTRIES.has(region) ? region : 'au';
+    const data = await fetchJSON(APPLE_CHARTS(cc), 6000).catch(() => null);
+    const items = (data?.feed?.results || []).map((r, i) => chartSong(r, i + 1)).filter(Boolean);
+    return items.length ? { region: cc, updated: text(data.feed.updated, 60), items } : null;
   },
+  trending(args) { return ops.charts(args); },
   async playlist({ id }) {
     const data = await fromPiped(`/playlists/${encodeURIComponent(id)}`);
     if (!data) return null;
     const { info, count, videos } = playlistDetail(data);
     if (!info) return null;
     return { ...info, count: count || videos.length, videos: videos.slice(0, 100) };
-  },
-  // An instance can answer with the song's details but no audio (YouTube blocks them from time to time),
-  // so every instance is asked, at once, and the first verified audio address wins.
-  async streams({ id }) {
-    const tryHost = async host => {
-      const data = await fetchJSON(`${host}/streams/${encodeURIComponent(id)}`);
-      const url = data && !data.error && pickPipedAudio(data.audioStreams);
-      if (!url) throw new Error('no audio');
-      const r = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT), headers: { 'user-agent': UA, range: 'bytes=0-999' } });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const probe = new Uint8Array(await r.arrayBuffer());
-      if (!isAudio(r.headers.get('content-type'), probe)) throw new Error('not audio');
-      return { url };
-    };
-    try { return await Promise.any(PIPED.map(tryHost)); } catch { return null; }
   },
 };
 
@@ -119,12 +105,11 @@ export function createHandler() {
     const op = url.searchParams.get('op') || '';
     const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
     const filter = url.searchParams.get('filter') || '';
-    const region = (url.searchParams.get('region') || '').trim();
+    const region = (url.searchParams.get('region') || '').trim().toLowerCase();
     const id = url.searchParams.get('id') || '';
 
     if (!ops[op]) return json({ error: 'Unknown op' }, 400);
     if (op === 'search' && !q) return json({ error: 'Missing q' }, 400);
-    if (op === 'streams' && !/^[A-Za-z0-9_-]{11}$/.test(id)) return json({ error: 'Bad id' }, 400);
     if (op === 'playlist' && !/^[\w-]{10,64}$/.test(id)) return json({ error: 'Bad id' }, 400);
 
     try {

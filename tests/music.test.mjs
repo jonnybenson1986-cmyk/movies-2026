@@ -178,3 +178,16 @@ test('a YouTube song is looked up elsewhere by its cleaned title and artist, clo
   assert.ok(exact > m.matchScore(yt, { name: 'Blinding Lights (DJ Velocity Remix)', artist: 'y' }));
   assert.ok(exact > m.matchScore(yt, { name: 'Something Else', artist: 'z' }));
 });
+
+test('a song from Apple’s chart is kept by its Apple id, with its official artwork, and syncs to the account', () => {
+  const c = m.chartItem({ id: '1844932150', rank: 1, name: "Choosin' Texas", artist: 'Ella Langley', art: 'https://is1-ssl.mzstatic.com/x/600x600bb.jpg', genre: 'Country' });
+  assert.deepEqual(c, { key: 'ch:1844932150', type: 'song', src: 'chart', id: '1844932150', name: "Choosin' Texas", artist: 'Ella Langley', art: 'https://is1-ssl.mzstatic.com/x/600x600bb.jpg', duration: 0, genre: 'Country', rank: 1 });
+  assert.equal(m.chartItem({ id: 'abc', name: 'x' }), null);
+  assert.equal(m.chartItem({ id: '1', name: '' }), null);
+  assert.equal(m.bigArt(c), 'https://is1-ssl.mzstatic.com/x/1000x1000bb.jpg', 'the lock screen and Now Playing get the large official cover');
+  assert.equal(m.streamUrl(c), '', 'a chart song has no audio address of its own: it plays in YouTube’s player');
+  const fav = m.toggleFav([], c)[0];
+  assert.equal('url' in fav, false); assert.ok(m.validFav(fav));
+  assert.deepEqual(cleanMusicItem(fav), { key: 'ch:1844932150', type: 'song', id: '1844932150', name: "Choosin' Texas", artist: 'Ella Langley', genre: 'Country', src: 'chart', art: 'https://is1-ssl.mzstatic.com/x/600x600bb.jpg' });
+  assert.deepEqual(m.parseRoute('charts'), { page: 'charts' });
+});

@@ -60,14 +60,14 @@
   const playButtons = li => `<div class="am-actions"><button type="button" class="btn am-btn" data-m-act="play" data-m-list="${li}">${ICON.play} Play</button><button type="button" class="btn am-btn ghost" data-m-act="shuffle" data-m-list="${li}">${ICON.shuffle} Shuffle</button></div>`;
 
   const TABS = [['', 'Listen Now', 'home'], ['browse', 'Browse', 'browse'], ['radio', 'Radio', 'radio'], ['library', 'Library', 'library']];
-  const tabOf = page => ({ genre: 'browse', playlist: 'home', album: 'home', artist: 'home', search: 'search' }[page] || page);
+  const tabOf = page => ({ genre: 'browse', charts: 'home', playlist: 'home', album: 'home', artist: 'home', search: 'search' }[page] || page);
   function chrome(r, body) {
     const active = tabOf(r.page);
     return `<div class="page am" id="amRoot">
       <div class="am-top"><nav class="am-tabs" aria-label="Music sections">${TABS.map(([path, label, id]) => `<a href="#music${path ? '/' + path : ''}" class="${active === id ? 'active' : ''}"${active === id ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
         <form class="am-search" id="amSearch" role="search">${ICON.search}<input type="search" name="q" maxlength="80" value="${esc(r.search || '')}" placeholder="Artists, songs, stations" autocomplete="off" aria-label="Search music"></form></div>
       ${body}
-      <p class="am-note">Trending songs, search and playlists come from YouTube Music, reached the way the <a href="https://github.com/chayotic/Open-Source-Music-Streaming-Apps" target="_blank" rel="noopener noreferrer">open-source streaming apps</a> do it, through community Piped and Invidious instances. Songs, playlists and artist pictures on Audius (published by the artists). Creative Commons songs from Jamendo via <a href="https://openverse.org" target="_blank" rel="noopener noreferrer">Openverse</a>. Concerts and netlabel albums from the <a href="https://archive.org/details/etree" target="_blank" rel="noopener noreferrer">Internet Archive</a>. Radio from <a href="https://somafm.com" target="_blank" rel="noopener noreferrer">SomaFM</a> and <a href="https://www.radio-browser.info" target="_blank" rel="noopener noreferrer">Radio Browser</a>.</p></div>`;
+      <p class="am-note">Today’s Top Songs is <a href="https://music.apple.com/au/browse" target="_blank" rel="noopener noreferrer">Apple Music’s chart</a> for Australia, updated daily, with its official artwork. Chart songs, searches and playlists play in YouTube’s own player; if a song can’t play there, Apple’s official 30-second preview plays instead. Songs, playlists and artist pictures on Audius (published by the artists). Creative Commons songs from Jamendo via Openverse. Concerts and netlabel albums from the Internet Archive. Radio from SomaFM and Radio Browser.</p></div>`;
   }
   const title = (text, sub = '') => `<header class="am-title"><h1>${esc(text)}</h1>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
   const empty = text => `<div class="empty">${text}</div>`;
@@ -91,11 +91,18 @@
 
   // ---- pages
   const pages = {
+    // Apple Music's Top 100 for Australia, numbered
+    charts(view, r, live) {
+      const favs = M.favs();
+      sections(view, r, live, title('Today’s Top Songs', 'Australia · Apple Music chart, updated daily'), [
+        async () => { const t = await data.charts('au'); if (!t.length) return ''; const li = reg(t); return `<div class="am-sec-head"><h2>Top ${t.length}</h2>${playButtons(li)}</div>${rows(t, favs, { numbered: true, artistLinks: false })}`; },
+      ]);
+    },
     home(view, r, live) {
       const favs = M.favs();
       const picks = [genreById('pop'), genreById('electronic'), genreById('hiphop'), genreById('rock')];
       sections(view, r, live, title('Listen Now'), [
-        async () => songShelf('Trending Songs', await data.ytTrending('AU'), favs),
+        async () => songShelf('Today’s Top Songs · Australia', await data.charts('au'), favs, { href: '#music/charts' }),
         async () => { const p = await data.ytSearch('top hits', 'music_playlists'); return p.length ? `<section class="am-features"><div class="am-feature-track">${p.slice(0, 8).map((c, i) => featureCard(c, i === 0 ? 'Featured playlist' : 'Playlist')).join('')}</div></section>` : ''; },
         async () => { const p = await data.playlists(); return p.length ? shelf('Playlists on Audius', p.slice(0, 8).map(linkCard).join('')) : ''; },
         async () => songShelf('Trending on Audius', await data.trending('', 30), favs),
@@ -243,6 +250,7 @@
   function render(view, arg, ctx = {}) {
     toast = ctx.toast || toast;
     player.onProblem = item => toast(`Couldn’t play “${item.name}”`);
+    player.onNotice = text => toast(text);
     player.prepare?.();   // the YouTube bridge is loaded before the first song is tapped
     const live = ctx.isCurrent || (() => true);
     const r = M.parseRoute(arg);
