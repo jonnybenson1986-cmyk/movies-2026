@@ -4,7 +4,7 @@
 // This function sits on the site so the browser doesn't need any instance to send CORS headers,
 // and it tries the instances in order until one answers.
 //
-//   ?op=search&q=...&filter=music_songs|music_playlists   songs or playlists matching a search (song and video ids)
+//   ?op=search&q=...&filter=music_songs|music_playlists|videos   songs, playlists or regular YouTube videos
 //   ?op=charts&region=au                                  Apple Music's Top Songs chart for a country, today
 //   ?op=trending                                          the same chart (kept for older copies of the app)
 //   ?op=playlist&id=PL...                                 the tracks of a playlist
@@ -15,7 +15,7 @@
 
 const PIPED = ['https://api.piped.private.coffee', 'https://pipedapi.ducks.party', 'https://pipedapi.adminforge.de'];
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36';
-const FILTERS = new Set(['music_songs', 'music_playlists']);
+const FILTERS = new Set(['music_songs', 'music_playlists', 'videos']);   // videos: regular YouTube, not only YouTube Music
 // Apple's official chart feed: the most-played songs on Apple Music in a country, refreshed daily, with official artwork
 const APPLE_CHARTS = cc => `https://rss.marketingtools.apple.com/api/v2/${cc}/music/most-played/100/songs.json`;
 const COUNTRIES = new Set(['au', 'nz', 'us', 'gb', 'ca', 'ie', 'za', 'in', 'sg', 'ph', 'jp', 'kr', 'de', 'fr', 'es', 'it', 'nl', 'se', 'br', 'mx']);

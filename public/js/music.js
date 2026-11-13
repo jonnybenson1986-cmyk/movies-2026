@@ -20,6 +20,9 @@
   const ARCHIVE = 'https://archive.org';
   const RADIO_HOSTS = ['de1', 'fi1', 'nl1', 'at1'].map(h => `https://${h}.api.radio-browser.info`);
   const YT = '/api/music-yt';
+  const PIPED = ['https://api.piped.private.coffee', 'https://pipedapi.ducks.party'];   // public YouTube search backends, used straight from the browser if the site's function can't reach them
+  // A search result from those backends, in the shape the site's function sends
+  const pipedSong = v => ({ id: String(v?.url || '').match(/[?&]v=([\w-]{11})/)?.[1] || '', name: String(v?.title || '').trim(), artist: String(v?.uploaderName || '').trim(), art: v?.thumbnail, duration: v?.duration });
   const FAV_KEY = 'sb:music', FAV_MAX = 300;
   // One list of genres for every source. audius: its exact genre name; q: search word for Openverse and the Archive;
   // radio: Radio Browser tag; soma: SomaFM genre names; c: tile colours.
@@ -265,9 +268,24 @@
     stations: radioBrowser,
     charts: async region => list((await getJSON(`${YT}?${qs({ op: 'charts', region: String(region || 'au').toLowerCase() })}`)).items, chartItem),
     ytTrending: async region => data.charts(region),
+    // Searches YouTube through the site's function; if that can't reach a backend (they sometimes refuse requests
+    // from servers), the browser asks the same public backends itself, which allow it (CORS). Only names and video
+    // ids come back: the song is always played in YouTube's own player.
     ytSearch: async (text, filter = 'music_songs') => {
-      const r = await getJSON(`${YT}?${qs({ op: 'search', q: text, filter })}`);
-      return list(r.items, filter === 'music_playlists' ? ytPlaylist : ytSong);
+      const map = filter === 'music_playlists' ? ytPlaylist : ytSong;
+      try {
+        const found = list((await getJSON(`${YT}?${qs({ op: 'search', q: text, filter })}`)).items, map);
+        if (found.length || filter === 'music_playlists') return found;
+      } catch { /* the site's function couldn't reach a backend: try from the browser */ }
+      if (filter === 'music_playlists') return [];
+      for (const host of PIPED) {
+        try {
+          const r = await getJSON(`${host}/search?${qs({ q: text, filter })}`);
+          const found = list((r.items || []).filter(v => v?.type !== 'channel' && v?.type !== 'playlist').map(pipedSong), ytSong);
+          if (found.length) return found;
+        } catch { /* next one */ }
+      }
+      return [];
     },
     ytPlaylist: async id => {
       const r = await getJSON(`${YT}?${qs({ op: 'playlist', id })}`);
@@ -315,7 +333,7 @@
   (document.body || document.documentElement).appendChild(audio);
   let queue = [], index = -1, current = null, failures = 0, retryTimer = 0, onProblem = () => {};
   let engine = 'audio';   // 'audio' or 'yt': which one the current item plays on
-  let onNotice = () => {}, needsTap = false;   // needsTap: the phone stopped YouTube's player starting by itself
+  let onNotice = () => {}, needsTap = false, problemReason = '';   // needsTap: the phone stopped YouTube's player starting by itself
   const ms = 'mediaSession' in navigator ? navigator.mediaSession : null;
 
   const media = new EventTarget();
@@ -499,15 +517,15 @@
     }
     if (ytMatches.has(item.id)) return ytMatches.get(item.id);
     const scored = new Map();
-    for (const q of [`${item.name} ${item.artist}`.trim(), item.name]) {
-      for (const s of (await data.ytSearch(q).catch(() => [])).slice(0, 15)) {
+    for (const [q, filter] of [[`${item.name} ${item.artist}`.trim(), 'music_songs'], [`${item.name} ${item.artist}`.trim(), 'videos'], [item.name, 'music_songs']]) {
+      for (const s of (await data.ytSearch(q, filter).catch(() => [])).slice(0, 15)) {
         const other = /\b(live|remix|cover|karaoke|instrumental|sped up|slowed|8d)\b/i;   // not the recording on the chart
         const sc = matchScore(item, s) - (other.test(s.name) && !other.test(item.name) ? 1 : 0);
         if (sc >= 1 && !(scored.get(s.id) >= sc)) scored.set(s.id, sc);   // the title has to match: a wrong song is worse than none
       }
-      if ([...scored.values()].some(v => v >= 1.3)) break;
+      if (filter === 'videos' && [...scored.values()].some(v => v >= 1.3)) break;   // YouTube Music and YouTube both asked, and the song was found
     }
-    const ids = [...scored].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id]) => id);
+    const ids = [...scored].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([id]) => id);
     if (ids.length) ytMatches.set(item.id, ids);
     return ids;
   }
@@ -548,6 +566,8 @@
     describe(item);
     (async () => {
       const ids = await ytCandidates(item);
+      const refused = [];
+      if (!ids.length) problemReason = 'not found on YouTube';
       for (const id of ids) {
         if (current !== item) return;
         try {
@@ -562,8 +582,11 @@
             return;
           }
           // this upload can't be played here (embedding switched off, removed, region): try the next one
+          refused.push(String(e.message).replace(/^YouTube error /, ''));
+          console.warn('YouTube refused', id, e.message);
         }
       }
+      if (refused.length) problemReason = `YouTube wouldn’t play it here (${[...new Set(refused)].join(', ')})`;
       if (current !== item) return;
       useEngine('audio');
       playElsewhere(item);
@@ -583,7 +606,7 @@
       retryTimer = setTimeout(() => { if (current === item) { audio.src = streamUrl(item); audio.play().catch(() => failed()); } }, 2000 * failures);
       return;
     }
-    onProblem(current);
+    onProblem(current, problemReason); problemReason = '';
     if (current.type === 'song' && queue.length > 1 && failures < 4) step(1); else { failures = 0; changed(); }
   }
   function stop() {

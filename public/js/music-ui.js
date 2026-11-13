@@ -249,7 +249,7 @@
   let libraryCount = -1;
   function render(view, arg, ctx = {}) {
     toast = ctx.toast || toast;
-    player.onProblem = item => toast(`Couldn’t play “${item.name}”`);
+    player.onProblem = (item, why) => toast(`Couldn’t play “${item.name}”${why ? `: ${why}` : ''}`);
     player.onNotice = text => toast(text);
     player.prepare?.();   // the YouTube bridge is loaded before the first song is tapped
     const live = ctx.isCurrent || (() => true);
