@@ -582,7 +582,7 @@
     movy.cancel();
     const [name, ...rest] = decodeURIComponent(location.hash.slice(1) || 'home').split('/');
     const arg = rest.join('/');
-    const navName = name === 'country' || name === 'countries' || name === 'guide' ? 'live' : name;   // Live TV opens the country list
+    const navName = name === 'country' || name === 'countries' || name === 'guide' ? 'live' : name === 'classics' ? 'movies' : name;   // Live TV opens the country list
     document.querySelectorAll('[data-route]').forEach(a => a.classList.toggle('active', a.dataset.route === navName));
     await Promise.all([channelsReady, movies.ready, window.StreamBoxAustralia.ready]);
     if (version !== routeVersion) return;
@@ -596,7 +596,12 @@
       case 'guide': renderGuide(arg); break;
       case 'music': window.StreamBoxMusic.render(view, arg, { toast, isCurrent: () => version === routeVersion }); break;
       case 'country': renderCountry(arg); break;
-      case 'movies': movies.render(view, arg); break;
+      case 'movies':
+        movies.render(view, arg);
+        if (!arg) view.querySelector('.rows')?.insertAdjacentHTML('afterbegin', `<section class="row"><a class="classics-banner" href="#classics">
+          <span><b>🎞 Free Classics</b><small>Hundreds of public-domain films: comedy, noir, sci-fi, silent and westerns. Played in StreamBox’s own player.</small></span><span class="btn btn-play">Browse</span></a></section>`);   // classics.js
+        break;
+      case 'classics': await window.StreamBoxClassics.render(view, arg, { play, isCurrent: () => version === routeVersion }); break;
       case 'library': await window.StreamBoxLibrary.render(view, { play }); break;
       case 'movy': await movy.render(view, location.hash.slice(1).split('/').slice(1).join('/'), { register, isSaved: inMyList, retry: route, play }); break;
       case 'mylist': renderMyList(); break;

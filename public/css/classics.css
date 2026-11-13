@@ -1,0 +1,22 @@
+/* Free Classics (public-domain films from the Internet Archive) */
+.classics-search { display: flex; gap: 8px; padding: 4px var(--gutter) 12px; max-width: 640px; }
+.classics-search input { flex: 1; min-width: 0; padding: 11px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); color: #fff; font: inherit; font-size: 16px; }
+.classics-search .btn { padding: 9px 18px; font-size: 14px; }
+.classic-card { color: inherit; }
+.classic-card .art-img { object-fit: cover; }
+.classics-grid { padding: 0 var(--gutter); }
+.classics-note { padding: 22px var(--gutter) 40px; color: #636366; font-size: 12px; line-height: 1.6; }
+.classics-note a, .classics-meta a { color: #a1a1a6; text-decoration: underline; }
+.classics-film { display: flex; gap: 28px; align-items: flex-start; padding: 0 var(--gutter); }
+.classics-poster { flex: none; width: clamp(150px, 24vw, 280px); border-radius: 14px; background: #1c1c1e; box-shadow: 0 14px 40px rgba(0,0,0,.5); }
+.classics-back { font-size: 14px; color: #a1a1a6; }
+.classics-film h1 { font-size: clamp(26px, 4vw, 44px); font-weight: 800; line-height: 1.1; margin: 6px 0; overflow-wrap: anywhere; }
+.classics-meta { color: #8e8e93; font-size: 14px; margin: 6px 0 12px; }
+.classics-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.classics-about { color: #d1d1d6; line-height: 1.55; max-width: 720px; }
+@media (max-width: 640px) { .classics-film { flex-direction: column; align-items: center; text-align: center; } .classics-actions { justify-content: center; } .classics-poster { width: min(42vw, 170px); } }
+.classics-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 var(--gutter); padding: 18px 20px; border-radius: 16px; color: #fff; background: linear-gradient(120deg, #3a2a12, #1c1c1e 70%); border: .5px solid rgba(255,255,255,.12); }
+.classics-banner b { display: block; font-size: 19px; margin-bottom: 4px; }
+.classics-banner small { color: #c7c7cc; font-size: 14px; line-height: 1.45; }
+.classics-banner .btn { flex: none; }
+.classics-banner:hover { border-color: rgba(255,255,255,.3); }

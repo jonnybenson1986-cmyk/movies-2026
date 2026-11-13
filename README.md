@@ -214,6 +214,14 @@ Open a movie and tap **Play** to load a video provider inside StreamBox. **Sourc
 
 To regenerate the catalog, run `npm run build:movies`. The importer fetches the pinned upstream revision recorded in the script and catalog; normal site builds use the bundled catalog. For a local checkout of that revision, run `node scripts/build-movies.mjs --source /path/to/KiduyuTv_final`.
 
+## Free Classics
+
+**Movies → Free Classics** (`#classics`, a banner at the top of the Movies page) adds hundreds of complete feature films that are in the **public domain**, from the [Internet Archive](https://archive.org/details/feature_films): shelves for Most Watched, Comedy, Film Noir & Crime, Sci-Fi & Horror, Silent Films, Westerns, Adventure, and Mystery & Thrillers (each "See all" shows up to 120), plus search. A film's page has its poster, year, length and description.
+
+- **Only public domain:** every search asks the Archive for films it marks with a public-domain licence, so nothing else is listed. Old adult exploitation reels are left out.
+- **Plays in StreamBox's own player** (not someone else's embedded player): resume where you left off, full screen and the AirPlay button all work. Each film offers the full-quality file and a smaller one that saves mobile data.
+- The code is `public/js/classics.js` and `public/css/classics.css`, with tests in `tests/classics.test.mjs`. No key is needed.
+
 ## Automatic movie updates
 
 StreamBox checks for new movies whenever it opens and every 24 hours while it stays open. Returning to the app checks whether an update is due; reconnecting retries immediately. **Settings → Movie updates → Check for new movies** runs a manual check and shows the result.
