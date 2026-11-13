@@ -39,6 +39,7 @@
 .zap-info > span { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #c7c7cc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .zap-info .flag { width: 18px; height: 12px; }
 .zap-now { color: #8e8e93 !important; }
+.zap-skip { color: #ffd60a !important; white-space: normal !important; }
 
 /* ---------- Channel list ---------- */
 .player.live-mode .zap-panel {

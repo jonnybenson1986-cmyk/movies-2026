@@ -39,7 +39,7 @@
     get(key, fallback) { try { const v = localStorage.getItem('sb:' + key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
     set(key, value) { try { localStorage.setItem('sb:' + key, JSON.stringify(value)); } catch { /* private mode */ } },
   };
-  const settings = Object.assign({ showAll: false, autoVlc: true, autoFullscreen: !!matchMedia?.('(pointer: coarse)').matches, hideBad: true, sources: [], guides: [], auGuide: 'Sydney', proxyUrl: '', proxyToken: '' }, store.get('settings', {}));
+  const settings = Object.assign({ showAll: false, autoVlc: true, autoFullscreen: !!matchMedia?.('(pointer: coarse)').matches, hideBad: true, autoSkip: true, sources: [], guides: [], auGuide: 'Sydney', proxyUrl: '', proxyToken: '' }, store.get('settings', {}));
   const saveSettings = () => store.set('settings', settings);
 
   // ---------------------------------------------------------------- state
@@ -748,7 +748,13 @@
     closeSubsMenu();
   }
 
-  async function play(item, list = [], force = false) {
+  // When a channel won't load, the player moves on to the next one in the same country by itself (Settings can turn
+  // this off). skip counts the channels passed over since the person last picked one.
+  const MAX_SKIPS = 5;
+  const reconnected = new Set();   // channels already reconnected once this visit
+  let skip = { count: 0, dir: 1, from: null, notes: [] };
+  async function play(item, list = [], force = false, { auto = false, dir = 1, reconnect = false } = {}) {
+    if (!auto && !reconnect) skip = { count: 0, dir, from: item, notes: [] };
     stopHero();
     window.StreamBoxMusic?.pause();   // one thing playing at a time
     saveProgress(true);   // where the previous video was up to
@@ -855,8 +861,15 @@
     }
     if (current !== item) return;
     markBad(item);
+    // Move on to the next channel in this country that hasn't failed, the way a TV skips a dead channel
+    const next = settings.autoSkip && skip.count < MAX_SKIPS && zap.channel(item, skip.dir);
+    if (next && next !== skip.from) {
+      skip.count++; skip.notes.push(item.name);   // shown on the next channel's banner
+      play(next, [], false, { auto: true });
+      return;
+    }
     const why = explainFailure(reasons);
-    showPlayerMsg('Channel unavailable', why.text, item, why.detail);
+    showPlayerMsg(skip.count ? `${skip.count + 1} channels in a row didn’t load` : 'Channel unavailable', skip.count ? `${why.text} StreamBox tried the next ${skip.count} channel${skip.count === 1 ? '' : 's'} too.` : why.text, item, why.detail);
   }
 
   // Resolves once the video is playing; rejects with a short reason otherwise.
@@ -871,8 +884,18 @@
         err ? reject(err) : resolve();
         return true;
       };
-      const midStream = why => { if (current === item) showPlayerMsg('Stream stopped', why, item); };
-      stallTimer = setTimeout(() => finish(new Error('no video after 15s')), 15000);
+      // A stream that drops after it was playing (a server hiccup, or the phone changing networks) is reconnected once
+      const midStream = why => {
+        if (current !== item) return;
+        if (item.type === 'live' && !reconnected.has(item.key)) {
+          reconnected.add(item.key);
+          play(item, currentList, false, { reconnect: true });   // (shows the channel banner straight away, so the note goes after it)
+          showBanner(`<b class="zap-num">⟳</b><span class="zap-info"><strong>Reconnecting…</strong><span>${esc(item.name)}</span></span>`, 3000);
+          return;
+        }
+        showPlayerMsg('Stream stopped', why, item);
+      };
+      stallTimer = setTimeout(() => finish(new Error('no video after 10s')), 10000);
       video.onplaying = () => { finish(); msg.hidden = true; applySubs(); };
       video.onerror = () => {
         if (!video.getAttribute('src')) return;
@@ -929,7 +952,7 @@
   // Channel up (+1) / down (-1) within the country
   function step(dir) {
     const next = current && zap.channel(current, dir);
-    if (next) play(next);
+    if (next) play(next, [], false, { dir });
     else if (current) toast(`No other channels in ${current.cc ? countryName(current.cc) : 'this group'}`);
   }
 
@@ -1218,6 +1241,7 @@
         <div class="form-row"><input type="url" id="proxyInput" placeholder="https://your-proxy.example.com" value="${esc(settings.proxyUrl)}"><button class="btn btn-more" data-act="localproxy" style="padding:8px 12px;font-size:13px" title="Run: npm run proxy">This computer</button></div>
         <div class="form-row"><input type="text" id="proxyToken" placeholder="Token (optional, if your proxy uses PROXY_TOKEN)" value="${esc(settings.proxyToken)}" autocomplete="off" spellcheck="false"><button class="btn btn-red" data-act="saveproxy" style="padding:8px 16px">Save</button>${hasProxy() ? '<button class="btn btn-more" data-act="clearproxy" style="padding:8px 16px">Remove</button>' : ''}</div>
         <label><input type="checkbox" id="optHideBad" ${settings.hideBad ? 'checked' : ''}> Hide channels that failed to play on this device (for 12 hours)</label>
+        <label><input type="checkbox" id="optAutoSkip" ${settings.autoSkip ? 'checked' : ''}> When a channel won’t load, go to the next one by itself</label>
         <button class="btn btn-more" data-act="resetbad" style="font-size:13px;padding:6px 12px">Show hidden channels again (${Object.keys(bad).length})</button>
         <h3>Artwork for movies &amp; series</h3>
         <p style="color:var(--muted)">${artworkKey() ? `Using your own TMDB key (ends …${esc(artworkKey().slice(-4))}), stored only on this device.` : 'Artwork is on, using the key built into StreamBox. You can use your own TMDB API key instead (themoviedb.org → Settings → API).'}</p>
@@ -1404,6 +1428,7 @@
     else if (e.target.id === 'optAuGuide') { settings.auGuide = e.target.value; saveSettings(); location.reload(); }
     else if (e.target.id === 'optAutoVlc') { settings.autoVlc = e.target.checked; saveSettings(); }
     else if (e.target.id === 'optAutoFs') { settings.autoFullscreen = e.target.checked; saveSettings(); }
+    else if (e.target.id === 'optAutoSkip') { settings.autoSkip = e.target.checked; saveSettings(); }
     else if (e.target.id === 'optHideBad') { settings.hideBad = e.target.checked; saveSettings(); route(); }
     else if (e.target.id === 'importFile' && e.target.files[0]) importData(e.target.files[0]);
   });
@@ -1517,10 +1542,11 @@
 
   function channelBanner(item) {
     const g = guideFor(item)?.now;
+    const note = skip.count && skip.notes.length ? `<span class="zap-skip">Skipped ${esc(skip.notes.slice(-2).join(', '))}${skip.notes.length > 2 ? ` and ${skip.notes.length - 2} more` : ''}: not working</span>` : '';
     showBanner(`<b class="zap-num">${zap.number(item) || ''}</b><span class="zap-info">
       <strong>${esc(item.name)}</strong>
       <span>${item.cc ? flagImg(item.cc, 'flag') : ''}${esc(item.cc ? countryName(item.cc) : 'International / Other')}</span>
-      ${g ? `<span class="zap-now">Now: ${esc(g.title)}</span>` : ''}</span>`);
+      ${g ? `<span class="zap-now">Now: ${esc(g.title)}</span>` : ''}${note}</span>`, note ? 5000 : 3200);
   }
 
   const digits = window.StreamBoxZap.createDigits(
