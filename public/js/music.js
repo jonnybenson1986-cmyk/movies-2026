@@ -314,7 +314,8 @@
   audio.style.display = 'none';
   (document.body || document.documentElement).appendChild(audio);
   let queue = [], index = -1, current = null, failures = 0, retryTimer = 0, onProblem = () => {};
-  let engine = 'audio', onNotice = () => {};   // 'audio' or 'yt': which one the current item plays on
+  let engine = 'audio';   // 'audio' or 'yt': which one the current item plays on
+  let onNotice = () => {}, needsTap = false;   // needsTap: the phone stopped YouTube's player starting by itself
   const ms = 'mediaSession' in navigator ? navigator.mediaSession : null;
 
   const media = new EventTarget();
@@ -337,7 +338,7 @@
     host.appendChild(slot);
     (document.body || document.documentElement).appendChild(host);
 
-    let yt = null, ready = null, ticker = 0, waiting = null, playing = false, lastId = '';
+    let yt = null, ready = null, ticker = 0, waiting = null, playing = false, lastId = '', stirred = false;   // stirred: YouTube began loading the song
     const S = { ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 };
 
     // The API script is loaded once, as soon as the Music page is opened, so the player already exists by the time
@@ -368,9 +369,11 @@
     }
 
     function state(s) {
+      if (s === S.BUFFERING || s === S.PLAYING) stirred = true;
       if (s === S.PLAYING) {
         playing = true;
         if (waiting) { waiting.resolve(); waiting = null; }
+        if (needsTap) { needsTap = false; failures = 0; audio.pause(); changed(); }
         if (engine !== 'yt') return;
         clearInterval(ticker); ticker = setInterval(() => emit('timeupdate'), 250);
         emit('play'); emit('playing'); emit('durationchange');
@@ -395,13 +398,15 @@
       const p = await load();
       if (waiting) waiting.reject(new Error('Replaced'));
       const started = new Promise((resolve, reject) => { waiting = { resolve, reject }; });
-      lastId = id;
+      lastId = id; stirred = false;
       host.classList.add('on');
       p.loadVideoById({ videoId: id, startSeconds: 0 });
       p.unMute?.(); p.setVolume?.(100);
-      // Nothing after a while means the browser blocked it from starting (or YouTube is unreachable)
-      const timer = setTimeout(() => { if (waiting) { waiting.reject(new Error('YouTube player did not start')); waiting = null; } }, 9000);
-      try { await started; } finally { clearTimeout(timer); }
+      // If YouTube hasn't even begun loading the song after a few seconds, the phone stopped it starting by itself;
+      // a song that is loading on a slow connection gets longer
+      const blocked = () => { if (waiting) { waiting.reject(new Error('YouTube player did not start')); waiting = null; } };
+      const quick = setTimeout(() => { if (!stirred) blocked(); }, 4000), slow = setTimeout(blocked, 15000);
+      try { await started; } finally { clearTimeout(quick); clearTimeout(slow); }
     }
     function stop() {
       if (waiting) { waiting.reject(new Error('Stopped')); waiting = null; }
@@ -475,31 +480,42 @@
   function unlock() {
     try { audio.src = SILENCE; const p = audio.play(); if (p) p.catch(() => {}); } catch { /* nothing to unlock */ }
   }
-  // A song from the charts (or a YouTube song the embedded player can't play) needs another way in:
-  //   - a chart song is matched to the same song on YouTube Music (by title and artist) and played in YouTube's player
-  //   - if that can't play it (the owner turned embedding off, or the browser blocked it), Apple's official 30-second
-  //     preview of the exact song plays instead, and failing that, the same song if an artist published it on Audius.
-  const ytMatches = new Map();   // Apple id -> YouTube video id
-  async function ytTwin(item) {
+  // Chart songs and YouTube songs play in full in YouTube's own player. Getting there:
+  //   - a chart song is matched to the same song on YouTube Music by title and artist; the best few matches are kept,
+  //     because the owner of one upload (often the official music video) may have switched off playing it on other
+  //     sites, and then the next upload of the same song (usually YouTube Music's official audio) is tried
+  //   - a phone can stop the player starting by itself; then the player is shown and one tap on it starts the song
+  //   - only if no upload of the song can play anywhere is the same song by the same artist on Audius played, and
+  //     failing that, the song is skipped. No 30-second previews.
+  const ytMatches = new Map();   // Apple id (or a YouTube song's key) -> YouTube video ids, best match first
+  async function ytCandidates(item) {
+    if (item.src === 'yt') {   // a YouTube song: its own id, then other uploads of it
+      if (!ytMatches.has(item.key)) {
+        const more = (await data.ytSearch(`${cleanTitle(item.name)} ${cleanArtist(item.artist)}`.trim()).catch(() => []))
+          .filter(s => s.id !== item.id && matchScore(item, s) >= 1.3).slice(0, 3).map(s => s.id);
+        ytMatches.set(item.key, more);
+      }
+      return [item.id, ...ytMatches.get(item.key)];
+    }
     if (ytMatches.has(item.id)) return ytMatches.get(item.id);
-    let best = null, bestScore = -1;
+    const scored = new Map();
     for (const q of [`${item.name} ${item.artist}`.trim(), item.name]) {
-      const found = (await data.ytSearch(q).catch(() => [])).slice(0, 12);
-      for (const s of found) { const sc = matchScore(item, s); if (sc > bestScore) { best = s; bestScore = sc; } }
-      if (bestScore >= 1.3) break;
+      for (const s of (await data.ytSearch(q).catch(() => [])).slice(0, 15)) {
+        const other = /\b(live|remix|cover|karaoke|instrumental|sped up|slowed|8d)\b/i;   // not the recording on the chart
+        const sc = matchScore(item, s) - (other.test(s.name) && !other.test(item.name) ? 1 : 0);
+        if (sc >= 1 && !(scored.get(s.id) >= sc)) scored.set(s.id, sc);   // the title has to match: a wrong song is worse than none
+      }
+      if ([...scored.values()].some(v => v >= 1.3)) break;
     }
-    const id = best && bestScore >= 1 ? best.id : '';   // the title has to match; a wrong song is worse than a preview
-    if (id) ytMatches.set(item.id, id);
-    return id;
+    const ids = [...scored].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id]) => id);
+    if (ids.length) ytMatches.set(item.id, ids);
+    return ids;
   }
-  async function applyPreview(item) {   // Apple's official preview (iTunes Search API): by Apple id, else by title and artist
-    const pick = results => (results || []).filter(r => https(r.previewUrl)).map(r => ({ r, sc: matchScore(item, { name: r.trackName, artist: r.artistName }) })).sort((a, b) => b.sc - a.sc)[0];
-    if (item.src === 'chart') {
-      const hit = (await getJSON(`https://itunes.apple.com/lookup?${qs({ id: item.id, country: 'au', entity: 'song' })}`).catch(() => null))?.results?.find(r => https(r.previewUrl));
-      if (hit) return hit.previewUrl;
-    }
-    const best = pick((await getJSON(`https://itunes.apple.com/search?${qs({ term: `${cleanTitle(item.name)} ${cleanArtist(item.artist)}`.trim(), media: 'music', entity: 'song', country: 'au', limit: 10 })}`).catch(() => null))?.results);
-    return best && best.sc >= 1 ? best.r.previewUrl : '';
+  // Finds the YouTube matches for the first songs of a list ahead of time, so a tap can start the player at once
+  let warming = Promise.resolve();
+  function warm(items) {
+    for (const item of (items || []).filter(i => i?.src === 'chart' && !ytMatches.has(i.id)).slice(0, 12)) warming = warming.then(() => ytCandidates(item)).catch(() => {});
+    return warming;
   }
   async function audiusTwin(item) {
     let best = null, bestScore = -1;
@@ -510,45 +526,48 @@
     }
     return bestScore >= 1.3 ? best : null;
   }
-  const fallbackSource = async item => {
-    const preview = await applyPreview(item).catch(() => '');
-    if (preview) return [item, preview, true];
-    const alt = await audiusTwin(item);
-    if (!alt) throw new Error('Nothing can play this song');
-    return [alt, streamUrl(alt), false];
-  };
-  function playFallback(item) {
-    fallbackSource(item).then(([play, url, isPreview]) => {
+  function playElsewhere(item) {   // the full song from Audius when the same artist published it there; otherwise skip
+    audiusTwin(item).then(alt => {
       if (current !== item) return;
-      if (play !== item) {   // its Audius twin takes its place
-        current = play;
-        queue = queue.map(i => (i.key === item.key ? play : i));
-        changed();
-      }
-      if (isPreview) onNotice(`Playing Apple Music’s 30-second preview of “${item.name}”. The full song isn’t available to play here.`);
-      begin(play, url);
+      if (!alt) { failed(); return; }
+      current = alt;
+      queue = queue.map(i => (i.key === item.key ? alt : i));
+      changed();
+      begin(alt);
     }).catch(() => { if (current === item) failed(); });
   }
   function start(item, items, { shuffle = false } = {}) {
     clearTimeout(retryTimer);
     if (items) { queue = shuffle ? shuffled(items, item) : items; index = queue.findIndex(i => i.key === item.key); }
     current = item;
+    needsTap = false;
     changed();
     if (item.src !== 'yt' && item.src !== 'chart') { begin(item); return; }
     unlock();   // keeps the <audio> element ready in case the song has to be played from elsewhere
     useEngine('yt');
     describe(item);
-    const videoId = item.src === 'chart' ? ytTwin(item) : Promise.resolve(item.id);
-    videoId.then(id => { if (!id) throw new Error('No match on YouTube'); if (current !== item) return null; return bridge.play(id); }).then(() => {
-      if (current !== item) return;
-      audio.pause();
-      failures = 0;
-      changed();
-    }).catch(() => {
+    (async () => {
+      const ids = await ytCandidates(item);
+      for (const id of ids) {
+        if (current !== item) return;
+        try {
+          await bridge.play(id);
+          if (current !== item) return;
+          audio.pause(); failures = 0; changed();
+          return;
+        } catch (e) {
+          if (current !== item || /Replaced|Stopped/.test(e.message)) return;
+          if (/did not start/.test(e.message)) {   // the phone wants a tap on the player itself
+            needsTap = true; changed();   // Now Playing opens with the player and a hint (music-ui.js)
+            return;
+          }
+          // this upload can't be played here (embedding switched off, removed, region): try the next one
+        }
+      }
       if (current !== item) return;
       useEngine('audio');
-      playFallback(item);
-    });
+      playElsewhere(item);
+    })();
   }
   function step(dir) {
     if (queue.length < 2) return false;
@@ -613,6 +632,8 @@
     get paused() { return media.paused; },
     set onProblem(fn) { onProblem = fn; },
     set onNotice(fn) { onNotice = fn; },
+    get needsTap() { return needsTap; },
+    warm,
   };
   window.StreamBoxMusic = { ...pure, data, player, favs, favourite, pause, stop, render: () => {} };
 })();

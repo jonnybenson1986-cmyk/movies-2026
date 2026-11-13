@@ -67,7 +67,7 @@
       <div class="am-top"><nav class="am-tabs" aria-label="Music sections">${TABS.map(([path, label, id]) => `<a href="#music${path ? '/' + path : ''}" class="${active === id ? 'active' : ''}"${active === id ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
         <form class="am-search" id="amSearch" role="search">${ICON.search}<input type="search" name="q" maxlength="80" value="${esc(r.search || '')}" placeholder="Artists, songs, stations" autocomplete="off" aria-label="Search music"></form></div>
       ${body}
-      <p class="am-note">Today’s Top Songs is <a href="https://music.apple.com/au/browse" target="_blank" rel="noopener noreferrer">Apple Music’s chart</a> for Australia, updated daily, with its official artwork. Chart songs, searches and playlists play in YouTube’s own player; if a song can’t play there, Apple’s official 30-second preview plays instead. Songs, playlists and artist pictures on Audius (published by the artists). Creative Commons songs from Jamendo via Openverse. Concerts and netlabel albums from the Internet Archive. Radio from SomaFM and Radio Browser.</p></div>`;
+      <p class="am-note">Today’s Top Songs is <a href="https://music.apple.com/au/browse" target="_blank" rel="noopener noreferrer">Apple Music’s chart</a> for Australia, updated daily, with its official artwork. Chart songs, searches and playlists play in full in YouTube’s own player. Songs, playlists and artist pictures on Audius (published by the artists). Creative Commons songs from Jamendo via Openverse. Concerts and netlabel albums from the Internet Archive. Radio from SomaFM and Radio Browser.</p></div>`;
   }
   const title = (text, sub = '') => `<header class="am-title"><h1>${esc(text)}</h1>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
   const empty = text => `<div class="empty">${text}</div>`;
@@ -95,14 +95,14 @@
     charts(view, r, live) {
       const favs = M.favs();
       sections(view, r, live, title('Today’s Top Songs', 'Australia · Apple Music chart, updated daily'), [
-        async () => { const t = await data.charts('au'); if (!t.length) return ''; const li = reg(t); return `<div class="am-sec-head"><h2>Top ${t.length}</h2>${playButtons(li)}</div>${rows(t, favs, { numbered: true, artistLinks: false })}`; },
+        async () => { const t = await data.charts('au'); if (!t.length) return ''; player.warm(t); const li = reg(t); return `<div class="am-sec-head"><h2>Top ${t.length}</h2>${playButtons(li)}</div>${rows(t, favs, { numbered: true, artistLinks: false })}`; },
       ]);
     },
     home(view, r, live) {
       const favs = M.favs();
       const picks = [genreById('pop'), genreById('electronic'), genreById('hiphop'), genreById('rock')];
       sections(view, r, live, title('Listen Now'), [
-        async () => songShelf('Today’s Top Songs · Australia', await data.charts('au'), favs, { href: '#music/charts' }),
+        async () => { const t = await data.charts('au'); player.warm(t); return songShelf('Today’s Top Songs · Australia', t, favs, { href: '#music/charts' }); },
         async () => { const p = await data.ytSearch('top hits', 'music_playlists'); return p.length ? `<section class="am-features"><div class="am-feature-track">${p.slice(0, 8).map((c, i) => featureCard(c, i === 0 ? 'Featured playlist' : 'Playlist')).join('')}</div></section>` : ''; },
         async () => { const p = await data.playlists(); return p.length ? shelf('Playlists on Audius', p.slice(0, 8).map(linkCard).join('')) : ''; },
         async () => songShelf('Trending on Audius', await data.trending('', 30), favs),
@@ -280,6 +280,7 @@
       <button class="np-down" id="npDown" type="button" aria-label="Close Now Playing">${ICON.down}</button>
       <div class="np-main">
         <div class="np-art" id="npArt"></div>
+        <p class="np-tap" id="npTap" hidden>Tap the picture to start the full song</p>
         <div class="np-info"><div class="np-text"><b id="npTitle"></b><a id="npArtist" href="#music"></a></div><button type="button" class="am-heart np-heart" id="npFav" aria-label="Favourite" aria-pressed="false">${ICON.heart}</button></div>
         <div class="np-scrub" id="npScrub"><input type="range" id="npSeek" min="0" max="1000" value="0" aria-label="Position in the song"><div class="np-times"><span id="npElapsed">0:00</span><span id="npLeft"></span></div></div>
         <div class="np-live" id="npLive" hidden><span class="dot"></span>LIVE RADIO</div>
@@ -335,8 +336,14 @@
   // The YouTube bridge (YouTube's own player) is shown over the artwork while Now Playing is open and a YouTube
   // song plays on it; the rest of the time it waits in a small box out of view, still playing.
   const bridge = player.bridge;
+  let tapShown = false;
   function placeBridge() {
     if (!bridge) return;
+    // The phone stopped the player starting by itself: show it, so one tap on it starts the full song
+    if (player.needsTap && np.hidden && !tapShown) { tapShown = true; openNP(); }
+    if (!player.needsTap) tapShown = false;
+    $('#npTap').hidden = !player.needsTap;
+    bridge.classList.toggle('tap', !!player.needsTap && !np.hidden);
     const show = !np.hidden && player.engine === 'yt';
     bridge.classList.toggle('shown', show);
     if (!show) return;
@@ -359,7 +366,7 @@
   document.addEventListener('sb-music', sync);
 
   $('#musicOpen').onclick = openNP;
-  $('#musicPlay').onclick = $('#npPlay').onclick = () => player.toggle();
+  $('#musicPlay').onclick = $('#npPlay').onclick = () => (player.needsTap ? openNP() : player.toggle());
   $('#musicPrev').onclick = $('#npPrev').onclick = () => player.step(-1);
   $('#musicNext').onclick = $('#npNext').onclick = () => player.step(1);
   $('#musicClose').onclick = () => player.stop();

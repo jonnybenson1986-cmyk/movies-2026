@@ -149,7 +149,7 @@ Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other
 
 | Source | What it gives |
 |---|---|
-| Apple Music charts | Today's Top Songs: Apple's official most-played chart for Australia (`rss.marketingtools.apple.com`), refreshed daily, with official artwork. Each song plays in YouTube's own player, matched by title and artist; if it can't play there, Apple's official 30-second preview (iTunes Search API) plays instead and the app says so |
+| Apple Music charts | Today's Top Songs: Apple's official most-played chart for Australia (`rss.marketingtools.apple.com`), refreshed daily, with official artwork. Each song plays **in full** in YouTube's own player, matched by title and artist (live versions, remixes and covers are passed over). The best few uploads are kept, so if the owner of one (often the official video) has switched off playing it on other sites, the next one (usually YouTube Music's official audio) plays. If a phone stops the player starting by itself, Now Playing opens with the player and one tap on it starts the song. A song with no playable upload is played from Audius if the same artist published it there, otherwise skipped. No 30-second previews |
 | YouTube Music | Search and playlists, first in every list — reached the same way the [Open-Source-Music-Streaming-Apps](https://github.com/chayotic/Open-Source-Music-Streaming-Apps) apps do it, through community Piped and Invidious instances fronted by the site's `/api/music-yt` function |
 | [Audius](https://audius.co) | Songs, playlists and artists, published by the artists themselves |
 | [Openverse](https://openverse.org) | Creative Commons songs (Jamendo's catalogue), searched by genre |
