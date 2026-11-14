@@ -40,7 +40,7 @@ test('app files and data are refused too, not just the page', async () => {
 
 test('the manifest and icons stay reachable so the sign-in screen can be installed', async () => {
   for (const path of ['/manifest.webmanifest', '/icons/icon-192.png']) assert.equal((await get(path)).status, 200, path);
-  assert.deepEqual(config.excludedPath, ['/manifest.webmanifest', '/icons/*', '/apk'], 'and /apk, the link to the Android app download');
+  assert.deepEqual(config.excludedPath, ['/manifest.webmanifest', '/icons/*', '/apk', '/.netlify/images'], 'and /apk (the Android app download) and the logo resizer');
 });
 
 test('every user can sign in with their own username and password', async () => {

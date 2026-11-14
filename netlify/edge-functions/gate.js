@@ -149,5 +149,7 @@ export default async function gate(request, context) {
   return wantsPage ? lockPage(url.pathname + url.search, false) : new Response('Sign-in required', { status: 401, headers: { 'cache-control': 'no-store' } });
 }
 
-// /apk is only a link to the public download of the Android app (which shows this same lock screen when it opens)
-export const config = { path: '/*', excludedPath: ['/manifest.webmanifest', '/icons/*', '/apk'] };
+// /apk is only a link to the public download of the Android app (which shows this same lock screen when it opens).
+// /.netlify/images only resizes public channel logos from the hosts listed in netlify.toml; checking the sign-in for
+// each of the hundreds of logos on a page would only slow them down.
+export const config = { path: '/*', excludedPath: ['/manifest.webmanifest', '/icons/*', '/apk', '/.netlify/images'] };
