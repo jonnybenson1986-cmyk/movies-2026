@@ -246,6 +246,16 @@ The catalog is cached on the device for offline browsing. Existing curated title
 
 The app cannot reliably check while it is closed. Opening it again catches up; no redeploy is required for these device updates.
 
+## Where to Stream
+
+**Browse by Streaming Service** on Home is a scrollable row of service logos (Netflix, Prime Video, Disney+, Apple TV+, Max, Hulu, plus the extra services listed in `CUSTOM` in `public/js/watch-providers.js`, such as Paramount+, Peacock, Stan, BINGE, Crunchyroll, BritBox and Tubi). Only services that operate in the chosen region are shown. Tapping one opens the Movy catalog filtered to that service, with Stream / Rent / Buy chips; the same logo row appears above the Movy Movies and TV Shows catalogs.
+
+Every Movy movie and show page has an **Available on Movy’s Partner Services** card. Offers are grouped as Stream (subscription), Free, With ads, Rent and Buy, each with the service’s logo, an access badge, a picture-quality badge (the best the service offers) and a **Watch Now** link that opens the service. A price badge appears when the data includes a price; TMDB’s provider data does not, so it is normally hidden. The card also links to the in-app Movy Browser box.
+
+The region picker (on Home and on the card) starts at the browser’s locale and is remembered. Data comes from the TMDB-compatible service Movy already uses (`/watch/providers`, powered by JustWatch).
+
+When a title is on no tracked service in the region, the card shows a **Notify Me When Available** toggle. Alerts are kept on the device and, when signed in, saved to the account (`/api/watch-alerts`, Netlify Blobs). Home checks them every few hours and shows a notice that opens the title once it arrives.
+
 ## Movy and protected Vidy playback
 
 The **Movy** tab brings the public Movy catalogs into StreamBox: movies, TV shows, anime and the 4K library. Search, genres, sorting and pagination fetch live metadata; details include TV seasons and anime episodes. Titles can be saved to My List. The 4K search filters the current page; movie/TV APIs limit browsing to 500 pages. Anime starts with trending/airing titles and offers search and genres. Two upstream anime genres with unavailable endpoints are omitted.

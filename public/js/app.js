@@ -56,8 +56,19 @@
   const initials = name => name.replace(/[^\p{L}\p{N} ]/gu, '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
+  // Availability notices queue up and show one after another, each opening the title
+  const alerts = [];
+  function showAlert() {
+    if (showAlert.busy || !alerts.length) return;
+    const { text, href } = alerts.shift();
+    const el = $('#toast');
+    showAlert.busy = true;
+    el.innerHTML = `<a href="${esc(href)}" class="toast-link">🔔 ${esc(text)} ›</a>`; el.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; showAlert.busy = false; showAlert(); }, 6000);
+  }
   function toast(msg) {
     const el = $('#toast');
+    showAlert.busy = false;   // a newer message replaces an availability notice; the rest wait for the next Home visit
     el.textContent = msg; el.hidden = false;
     clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2400);
   }
@@ -434,6 +445,7 @@
         ${rowHTML('Movies', movies.all.slice(0, ROW_LIMIT), '#movies')}
         <section class="row"><div class="row-head"><h2>Australia</h2><a class="see-all" href="#australia">${window.StreamBoxAustralia.count} guide channels ›</a></div></section>
         <section class="row"><div class="row-head"><h2>Movy</h2></div><div class="chips"><a class="chip" href="#movy/movie">Movies</a><a class="chip" href="#movy/tv">TV Shows</a><a class="chip" href="#movy/anime">Anime</a><a class="chip" href="#movy/4k">4K Library</a></div></section>
+        <section class="row watch-hub" id="watchHub" data-watch-hub aria-label="Browse by Streaming Service"></section>
         ${countryRow('Browse by country', groupByCountry(all).filter(g => g.cc).slice(0, 24), '#countries')}
         ${rowHTML('Live Sports', byCat('Sports').slice(0, ROW_LIMIT), '#sports')}
         ${rowHTML('Pluto TV Channels', all.filter(c => c.source === 'Pluto TV').slice(0, ROW_LIMIT), '#live/Pluto TV')}
@@ -446,6 +458,9 @@
         ${rowHTML('More Live TV', byCat('Entertainment').slice(0, ROW_LIMIT), '#live/Entertainment')}
         ${rowHTML('Quick Links', QUICK_LINKS.map((l, i) => ({ ...l, type: 'link', key: 'q:' + i })))}
       </div>`;
+    window.StreamBoxWatch?.mountHub($('#watchHub'));
+    // "Notify Me When Available": tell the person when a title they are waiting for has arrived on a service
+    window.StreamBoxWatch?.checkAlerts((text, href) => { alerts.push({ text, href }); showAlert(); });
     startHero(hero.url);
   }
 
