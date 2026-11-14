@@ -46,3 +46,36 @@ test('the channel and movie lists open from the saved copy; scripts are only re-
   assert.match(toml, /for = "\/js\/\*"[\s\S]*?stale-while-revalidate/);
   assert.match(toml, /version-assets\.mjs --write/);
 });
+
+test('channel logos are resized by Netlify for exactly the hosts netlify.toml allows', () => {
+  const app = read('js/app.js'), toml = readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
+  const re = new RegExp(app.match(/const RESIZABLE_LOGO = \/(.+)\/;/)[1]);
+  const allowed = [...toml.matchAll(/"https:\/\/([^"]+)\/\.\*"/g)].map(m => m[1].replace(/\\\\\./g, '.'));
+  assert.ok(allowed.length >= 10);
+  for (const host of allowed) assert.ok(re.test(`https://${host}/logo.png`), `${host} is allowed but not resized`);
+  for (const host of ['i.imgur.com', 'images.pluto.tv', 'tvpnlogopeu.samsungcloud.tv', 'tvpnlogopus.samsungcloud.tv']) assert.ok(allowed.includes(host), host);
+  assert.ok(!re.test('https://evil.example/i.imgur.com/x.png') && !re.test('http://i.imgur.com/x.png'));
+  assert.doesNotMatch(app, /<img[^>]*src="\$\{esc\((item|c)\.logo\)\}"/, 'every channel logo goes through logoImg()');
+});
+
+test('the offline cache leaves resized logos and account data to the browser', () => {
+  assert.match(read('sw.js'), /startsWith\('\/\.netlify\/'\) \|\| url\.pathname\.startsWith\('\/api\/'\)\) return;/);
+});
+
+test('the web font never holds up the first screen', () => {
+  const html = read('index.html');
+  assert.match(html, /fonts\.googleapis\.com\/css2[^"]*" rel="stylesheet" media="print" onload="this\.media='all'"/);
+  assert.doesNotMatch(html.replace(/<noscript>[\s\S]*?<\/noscript>/g, ''), /fonts\.googleapis\.com\/css2[^"]*" rel="stylesheet">/);
+});
+
+test('every class in the stylesheets is used somewhere in the app', () => {
+  const code = readdirSync(new URL('../public/js/', import.meta.url)).filter(f => f.endsWith('.js')).map(f => read('js/' + f)).join('\n')
+    + ['index.html', 'spotify-callback.html', 'playback-protection.html'].map(read).join('\n');
+  for (const f of readdirSync(new URL('../public/css/', import.meta.url)).filter(f => f.endsWith('.css'))) {
+    const css = read('css/' + f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\([^)]*\)/g, '');
+    for (const [, cls] of css.matchAll(/\.([a-zA-Z][\w-]*)/g)) {
+      if (code.includes(cls) || (/^access-/.test(cls) && code.includes('access-${'))) continue;   // access-* is built from data
+      assert.fail(`${f}: .${cls} isn't used anywhere`);
+    }
+  }
+});

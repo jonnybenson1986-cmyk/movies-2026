@@ -122,6 +122,10 @@ Back closes the player or window on top, then goes back a page, then leaves the 
 - no animation repeats for ever on channel cards (hundreds of pulsing "LIVE" dots kept the screen redrawing non-stop);
 - the channel and movie lists open from the copy saved on the device and refresh in the background;
 - at deploy, scripts and styles get fingerprinted addresses (`scripts/version-assets.mjs`), so devices reuse their copies instead of re-checking ~30 files with the server on every launch.
+- channel logos (about 200 KB each on average, some over 2 MB) are resized by Netlify's image service to the size they're shown. The allowed hosts are under `[images]` in `netlify.toml`; others load as they are;
+- the web font loads without holding up the first screen;
+- `channels.json` leaves out fields that hold their default value (about 12% smaller);
+- the offline cache doesn't store resized logos or the app's server replies (including account data).
 
 **Building:** `.github/workflows/android.yml` builds the APK on GitHub whenever `android/` changes, or by hand: GitHub → Actions → *Android app* → *Run workflow*, where you can also set a different site address. Each build is published as a release named `android-1.<build>`.
 

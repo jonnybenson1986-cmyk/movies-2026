@@ -92,16 +92,19 @@ function add({ name, url, group = '', quality = '', tvgId = '', logo = '', ua, r
   const known = g => (MERGE[g] || CATEGORIES.some(([c]) => c === g) || g === 'Entertainment' ? g : CATEGORIES.find(([, re]) => re.test(g))?.[0] || '');
   const category = (group && !/general|undefined/i.test(group) ? (looseGroups ? known(group) : group) : '')
     || CATEGORIES.find(([, re]) => re.test(name))?.[0] || 'Entertainment';
+  // Fields that hold their default (Entertainment, '', 0) are left out: with ~18,000 channels that saves several
+  // hundred KB that every device downloads and reads at launch (the app reads a missing field as the default).
+  const cat = MERGE[category] || category, source = sourceOf(url);
   channels.push({
     n: name,
     u: url,
-    c: MERGE[category] || category,
-    q: quality,
-    s: sourceOf(url),
+    ...(cat !== 'Entertainment' && { c: cat }),
+    ...(quality && { q: quality }),
+    ...(source && { s: source }),
     // Streams that need custom headers or plain http won't play inside an https web app
     // (unless the probe found the stream loads fine in a browser without them).
-    h: (ua || rf) && !verified.has(url) ? 1 : 0,
-    p: isPlaylist ? 1 : 0,
+    ...((ua || rf) && !verified.has(url) && { h: 1 }),
+    ...(isPlaylist && { p: 1 }),
     ...(verified.has(url) && { v: 1 }),
     ...(noCors.has(url) && { nc: 1 }),
     ...(dead.has(url) && { dd: 1 }),

@@ -17,7 +17,7 @@ html { -webkit-tap-highlight-color: transparent; }
   .row-head .see-all { display: inline-flex; align-items: center; min-height: 44px; padding: 0 2px 0 12px; margin: -12px 0; }
   .modal-close { width: 44px; height: 44px; }
   .am-tabs a { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
-  .am-heart, .music-heart { width: 44px; height: 44px; }
+  .am-heart { width: 44px; height: 44px; }
   .am-btn, .am-dest, .am-connect { min-height: 44px; }
   .am-row-main { min-height: 56px; }
   .epg-prog { min-height: 76px; }
@@ -34,7 +34,6 @@ html { -webkit-tap-highlight-color: transparent; }
 
   /* ---------- Controls that only appeared on hover ---------- */
   .am-go { opacity: 1; width: 34px; height: 34px; left: 8px; bottom: 8px; }
-  .music-go { opacity: 1; transform: none; }
 
   /* ---------- Pressed feedback ---------- */
   .btn:active, .chip:active, .icon-btn:active, .am-tabs a:active, .am-dest:active, .am-connect:active, .am-btn:active,

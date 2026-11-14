@@ -13,7 +13,7 @@ html.kbd :focus { outline: 3px solid #fff; outline-offset: 3px; box-shadow: 0 0 
 html.kbd .card:focus, html.kbd .am-tile:focus, html.kbd .country-tile:focus, html.kbd .classic-card:focus, html.kbd .am-link:focus,
 .card:focus-visible, .am-tile:focus-visible, .country-tile:focus-visible, .classic-card:focus-visible, .am-link:focus-visible { transform: scale(1.06); z-index: 6; }
 /* A focused music cover shows its play button (it only appeared on hover) */
-.am-card:focus-within .am-go, .music-card:focus-within .music-go { opacity: 1; transform: none; }
+.am-card:focus-within .am-go { opacity: 1; transform: none; }
 
 /* ================================================================ 2. TV mode: the 10-foot layout */
 html.tv {

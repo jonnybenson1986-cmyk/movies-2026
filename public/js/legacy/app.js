@@ -1,4 +1,4 @@
-/* Generated from js/app.js (sha 8dcfad7c119a9706) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/app.js (sha 492b0003b21c277d) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -160,6 +160,21 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             return cc.toUpperCase();
         }
     }
+    // Channel logos are often full-size pictures (about 200 KB on average, some over 2 MB) shown in a small tile, which made
+    // pages slow to fill and scroll on TVs and phones. Netlify's image service sends them at the size they are shown
+    // (and in a modern format), for the hosts allowed under [images] in netlify.toml. Anything else, or a failure,
+    // falls back to the original picture (sbLogoFail), and if that fails too the tile shows the channel's initials.
+    const RESIZABLE_LOGO = /^https:\/\/(i\.imgur\.com|images\.pluto\.tv|tvpnlogop(eu|us)\.samsungcloud\.tv|upload\.wikimedia\.org|canvas-lb\.tubitv\.com|images\.sr\.roku\.com|i\.ibb\.co|xstreamcp-assets-msp\.streamready\.in|jiotvimages\.cdn\.jio\.com|dtil\.tmsimg\.com|static\.wikia\.nocookie\.net)\//;
+    const logoSrc = (url, w, h) => (PAGE_IS_HTTPS && RESIZABLE_LOGO.test(url) ? `/.netlify/images?url=${encodeURIComponent(url)}&w=${w}&h=${h}&fit=contain` : url);
+    const logoImg = (url, w, h) => `<img loading="lazy" decoding="async" src="${esc(logoSrc(url, w, h))}" data-orig="${esc(url)}" alt="" onerror="sbLogoFail(this)">`;
+    window.sbLogoFail = img => {
+        const orig = img.getAttribute('data-orig');
+        img.removeAttribute('data-orig');
+        if (orig && img.getAttribute('src') !== orig)
+            img.src = orig;
+        else
+            (img.closest('.plate') || img).remove();
+    };
     // Flag emoji don't render on Windows, so use small images (hidden if they can't load)
     const flagUrl = cc => `https://flagcdn.com/w40/${cc}.png`;
     const flagImg = (cc, cls = 'flag') => (cc ? `<img class="${cls}" loading="lazy" src="${flagUrl(cc)}" alt="" onerror="this.remove()">` : `<span class="${cls} globe">🌐</span>`);
@@ -457,7 +472,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         const meta = nowOn ? `Now: ${nowOn.title}` : ([item.source, item.quality].filter(Boolean).join(' · ') || item.cat);
         return `<button class="card apple" data-key="${esc(item.key)}" aria-label="${esc(item.name)}">
       <span class="art" style="--tile:${tileColor(item.name)}">
-        ${item.logo ? `<span class="plate"><img loading="lazy" src="${esc(item.logo)}" alt="" onerror="this.closest('.plate').remove()"></span>` : ''}
+        ${item.logo ? `<span class="plate">${logoImg(item.logo, 320, 180)}</span>` : ''}
         <span class="initials">${esc(initials(item.name))}</span>
         <span class="badge ${ok ? '' : 'warn'}">${ok ? '<span class="dot"></span>LIVE' : 'VLC'}</span>
         ${inMyList(item.key) ? '<span class="fav">★</span>' : ''}
@@ -2054,7 +2069,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         const g = (_a = guideFor(c)) === null || _a === void 0 ? void 0 : _a.now;
         return `<button class="zap-row${on ? ' on' : ''}" type="button" role="option" aria-selected="${on}" data-zap="${i}">
       <span class="zap-n">${i + 1}</span>
-      <span class="zap-logo">${c.logo ? `<img loading="lazy" src="${esc(c.logo)}" alt="" onerror="this.remove()">` : ''}<i>${esc(initials(c.name))}</i></span>
+      <span class="zap-logo">${c.logo ? logoImg(c.logo, 96, 64) : ''}<i>${esc(initials(c.name))}</i></span>
       <span class="zap-txt"><span class="zap-name">${esc(c.name)}</span><span class="zap-meta">${esc(g ? `Now: ${g.title}` : [c.quality, c.cat].filter(Boolean).join(' · '))}</span></span>
       ${on ? '<span class="zap-live" aria-label="Playing now">▶</span>' : ''}</button>`;
     };

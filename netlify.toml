@@ -42,6 +42,24 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "no-referrer"
 
+# Channel logos resized by Netlify's image service (/.netlify/images), see logoSrc in public/js/app.js. Keep this
+# list and RESIZABLE_LOGO there the same (a test checks): between them these hosts serve ~92% of the logos.
+[images]
+  remote_images = [
+    "https://i\\.imgur\\.com/.*",
+    "https://images\\.pluto\\.tv/.*",
+    "https://tvpnlogopeu\\.samsungcloud\\.tv/.*",
+    "https://tvpnlogopus\\.samsungcloud\\.tv/.*",
+    "https://upload\\.wikimedia\\.org/.*",
+    "https://canvas-lb\\.tubitv\\.com/.*",
+    "https://images\\.sr\\.roku\\.com/.*",
+    "https://i\\.ibb\\.co/.*",
+    "https://xstreamcp-assets-msp\\.streamready\\.in/.*",
+    "https://jiotvimages\\.cdn\\.jio\\.com/.*",
+    "https://dtil\\.tmsimg\\.com/.*",
+    "https://static\\.wikia\\.nocookie\\.net/.*",
+  ]
+
 # The Android app (android/, built by .github/workflows/android.yml): /apk always gives the newest APK
 [[redirects]]
   from = "/apk"

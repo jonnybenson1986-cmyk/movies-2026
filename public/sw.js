@@ -15,6 +15,9 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  // Resized channel logos (/.netlify/images) and server functions: the browser's own cache is enough. Saving every
+  // logo here would mean thousands of writes to storage.
+  if (url.pathname.startsWith('/.netlify/') || url.pathname.startsWith('/api/')) return;
   // The channel and movie lists (several MB) open straight from the saved copy, and the newest version downloads in
   // the background for next time, so a launch never waits for them (first launch aside).
   if (/^\/data\/[\w-]+\.json$/.test(url.pathname)) {
