@@ -77,6 +77,21 @@ The code: `netlify/lib/webauthn.mjs` (the checks), `netlify/functions/passkey.mj
 - **Windows such as Settings are full screen on phones**, with the close button staying in reach while you scroll.
 - Controls that only appeared on mouse hover (like the play button on music covers) are always shown on touch screens, and the last row of a page is never hidden behind the tab bar or the music player.
 
+## Android TV, smart TVs and older TV browsers
+
+`public/js/tv.js` and `public/css/tv.css` make the app work with a TV remote. TV browsers are recognised automatically (Settings → *TV & remote control* turns TV mode on or off; `?tv=1` forces it):
+
+- **D-pad navigation** between cards, rows, the menu and windows, with a thick white focus ring. **Back** closes the player or window on top before it leaves a page, and the remote's **media keys** (play/pause, next/previous channel, fast-forward, rewind, stop) work.
+- **A 10-foot layout**: a 5% safe zone so overscan never cuts anything off, the menu across the top instead of the phone tab bar, bigger text and controls, and no blur effects (slow on TV graphics chips).
+
+**Older TVs** (Android TV boxes whose Android System WebView hasn't been updated, back to Chromium 51 / about 2016) get the same app through three layers:
+
+- **JavaScript**: `public/js/legacy/` holds every app script converted to older JavaScript (ES2015). The first script in `index.html` checks what the browser can read and loads `js/` or `js/legacy/` accordingly. Browsers older still see a page explaining how to update instead of a blank screen.
+- **Missing browser features** (`Object.entries`, `AbortController`, `append()`, `scrollTo({ … })` and others) are filled in by `tv.js`, only where they are missing.
+- **CSS**: at deploy, `scripts/build-legacy-css.mjs --write` writes old-browser fallbacks into the published stylesheets right in front of each modern declaration they stand in for. It covers `inset`, `clamp()`/`min()`/`max()`, `env()`, `dvh` units, `gap` in flex boxes, `place-items`, CSS grid, and `:focus-visible` in selector lists. Modern browsers ignore the fallbacks, and their layout is unchanged. To see the result: `node scripts/build-legacy-css.mjs --out /tmp/css-old`.
+
+**After changing anything in `public/js`, run `node scripts/build-legacy-js.mjs` and commit `public/js/legacy`.** It uses TypeScript's compiler purely as a JavaScript converter, taken from `node_modules` or a global install (`npm i -g typescript`). `npm test` reports any converted copy that is out of date. The Netlify build re-converts when TypeScript is available there. If it isn't, the build keeps the committed copies and prints a warning naming any that are stale.
+
 ## Install on your phone
 
 - **iPhone / iPad:** open the site in **Safari** → Share button → **Add to Home Screen**.

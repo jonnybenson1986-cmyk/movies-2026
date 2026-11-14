@@ -3,9 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <script>
-    // Older TV browsers (Chromium before 80) can't read the app's JavaScript (it uses ?. and ??). Mark them early, so
-    // js/tv.js can show how to update instead of leaving a blank screen.
-    (function () { try { new Function('var a = null; return a?.b ?? 1')(); } catch (e) { document.documentElement.className += ' legacy-js'; } })();
+    // Which version of the app's JavaScript this browser can read (older TV browsers, e.g. Android TV WebViews):
+    // - modern (Chromium 80+, 2020 on): js/*.js as written
+    // - "legacy-js" (ES2015 engines, Chromium 51-79): js/legacy/*.js, the same scripts converted at build time
+    //   (scripts/build-legacy-js.mjs), with missing browser features filled in by js/tv.js
+    // - "too-old" (older still): js/tv.js shows how to update instead of leaving a blank screen
+    (function () {
+      var html = document.documentElement;
+      try { new Function('var a = null; return a?.b ?? 1')(); return; } catch (e) { /* not modern */ }
+      try {
+        new Function('let { a } = { a: 1 }; class C {} const f = (x = 1, ...r) => x; return f(...[a]) + `${a}`')();
+        if (!window.Promise || !window.fetch || !window.Symbol) throw new Error('missing basics');
+        html.className += ' legacy-js';
+      } catch (e) { html.className += ' too-old'; }
+    })();
   </script>
   <script>
     // Passcode on every launch: when a passcode gate is in front of the app (it sets the sb_gate_on cookie),
@@ -32,7 +43,6 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/legacy.css"><!-- first: long-hand fallbacks that the real styles then override -->
   <link rel="stylesheet" href="/css/app.css">
   <link rel="stylesheet" href="/css/personal-library.css">
   <link rel="stylesheet" href="/css/apple.css">
@@ -165,26 +175,18 @@
   <div class="toast" id="toast" hidden></div>
   <script src="/js/tv.js"></script><!-- first, and plain ES5: remote control, media keys, TV mode, old-engine notice -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
-  <script src="/js/zapper.js"></script>
-  <script src="/js/subtitles.js"></script>
-  <script src="/js/tv-guide.js"></script>
-  <script src="/js/classics.js"></script>
-  <script src="/js/spotify.js"></script>
-  <script src="/js/music.js"></script>
-  <script src="/js/music-ui.js"></script>
-  <script src="/js/account.js"></script>
-  <script src="/js/passkey.js"></script>
-  <script src="/js/artwork.js"></script>
-  <script src="/js/movie-catalog.js"></script>
-  <script src="/js/movies-ui.js"></script>
-  <script src="/js/australia-ui.js"></script>
-  <script src="/js/movy-browser.js"></script>
-  <script src="/js/movy-setup.js"></script>
-  <script src="/js/watch-providers.js"></script>
-  <script src="/js/movy-ui.js"></script>
-  <script src="/js/movie-playback.js"></script>
-  <script src="/js/personal-library.js"></script>
-  <script src="/js/app.js"></script>
-  <script src="/js/touch.js"></script>
+  <script>
+    // The app's scripts, in this order. Modern browsers get js/, older TV browsers the converted copies in js/legacy/
+    // (see the first script in <head>). document.write keeps them exactly like plain <script> tags: each runs in
+    // order, before the page finishes loading. scripts/build-legacy-js.mjs's test checks this list against js/.
+    (function () {
+      var c = ' ' + document.documentElement.className + ' ';
+      if (c.indexOf(' too-old ') >= 0) return;
+      var dir = c.indexOf(' legacy-js ') >= 0 ? '/js/legacy/' : '/js/', tags = '';
+      var files = ['zapper', 'subtitles', 'tv-guide', 'classics', 'spotify', 'music', 'music-ui', 'account', 'passkey', 'artwork', 'movie-catalog', 'movies-ui', 'australia-ui', 'movy-browser', 'movy-setup', 'watch-providers', 'movy-ui', 'movie-playback', 'personal-library', 'app', 'touch'];
+      for (var i = 0; i < files.length; i++) tags += '<script src="' + dir + files[i] + '.js"><\/script>';
+      document.write(tags);
+    })();
+  </script>
 </body>
 </html>

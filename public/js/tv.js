@@ -20,6 +20,124 @@
   // ---------------------------------------------------------------- small polyfills for old TV engines
   if (!Element.prototype.matches) Element.prototype.matches = Element.prototype.webkitMatchesSelector || Element.prototype.msMatchesSelector;
   if (!Element.prototype.closest) Element.prototype.closest = function (sel) { var el = this; while (el && el.nodeType === 1) { if (el.matches(sel)) return el; el = el.parentElement; } return null; };
+  // The rest of the app runs on old engines as js/legacy/*.js (built by scripts/build-legacy-js.mjs: the syntax is
+  // converted there). What the syntax can't fix is missing browser features, so those are filled in here, each only
+  // when the browser lacks it. Oldest supported: Chromium 51 (Android TV 7 era).
+  function define(obj, name, fn) { if (obj && !obj[name]) try { Object.defineProperty(obj, name, { value: fn, configurable: true, writable: true }); } catch (e) { obj[name] = fn; } }
+  define(Object, 'entries', function (o) { return Object.keys(o).map(function (k) { return [k, o[k]]; }); });
+  define(Object, 'values', function (o) { return Object.keys(o).map(function (k) { return o[k]; }); });
+  function pad(atStart) {
+    return function (len, fill) {
+      var s = String(this); fill = fill === undefined ? ' ' : String(fill); len = len >> 0;
+      if (s.length >= len || !fill) return s;
+      var add = ''; while (add.length < len - s.length) add += fill;
+      add = add.slice(0, len - s.length); return atStart ? add + s : s + add;
+    };
+  }
+  define(String.prototype, 'padStart', pad(true));
+  define(String.prototype, 'padEnd', pad(false));
+  define(String.prototype, 'trimStart', function () { return String(this).replace(/^\s+/, ''); });
+  define(String.prototype, 'trimEnd', function () { return String(this).replace(/\s+$/, ''); });
+  define(String.prototype, 'replaceAll', function (a, b) { return a instanceof RegExp ? this.replace(a, b) : String(this).split(a).join(b); });
+  define(String.prototype, 'at', function (i) { i = Math.trunc(i) || 0; if (i < 0) i += this.length; return this.charAt(i) || undefined; });
+  define(Array.prototype, 'includes', function (x) { for (var i = 0; i < this.length; i++) if (this[i] === x || (x !== x && this[i] !== this[i])) return true; return false; });
+  define(Array.prototype, 'flat', function (depth) { depth = depth === undefined ? 1 : depth; return depth < 1 ? this.slice() : this.reduce(function (a, x) { return a.concat(Array.isArray(x) ? x.flat(depth - 1) : [x]); }, []); });
+  define(win, 'globalThis', win);
+  define(win, 'queueMicrotask', function (fn) { Promise.resolve().then(fn); });
+  define(Promise.prototype, 'finally', function (fn) {
+    var P = this.constructor || Promise;
+    return this.then(function (v) { return P.resolve(fn()).then(function () { return v; }); }, function (e) { return P.resolve(fn()).then(function () { throw e; }); });
+  });
+  define(Promise, 'allSettled', function (list) {
+    return Promise.all(Array.from(list, function (p) {
+      return Promise.resolve(p).then(function (value) { return { status: 'fulfilled', value: value }; }, function (reason) { return { status: 'rejected', reason: reason }; });
+    }));
+  });
+  if (win.NodeList) define(NodeList.prototype, 'forEach', Array.prototype.forEach);
+  if (win.Symbol && Symbol.iterator && win.NodeList) define(NodeList.prototype, Symbol.iterator, Array.prototype[Symbol.iterator]);
+  // DOM methods from 2016-2020: append / prepend / replaceChildren, remove / before / after / replaceWith, isConnected
+  function nodes(args) {
+    var f = doc.createDocumentFragment();
+    for (var i = 0; i < args.length; i++) f.appendChild(args[i] instanceof Node ? args[i] : doc.createTextNode(String(args[i])));
+    return f;
+  }
+  [Element.prototype, Document.prototype, DocumentFragment.prototype].forEach(function (P) {
+    define(P, 'append', function () { this.appendChild(nodes(arguments)); });
+    define(P, 'prepend', function () { this.insertBefore(nodes(arguments), this.firstChild); });
+    define(P, 'replaceChildren', function () { while (this.lastChild) this.removeChild(this.lastChild); this.appendChild(nodes(arguments)); });
+  });
+  [Element.prototype, CharacterData.prototype, DocumentType.prototype].forEach(function (P) {
+    define(P, 'remove', function () { if (this.parentNode) this.parentNode.removeChild(this); });
+    define(P, 'before', function () { if (this.parentNode) this.parentNode.insertBefore(nodes(arguments), this); });
+    define(P, 'after', function () { if (this.parentNode) this.parentNode.insertBefore(nodes(arguments), this.nextSibling); });
+    define(P, 'replaceWith', function () { if (this.parentNode) this.parentNode.replaceChild(nodes(arguments), this); });
+  });
+  if (!('isConnected' in Node.prototype)) Object.defineProperty(Node.prototype, 'isConnected', { get: function () { return doc.documentElement.contains(this); } });
+  // scrollTo / scrollBy with an options object (Chromium 61): the row arrows and page changes use it
+  if (!('scrollBehavior' in root.style)) {
+    var opt = function (el, a, b, by) {
+      var o = a && typeof a === 'object' ? a : { left: a, top: b };
+      var x = o.left === undefined ? (by ? 0 : el.scrollLeft) : +o.left, y = o.top === undefined ? (by ? 0 : el.scrollTop) : +o.top;
+      if (by) { x += el.scrollLeft; y += el.scrollTop; }
+      el.scrollLeft = x; el.scrollTop = y;
+    };
+    Element.prototype.scrollTo = function (a, b) { opt(this, a, b, false); };
+    Element.prototype.scrollBy = function (a, b) { opt(this, a, b, true); };
+    var wTo = win.scrollTo, wBy = win.scrollBy;
+    win.scrollTo = function (a, b) { if (a && typeof a === 'object') wTo.call(win, a.left === undefined ? win.pageXOffset : a.left, a.top === undefined ? win.pageYOffset : a.top); else wTo.call(win, a, b); };
+    win.scrollBy = function (a, b) { if (a && typeof a === 'object') wBy.call(win, a.left || 0, a.top || 0); else wBy.call(win, a, b); };
+  }
+  // IntersectionObserver entries got isIntersecting in Chromium 58 (the endless channel list and artwork use it)
+  if (win.IntersectionObserverEntry && !('isIntersecting' in IntersectionObserverEntry.prototype)) {
+    Object.defineProperty(IntersectionObserverEntry.prototype, 'isIntersecting', { get: function () { return this.intersectionRatio > 0; } });
+  }
+  // new URLSearchParams({ a: 1 }) (Chromium 61): older engines read the object as the text "[object Object]"
+  if (win.URLSearchParams && new URLSearchParams({ a: 1 }).get('a') !== '1') {
+    var USP = URLSearchParams;
+    win.URLSearchParams = function (init) {
+      if (!init || typeof init !== 'object' || init instanceof USP) return new USP(init);
+      var p = new USP(); Object.keys(init).forEach(function (k) { p.append(k, init[k]); }); return p;
+    };
+    win.URLSearchParams.prototype = USP.prototype;
+  }
+  // matchMedia(...).addEventListener('change') (older engines only have addListener)
+  if (win.MediaQueryList && !MediaQueryList.prototype.addEventListener) {
+    MediaQueryList.prototype.addEventListener = function (t, fn) { if (t === 'change') this.addListener(fn); };
+    MediaQueryList.prototype.removeEventListener = function (t, fn) { if (t === 'change') this.removeListener(fn); };
+  }
+  // AbortController (Chromium 66). The stand-in can't stop the download itself, but fetch() gives up on abort,
+  // which is what the app relies on (timeouts and "a newer search replaced this one").
+  if (typeof AbortController === 'undefined') {
+    var Signal = function () { var f = doc.createDocumentFragment(); this.aborted = false; this.onabort = null; this.addEventListener = f.addEventListener.bind(f); this.removeEventListener = f.removeEventListener.bind(f); this.dispatchEvent = f.dispatchEvent.bind(f); };
+    var abortError = function () { try { return new DOMException('The operation was aborted.', 'AbortError'); } catch (e) { var err = new Error('The operation was aborted.'); err.name = 'AbortError'; return err; } };
+    win.AbortSignal = Signal;
+    win.AbortController = function () { this.signal = new Signal(); };
+    win.AbortController.prototype.abort = function () {
+      var s = this.signal; if (s.aborted) return; s.aborted = true;
+      var ev = doc.createEvent('Event'); ev.initEvent('abort', false, false); s.dispatchEvent(ev);
+      if (typeof s.onabort === 'function') s.onabort(ev);
+    };
+    if (win.fetch) {
+      var nativeFetch = win.fetch;
+      win.fetch = function (input, init) {
+        var sig = init && init.signal;
+        if (!(sig instanceof Signal)) return nativeFetch.apply(win, arguments);
+        var rest = {}; for (var k in init) if (k !== 'signal') rest[k] = init[k];
+        if (sig.aborted) return Promise.reject(abortError());
+        return new Promise(function (resolve, reject) { sig.addEventListener('abort', function () { reject(abortError()); }); nativeFetch(input, rest).then(resolve, reject); });
+      };
+    }
+  }
+  // Regular expressions with \p{L} / \p{N} (letters / digits in any language; Chromium 64). In js/legacy/*.js the
+  // build turns each such /.../u into __sbRe(source, flags): the real thing where it works, otherwise the same pattern
+  // with the main alphabets spelled out as ranges (Latin, Greek, Cyrillic, Hebrew, Arabic, Indic, Thai, Korean, Japanese, Chinese).
+  var LETTERS = 'A-Za-z\\u00AA\\u00B5\\u00BA\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02C1\\u0370-\\u03FF\\u0400-\\u052F\\u0531-\\u0587\\u05D0-\\u05EA\\u0620-\\u064A\\u0671-\\u06D3\\u0900-\\u0DFF\\u0E01-\\u0E30\\u10A0-\\u10FF\\u1100-\\u11FF\\u1E00-\\u1FFF\\u3040-\\u30FF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uAC00-\\uD7A3';
+  var DIGITS = '0-9\\u00B2\\u00B3\\u00B9\\u00BC-\\u00BE\\u0660-\\u0669\\u06F0-\\u06F9\\u0966-\\u096F\\uFF10-\\uFF19';
+  win.__sbRe = function (source, flags) {
+    try { return new RegExp(source, flags); } catch (e) {
+      return new RegExp(source.replace(/\\p\{L\}/g, LETTERS).replace(/\\p\{N\}/g, DIGITS), flags.replace('u', ''));
+    }
+  };
   if (typeof AbortSignal !== 'undefined' && !AbortSignal.timeout) AbortSignal.timeout = function (ms) { var c = new AbortController(); setTimeout(function () { c.abort(); }, ms); return c.signal; };
   if (!Array.prototype.at) Array.prototype.at = function (i) { i = Math.trunc(i) || 0; if (i < 0) i += this.length; return this[i]; };
   if (!Array.prototype.flatMap) Array.prototype.flatMap = function (fn, self) { return Array.prototype.concat.apply([], this.map(fn, self)); };
@@ -49,14 +167,15 @@
   apply(decide());
 
   // ---------------------------------------------------------------- engines too old for the app: say so, don't go blank
-  // index.html marks <html class="legacy-js"> when this browser can't read the app's JavaScript (?. and ??).
+  // index.html marks <html class="too-old"> when this browser can't read even the converted scripts in js/legacy/
+  // (engines from before about 2016, without let/const, classes and arrow functions).
   function legacyNotice() {
-    if (!root.classList.contains('legacy-js') || doc.getElementById('legacyNotice')) return;
+    if (!root.classList.contains('too-old') || doc.getElementById('legacyNotice')) return;
     var box = doc.createElement('div');
     box.id = 'legacyNotice'; box.setAttribute('role', 'alert');
     box.innerHTML = '<h1>STREAMBOX</h1><p>This TV&rsquo;s web browser is too old to run StreamBox.</p>' +
       '<p>On Android TV, open the <b>Google Play Store</b>, search for <b>Android System WebView</b> (and <b>Chrome</b> if you use it) and choose <b>Update</b>. Then open StreamBox again.</p>' +
-      '<p class="legacy-small">Needs a browser engine from 2020 or later (Chromium 80+).</p>';
+      '<p class="legacy-small">Needs a browser engine from 2016 or later (Chromium 51+).</p>';
     doc.body.appendChild(box);
   }
 
@@ -309,7 +428,20 @@
     }).observe(doc.getElementById('modal') || doc.body, { childList: true, subtree: true });
   }
 
-  function ready() { legacyNotice(); watchLayers(); mirrorHas(); watchView(); focusAfterRender(); }
+  // Flex boxes with gap (Chromium 84): without it, the stylesheets' deploy-time fallbacks space items with margins
+  // under html.no-flex-gap (scripts/build-legacy-css.mjs)
+  function flexGap() {
+    var box = doc.createElement('div');
+    box.style.cssText = 'display:flex;flex-direction:column;row-gap:1px;position:absolute;visibility:hidden';
+    box.appendChild(doc.createElement('div')); box.appendChild(doc.createElement('div'));
+    doc.body.appendChild(box);
+    var ok = box.scrollHeight === 1;
+    doc.body.removeChild(box);
+    if (!ok) root.classList.add('no-flex-gap');
+  }
+  try { flexGap(); } catch (e) { /* no body yet: ready() runs it */ }
+
+  function ready() { if (!root.classList.contains('no-flex-gap')) try { flexGap(); } catch (e) {} legacyNotice(); watchLayers(); mirrorHas(); watchView(); focusAfterRender(); }
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', ready); else ready();
 
   win.StreamBoxTV = {
