@@ -66,6 +66,17 @@ Each person can sign in with their face or fingerprint instead of typing their p
 
 The code: `netlify/lib/webauthn.mjs` (the checks), `netlify/functions/passkey.mjs` (`/api/passkey/*`), the button on the sign-in screen in `netlify/edge-functions/gate.js`, and `public/js/passkey.js` for Settings. `tests/passkey.test.mjs` runs the whole flow against a software "device" and checks that a wrong site, a stale or swapped challenge, an unverified face, a changed signature or someone else's key are all refused.
 
+## Phones and tablets
+
+`public/css/touch.css` (loaded last) and `public/js/touch.js` adapt the whole app for fingers:
+
+- **Everything tappable is at least 44 × 44 points** (Apple's and Google's guidance): top-bar icons, chips, *See all*, buttons, hearts, the player and remote controls, window close buttons, and whole Settings rows (with bigger tick boxes). Taps respond at once (no double-tap-zoom delay) and buttons, cards and rows show a pressed state.
+- **No zooming in on text boxes**: every search and settings box uses 16px text, which stops iPhones zooming when one is tapped.
+- **Phones get a five-tab bar** (Home, Live TV, Movies, Music, **More**). More opens a sheet with Sports, TV Guide, Free Classics, Movy, My List, My Library, Search and Settings; swipe it down or tap outside to close. Tablets keep all eight tabs. Tapping the tab you're already on scrolls back to the top.
+- **Page headers on phones** put the title first and the buttons in a tidy row underneath; while searching, the search box takes the logo's place instead of running off the screen.
+- **Windows such as Settings are full screen on phones**, with the close button staying in reach while you scroll.
+- Controls that only appeared on mouse hover (like the play button on music covers) are always shown on touch screens, and the last row of a page is never hidden behind the tab bar or the music player.
+
 ## Install on your phone
 
 - **iPhone / iPad:** open the site in **Safari** → Share button → **Add to Home Screen**.
