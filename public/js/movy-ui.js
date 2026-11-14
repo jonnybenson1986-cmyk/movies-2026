@@ -93,15 +93,24 @@
   function link(kind, page = 1, params = new URLSearchParams()) {
     return `#movy/${kind}/${page}${params.size ? '?' + params.toString() : ''}`;
   }
+  const watch = () => window.StreamBoxWatch;
+  const serviceFilter = (kind, params) => (kind === 'movie' || kind === 'tv') && !params.get('query') ? watch()?.discoverOptions(params) : null;
   function shell(kind, params) {
+    const keep = k => {   // a service filter carries over between Movies and TV Shows
+      const p = new URLSearchParams(params.has('query') ? { query: params.get('query') } : {});
+      if ((k === 'movie' || k === 'tv') && params.get('provider')) { p.set('provider', params.get('provider')); if (params.get('access')) p.set('access', params.get('access')); }
+      return p;
+    };
+    const filtered = serviceFilter(kind, params);
     return `<div class="page"><div class="page-head"><h1>Movy · ${esc(kinds[kind])}</h1></div>
-      <div class="chips">${Object.entries(kinds).map(([k, label]) => `<a class="chip ${kind === k ? 'active' : ''}" href="${esc(link(k, 1, new URLSearchParams(params.has('query') ? { query: params.get('query') } : {})))}">${label}</a>`).join('')}</div>
+      <div class="chips">${Object.entries(kinds).map(([k, label]) => `<a class="chip ${kind === k ? 'active' : ''}" href="${esc(link(k, 1, keep(k)))}">${label}</a>`).join('')}</div>
+      ${(kind === 'movie' || kind === 'tv') && watch() ? `<section class="row watch-hub compact" data-watch-hub id="movyServices"></section>${filtered ? watch().filterBanner(params, kind, link) : ''}` : ''}
       <p class="movie-note movy-downloads">Watch inside the app: the Browser box plays Movy and provider sites directly. For protected playback with automatic source fallback, set up the Chrome/Edge helper — automatically.
         <button class="btn btn-more" type="button" data-movy-setup="1">Set up helper &amp; auto-play</button>
         <button class="btn btn-more" type="button" data-movy-browser-home="1">Open Browser box</button>
         <a class="btn btn-more" href="/downloads/streambox-playback-protection.zip" download>Download helper</a>
         <a href="/playback-protection.html" target="_blank" rel="noopener">Manual instructions</a></p>
-      <form id="movyFilters" class="movy-filters"><label>Search <input name="query" type="search" maxlength="120" value="${esc(params.get('query') || '')}" placeholder="Search ${esc(kinds[kind])}"></label>
+      <form id="movyFilters" class="movy-filters">${filtered ? `<input type="hidden" name="provider" value="${esc(params.get('provider'))}">${params.get('access') ? `<input type="hidden" name="access" value="${esc(params.get('access'))}">` : ''}` : ''}<label${filtered ? ' hidden' : ''}>Search <input name="query" type="search" maxlength="120" value="${esc(params.get('query') || '')}" placeholder="Search ${esc(kinds[kind])}"></label>
       <label>Genre <select name="genre" id="movyGenre"><option value="">All genres</option></select></label>
       ${kind === 'movie' || kind === 'tv' ? `<label>Sort <select name="sort"><option value="popular">Popular</option><option value="newest">Newest</option><option value="rating">Top rated</option></select></label>` : ''}
       <button class="btn btn-play" type="submit">Apply</button></form>
@@ -112,6 +121,8 @@
     browseState = { kind, page, params };
     detailState = null;
     view.innerHTML = shell(kind, params);
+    const filtered = serviceFilter(kind, params);
+    if (kind === 'movie' || kind === 'tv') watch()?.mountHub(document.getElementById('movyServices'), { active: filtered?.service.slug || '', kind, title: 'Filter by streaming service' });
     const query = (params.get('query') || '').slice(0, 120);
     const genre = params.get('genre') || '';
     let rows, pages, genres = [];
@@ -146,6 +157,7 @@
         if (sort === 'rating') options.set('vote_count.gte', '300');
         options.set(kind === 'movie' ? 'primary_release_date.lte' : 'first_air_date.lte', new Date().toISOString().slice(0, 10));
         if (/^\d+$/.test(genre)) options.set('with_genres', genre);
+        if (filtered) for (const [k, v] of Object.entries(filtered.options)) options.set(k, v);
       }
       const [result, genreList] = await Promise.all([request(DB + endpoint + '?' + options), request(DB + `/genre/${kind}/list?language=en`)]);
       rows = (result.results || []).map(m => item(kind, m)).filter(Boolean);
@@ -206,7 +218,9 @@
       ${kind === 'movie' ? `<button class="btn btn-play" data-movy-play="1" ${protectedPlayback ? '' : 'disabled'}>▶ Play</button>` : ''}
       ${kind === 'anime' && !record.embedId ? '<p class="movie-note">Playback is unavailable for this title. You can still browse its episodes.</p>' : ''}
       ${seasons.length ? `<label>Season <select id="movySeason">${seasons.map(s => `<option value="${s.season_number}">${esc(s.name)}</option>`).join('')}</select></label>` : ''}
-      <div id="movyEpisodes" class="movy-episodes"></div></div></div>`;
+      <div id="movyEpisodes" class="movy-episodes"></div></div>
+      ${kind === 'movie' || kind === 'tv' ? '<section class="watch-panel" id="movyWhere" data-watch-detail aria-label="Where to stream"></section>' : ''}</div>`;
+    watch()?.mountDetail(document.getElementById('movyWhere'), record);
     checkProtection();
     if (protectedPlayback) document.getElementById('movyProtection').textContent = 'Playback protection active';
     autoActivate(view, token);
@@ -262,9 +276,11 @@
     if (e.target.id !== 'movyFilters' || !browseState) return;
     e.preventDefault();
     const data = new FormData(e.target), params = new URLSearchParams();
-    for (const field of ['query', 'genre', 'sort']) if (data.get(field)) params.set(field, data.get(field));
+    for (const field of ['query', 'genre', 'sort', 'provider', 'access']) if (data.get(field)) params.set(field, data.get(field));
     location.hash = link(browseState.kind, 1, params);
   });
+  // A new streaming region changes which titles a service filter finds
+  window.addEventListener('streambox-watch-region', () => { if (browseState?.params.get('provider')) hooks?.retry(); });
   document.addEventListener('change', e => {
     if (e.target.id === 'movySeason' && detailState) season(Number(e.target.value), detailState);
   });
