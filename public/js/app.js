@@ -403,23 +403,18 @@
 
   // ---------------------------------------------------------------- views
   const view = $('#view');
-  let heroHls = null;
-
-  function stopHero() { if (heroHls) { heroHls.destroy(); heroHls = null; } const v = $('#heroVideo'); if (v) { v.pause(); v.removeAttribute('src'); v.load(); } }
-
-  function startHero(url) {
-    const v = $('#heroVideo');
-    if (!v) return;
-    v.muted = true;
-    v.addEventListener('playing', () => v.style.opacity = 1, { once: true });
-    if (!IS_IOS && window.Hls?.isSupported()) {
-      heroHls = new Hls({ maxBufferLength: 8, capLevelToPlayerSize: true });
-      heroHls.loadSource(url); heroHls.attachMedia(v);
-      heroHls.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(() => {}));
-    } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
-      v.src = url; v.play().catch(() => {});
-    }
-  }
+  // hls.js (the player for most live channels) is ~400 KB of JavaScript: it loads in the background shortly after the
+  // app starts, or straight away when a channel is opened before then, instead of holding up every launch.
+  const HLS_SRC = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
+  let hlsLoading = null;
+  const loadHls = () => window.Hls ? Promise.resolve() : (hlsLoading ||= new Promise(done => {
+    const s = document.createElement('script');
+    s.src = HLS_SRC; s.async = true;
+    s.onload = () => done();
+    s.onerror = () => { hlsLoading = null; done(); };   // offline: the browser's own player is tried instead
+    document.head.appendChild(s);
+  }));
+  setTimeout(() => (window.requestIdleCallback || setTimeout)(() => loadHls()), 4000);
 
   async function renderHome() {
     const hero = channels.find(c => c.url === SKY_RACING[0].url);
@@ -431,7 +426,6 @@
     view.innerHTML = `
       <section class="hero">
         <div class="hero-bg"></div>
-        <video id="heroVideo" muted playsinline autoplay loop style="opacity:0;transition:opacity 1s"></video>
         <div class="hero-content">
           <span class="hero-tag"><span class="dot"></span> Live now · Sports</span>
           <h1>SKY Racing Live</h1>
@@ -465,7 +459,6 @@
     window.StreamBoxWatch?.mountHub($('#watchHub'));
     // "Notify Me When Available": tell the person when a title they are waiting for has arrived on a service
     window.StreamBoxWatch?.checkAlerts((text, href) => { alerts.push({ text, href }); showAlert(); });
-    startHero(hero.url);
   }
 
   function renderLive(cat) {
@@ -597,7 +590,6 @@
   async function route() {
     const version = ++routeVersion;
     pendingMovieRender = false;
-    stopHero();
     movy.cancel();
     const [name, ...rest] = decodeURIComponent(location.hash.slice(1) || 'home').split('/');
     const arg = rest.join('/');
@@ -774,7 +766,6 @@
   let skip = { count: 0, dir: 1, from: null, notes: [] };
   async function play(item, list = [], force = false, { auto = false, dir = 1, reconnect = false } = {}) {
     if (!auto && !reconnect) skip = { count: 0, dir, from: item, notes: [] };
-    stopHero();
     window.StreamBoxMusic?.pause();   // one thing playing at a time
     saveProgress(true);   // where the previous video was up to
     progressKey = resumeFrom = null;
@@ -810,6 +801,7 @@
       if (current !== item) return;
       progressKey = item.key; progressSavedAt = Date.now(); resumeFrom = progressMap()[item.key] || null;
       const isHls = /\.m3u8(?:$|\?)/i.test(item.url);
+      if (isHls && !IS_IOS && !NATIVE_HLS) { await loadHls(); if (current !== item) return; }
       if (isHls && !IS_IOS && !NATIVE_HLS && window.Hls?.isSupported()) {
         hls = new Hls({ enableWorker: true, backBufferLength: 30 });
         hls.loadSource(item.url); hls.attachMedia(video);
@@ -861,6 +853,7 @@
     }
 
     const url = item.url;
+    if (!IS_IOS && !NATIVE_HLS && !window.Hls) { await loadHls(); if (current !== item) return; }
     // Cheapest route first, then fall back: direct (hls.js) -> the browser's own HLS player (no CORS check) -> your proxy
     const hlsJs = !IS_IOS && !NATIVE_HLS && !!window.Hls?.isSupported();
     const plan = [];
@@ -965,7 +958,6 @@
     if (fsElement() === player || video.webkitDisplayingFullscreen) exitFullscreen();
     player.classList.remove('live-mode');
     if (pendingMovieRender) { pendingMovieRender = false; route(); }
-    if (!location.hash || location.hash === '#home') startHero(SKY_RACING[0].url);
   }
 
   // Channel up (+1) / down (-1) within the country
@@ -1725,7 +1717,19 @@
   }, 350));
   $('#settingsBtn').onclick = showSettings;
 
-  function onScroll() { if (!location.hash || location.hash === '#home') $('#topbar').classList.toggle('solid', scrollY > 60); }
+  // The header turns solid once the home page scrolls. Checked once per frame at most, and only changed when it flips.
+  const topbar = $('#topbar');
+  let scrollQueued = false;
+  function onScroll() {
+    if (scrollQueued) return;
+    scrollQueued = true;
+    requestAnimationFrame(() => {
+      scrollQueued = false;
+      if (location.hash && location.hash !== '#home') return;   // other pages keep a solid header (route())
+      const solid = scrollY > 60;
+      if (solid !== topbar.classList.contains('solid')) topbar.classList.toggle('solid', solid);
+    });
+  }
   addEventListener('scroll', onScroll, { passive: true });
   // ---- Full screen for the whole app (desktop, Android, iPad). Not shown in the installed app, which already is, or on iPhone Safari.
   const appFsBtn = $('#appFsBtn');

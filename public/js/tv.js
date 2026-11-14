@@ -205,12 +205,14 @@
     }
     return true;
   }
-  function candidates(scope) {
+  // Focusable controls in `scope`. With `quick`, only the cheap checks: the full visible() test (styles of every
+  // ancestor) is then done on the one control a key press picks, not on hundreds of them (slow on TV boxes).
+  function candidates(scope, quick) {
     var list = (scope || doc).querySelectorAll(FOCUSABLE), out = [];
     for (var i = 0; i < list.length; i++) {
       var el = list[i];
       if (!scope && el.closest('#player, #modal, #moreSheet, .np, #subsMenu')) continue;   // overlays that aren't open
-      if (visible(el)) out.push(el);
+      if (quick ? !el.matches(SKIP) && !el.closest('[hidden]') : visible(el)) out.push(el);
     }
     return out;
   }
@@ -221,6 +223,7 @@
     var cx = cur.left + cur.width / 2, cy = cur.top + cur.height / 2, items = [], i, r;
     for (i = 0; i < list.length; i++) {
       r = list[i].getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;   // not laid out (display: none)
       var x = r.left + r.width / 2, y = r.top + r.height / 2;
       if (dx ? (x - cx) * dx <= 2 : (y - cy) * dy <= 2) continue;
       var along = dx ? Math.max(0, dx > 0 ? r.left - cur.right : cur.left - r.right) : Math.max(0, dy > 0 ? r.top - cur.bottom : cur.top - r.bottom);
@@ -278,7 +281,10 @@
       var here = t && t !== doc.body && visible(t) && (!layer || layer.contains(t)) && (layer || !t.closest('#player, #modal, #moreSheet, .np, #subsMenu'));
       e.preventDefault();
       if (!here) { start(layer); return; }
-      var next = pick(t.getBoundingClientRect(), candidates(layer).filter(function (el) { return el !== t; }), dir[0], dir[1]);
+      var from = t.getBoundingClientRect(), pool = candidates(layer, true).filter(function (el) { return el !== t; }), next;
+      // nearest first; anything that turns out to be invisible (visibility: hidden, opacity 0) is dropped and the next tried
+      for (var tries = 0; tries < 25 && (next = pick(from, pool, dir[0], dir[1])) && !visible(next); tries++) pool.splice(pool.indexOf(next), 1);
+      if (next && !visible(next)) next = null;
       if (next) focusEl(next);
       else if (!layer && dir[1] < 0) win.scrollTo(0, 0);                  // past the top: show the header
       return;
@@ -313,6 +319,10 @@
       var a = doc.activeElement;
       var menu = a && a.closest && a.closest('#nav, #tabbar, #moreSheet');
       if (topLayer() || (a && a !== doc.body && doc.body.contains(a) && visible(a) && !(fromMenu && menu))) return;
+      // Page not drawn yet (slow TVs: its data is still loading): wait for it, keeping what we know about how we got
+      // here, rather than parking focus in the header where it would then stay. The page's first draw calls this again.
+      var view = doc.getElementById('view');
+      if (view && !view.querySelector(FOCUSABLE)) { if (!fromMenu) navigated = true; return; }
       var redraw = !fromMenu && !navigated;
       fromMenu = false; navigated = false;
       if (redraw && restore()) return;   // the same page redrew: back to the same item

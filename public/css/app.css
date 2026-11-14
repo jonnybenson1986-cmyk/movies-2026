@@ -79,8 +79,12 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .btn-more { background: rgba(109,109,110,.7); color: #fff; }
 .btn-red { background: var(--red); color: #fff; }
 
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: pulse 1.5s infinite; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+/* Only the one "Live now" dot in the home banner pulses. A pulse on every channel card (hundreds per page) kept the
+   page redrawing non-stop, which made TVs and slower phones sluggish. */
+.hero-tag .dot { animation: pulse 1.5s infinite; }
 @keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .hero-tag .dot { animation: none; } }
 
 .page { padding-top: calc(84px + var(--safe-top)); }
 .page-head { padding: 0 var(--gutter) 8px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }

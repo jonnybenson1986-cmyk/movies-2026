@@ -116,6 +116,10 @@ html.tv * { -webkit-backdrop-filter: none !important; backdrop-filter: none !imp
 html.tv .modal { background: rgba(0,0,0,.88); }
 html.tv .modal-card, html.tv .music-bar, html.tv .zap-panel, html.tv .zap-banner, html.tv .subs-menu { background: #1c1c1e; }
 html.tv *, html.tv *::before, html.tv *::after { transition-duration: .12s !important; animation-duration: .15s !important; }
+/* ...except animations that repeat for ever: sped up they flicker, and they keep the TV redrawing */
+html.tv .hero-tag .dot { animation: none !important; }
+html.tv .spinner { animation-duration: 1s !important; }
+html.tv .watch-hub-tile.skeleton { animation: none !important; }
 
 /* ================================================================ 3. Older engines */
 /* :has() stand-ins (Chromium < 105): js/tv.js mirrors these states as classes */

@@ -3,7 +3,7 @@
 # To rebuild locally after editing playlists/: node scripts/build-channels.mjs [--fetch]
 [build]
   publish = "public"
-  command = "node scripts/build-channels.mjs --fetch && node scripts/build-legacy-js.mjs && node scripts/build-legacy-css.mjs --write"
+  command = "node scripts/build-channels.mjs --fetch && node scripts/build-legacy-js.mjs && node scripts/build-legacy-css.mjs --write && node scripts/version-assets.mjs --write"
 
 [build.environment]
   NODE_VERSION = "20"
@@ -17,6 +17,19 @@
   for = "/data/*"
   [headers.values]
     Cache-Control = "public, max-age=3600"
+
+# Scripts and styles: browsers reuse their copy for 5 minutes, and after that show it straight away while checking for
+# a newer one in the background. index.html points at fingerprinted addresses (scripts/version-assets.mjs), so a deploy
+# is picked up at once. Before this, every launch asked the server about ~30 files one after another.
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300, stale-while-revalidate=604800"
+
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300, stale-while-revalidate=604800"
 
 [[headers]]
   for = "/manifest.webmanifest"

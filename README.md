@@ -116,6 +116,13 @@ The app (`android/`) opens the website full screen, so **website changes reach i
 
 Back closes the player or window on top, then goes back a page, then leaves the app.
 
+**Speed:** a few things keep the app quick on TV boxes and budget phones. `tests/speed.test.mjs` checks each of them:
+- the home banner is a still picture, not a background video;
+- the live-channel player (hls.js) loads after launch, not before;
+- no animation repeats for ever on channel cards (hundreds of pulsing "LIVE" dots kept the screen redrawing non-stop);
+- the channel and movie lists open from the copy saved on the device and refresh in the background;
+- at deploy, scripts and styles get fingerprinted addresses (`scripts/version-assets.mjs`), so devices reuse their copies instead of re-checking ~30 files with the server on every launch.
+
 **Building:** `.github/workflows/android.yml` builds the APK on GitHub whenever `android/` changes, or by hand: GitHub → Actions → *Android app* → *Run workflow*, where you can also set a different site address. Each build is published as a release named `android-1.<build>`.
 
 **Signing key (recommended, one-off):** without one, each build is signed with a throw-away key, and installing a newer APK means uninstalling the old app first. To sign every build with the same key, run this once on a computer with Java:

@@ -35,6 +35,7 @@
   <meta name="streambox-app" content="streambox">
   <meta name="theme-color" content="#141414">
   <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net"><!-- hls.js (the live-channel player) loads from here after launch -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -174,7 +175,6 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="/js/tv.js"></script><!-- first, and plain ES5: remote control, media keys, TV mode, old-engine notice -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
   <script>
     // The app's scripts, in this order. Modern browsers get js/, older TV browsers the converted copies in js/legacy/
     // (see the first script in <head>). document.write keeps them exactly like plain <script> tags: each runs in
@@ -183,8 +183,9 @@
       var c = ' ' + document.documentElement.className + ' ';
       if (c.indexOf(' too-old ') >= 0) return;
       var dir = c.indexOf(' legacy-js ') >= 0 ? '/js/legacy/' : '/js/', tags = '';
+      var V = {};   // filled in at deploy by scripts/version-assets.mjs: a fingerprint per script, so browsers can keep them
       var files = ['zapper', 'subtitles', 'tv-guide', 'classics', 'spotify', 'music', 'music-ui', 'account', 'passkey', 'artwork', 'movie-catalog', 'movies-ui', 'australia-ui', 'movy-browser', 'movy-setup', 'watch-providers', 'movy-ui', 'movie-playback', 'personal-library', 'app', 'touch'];
-      for (var i = 0; i < files.length; i++) tags += '<script src="' + dir + files[i] + '.js"><\/script>';
+      for (var i = 0; i < files.length; i++) tags += '<script src="' + dir + files[i] + '.js' + (V[files[i]] ? '?v=' + V[files[i]] : '') + '"><\/script>';
       document.write(tags);
     })();
   </script>
