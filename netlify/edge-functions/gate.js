@@ -149,4 +149,5 @@ export default async function gate(request, context) {
   return wantsPage ? lockPage(url.pathname + url.search, false) : new Response('Sign-in required', { status: 401, headers: { 'cache-control': 'no-store' } });
 }
 
-export const config = { path: '/*', excludedPath: ['/manifest.webmanifest', '/icons/*'] };
+// /apk is only a link to the public download of the Android app (which shows this same lock screen when it opens)
+export const config = { path: '/*', excludedPath: ['/manifest.webmanifest', '/icons/*', '/apk'] };

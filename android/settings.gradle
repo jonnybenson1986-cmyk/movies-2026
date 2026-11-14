@@ -1,0 +1,11 @@
+// StreamBox for Android: a thin app that opens the StreamBox website full screen (phones, tablets and Android TV).
+// Built by .github/workflows/android.yml; see the "Android app (APK)" section of README.md.
+pluginManagement {
+    repositories { google(); mavenCentral(); gradlePluginPortal() }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories { google(); mavenCentral() }
+}
+rootProject.name = 'StreamBox'
+include ':app'

@@ -95,9 +95,42 @@ The code: `netlify/lib/webauthn.mjs` (the checks), `netlify/functions/passkey.mj
 ## Install on your phone
 
 - **iPhone / iPad:** open the site in **Safari** → Share button → **Add to Home Screen**.
-- **Android:** open the site in **Chrome** → ⋮ menu → **Install app** (or **Add to Home screen**).
+- **Android:** download the Android app (below), or open the site in **Chrome** → ⋮ menu → **Install app** (or **Add to Home screen**).
 
 It then opens full-screen with its own icon, like a native app.
+
+## Android app (APK): phones, tablets and Android TV
+
+**Download:** `https://<your-site>/apk` (for this site, `https://movies2026564.netlify.app/apk`). This always gives the newest `StreamBox.apk` from this repository's GitHub releases. The app's Settings → *Download the app* and the header's download button link to it too.
+
+- **Phone or tablet:** open the link and download the file. Open `StreamBox.apk` and tap **Install**. If Android asks, allow your browser to install apps (Settings → Apps → Special app access → *Install unknown apps*).
+- **Android TV / Google TV / Fire TV:** install the free **Downloader** app (by AFTVnews) from the Play Store or Amazon Appstore. Allow it to install apps (TV Settings → Apps → Security & restrictions / *Install unknown apps*). Open Downloader, type the `/apk` address and choose **Install**. StreamBox then appears in the TV's apps row with its banner.
+
+The app (`android/`) opens the website full screen, so **website changes reach it straight away; you don't need a new APK**. On top of the browser version it adds:
+- the TV launcher entry;
+- TV mode switched on automatically;
+- the remote's D-pad, Back and media keys;
+- full-screen video;
+- the screen staying on while something plays;
+- links to VLC and Spotify opening those apps.
+
+Back closes the player or window on top, then goes back a page, then leaves the app.
+
+**Building:** `.github/workflows/android.yml` builds the APK on GitHub whenever `android/` changes, or by hand: GitHub → Actions → *Android app* → *Run workflow*, where you can also set a different site address. Each build is published as a release named `android-1.<build>`.
+
+**Signing key (recommended, one-off):** without one, each build is signed with a throw-away key, and installing a newer APK means uninstalling the old app first. To sign every build with the same key, run this once on a computer with Java:
+
+```sh
+keytool -genkeypair -v -keystore streambox.jks -alias streambox -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 streambox.jks   # (macOS: base64 -i streambox.jks)
+```
+
+Then add four repository secrets (GitHub → Settings → Secrets and variables → Actions):
+- `ANDROID_KEYSTORE_BASE64`: the base64 text;
+- `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`: the passwords you chose;
+- `ANDROID_KEY_ALIAS`: `streambox`.
+
+Keep `streambox.jks` safe and never commit it. Apps signed with a different key can't update each other.
 
 ## Updating channels
 

@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The site the app opens. Change it with -PsiteUrl=https://your-site.netlify.app/ (or in the workflow).
+def siteUrl = (project.findProperty('siteUrl') ?: 'https://movies2026564.netlify.app/').toString()
+// Signing: a key from the environment when one is set up (see README), otherwise the build machine's debug key
+def keystore = System.getenv('ANDROID_KEYSTORE_FILE')
+
+android {
+    namespace 'app.streambox.player'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'app.streambox.player'
+        minSdk 21          // Android 5.0: every Android TV
+        targetSdk 34
+        versionCode((project.findProperty('versionCode') ?: '1').toString().toInteger())
+        versionName((project.findProperty('versionName') ?: '1.0').toString())
+        resValue 'string', 'start_url', siteUrl
+    }
+
+    signingConfigs {
+        release {
+            if (keystore) {
+                storeFile file(keystore)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keystore ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false   // the release build shouldn't fail on store-only checks: this APK is downloaded directly
+        abortOnError false
+    }
+}

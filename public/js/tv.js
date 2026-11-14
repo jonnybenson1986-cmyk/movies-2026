@@ -342,11 +342,17 @@
     (doc.activeElement || doc.body).dispatchEvent(esc);   // the app's own Escape handling closes the right thing
     return true;
   }
+  // true when Back had something to do; false on the home page with nothing open (the Android app then closes)
+  function goBack() {
+    if (closeTop()) return true;
+    if (location.hash && location.hash !== '#home') { history.back(); return true; }
+    return false;
+  }
   win.addEventListener('keydown', function (e) {
     var back = BACK_KEYS[e.key] || BACK_CODES[e.keyCode] || (root.classList.contains('tv') && e.key === 'Backspace' && !typing(doc.activeElement) && !shown('#player'));
     if (!back || e.defaultPrevented) return;
     e.preventDefault();
-    if (!closeTop() && location.hash && location.hash !== '#home') history.back();
+    goBack();
   });
   // TV: opening the player, a window, Now Playing or the More sheet adds a history step, so a Back that the TV
   // browser turns into "go back a page" closes it instead of leaving the screen.
@@ -444,7 +450,21 @@
   function ready() { if (!root.classList.contains('no-flex-gap')) try { flexGap(); } catch (e) {} legacyNotice(); watchLayers(); mirrorHas(); watchView(); focusAfterRender(); }
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', ready); else ready();
 
+  // ---------------------------------------------------------------- the Android app (android/): screen on while playing
+  // The app gives the page window.StreamBoxAndroid. TVs dim to a screensaver when the remote isn't touched, so keep the
+  // screen on while any video or music is playing.
+  if (win.StreamBoxAndroid && win.StreamBoxAndroid.keepScreenOn) {
+    var awake = null;
+    var checkPlaying = function () {
+      var playing = false, media = doc.querySelectorAll('video, audio');
+      for (var i = 0; i < media.length; i++) if (!media[i].paused && !media[i].ended) playing = true;
+      if (playing !== awake) { awake = playing; try { win.StreamBoxAndroid.keepScreenOn(playing); } catch (e) { /* app gone */ } }
+    };
+    ['playing', 'pause', 'ended', 'emptied'].forEach(function (type) { doc.addEventListener(type, checkPlaying, true); });
+  }
+
   win.StreamBoxTV = {
+    back: goBack,
     get on() { return root.classList.contains('tv'); },
     get mode() { var s = stored(); return s === '1' ? 'on' : s === '0' ? 'off' : 'auto'; },
     set: function (mode) {   // 'on' | 'off' | 'auto'

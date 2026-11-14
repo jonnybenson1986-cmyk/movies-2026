@@ -28,3 +28,10 @@
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "no-referrer"
+
+# The Android app (android/, built by .github/workflows/android.yml): /apk always gives the newest APK
+[[redirects]]
+  from = "/apk"
+  to = "https://github.com/jonnybenson1986-cmyk/movies-2026/releases/latest/download/StreamBox.apk"
+  status = 302
+  force = true

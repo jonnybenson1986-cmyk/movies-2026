@@ -1,4 +1,4 @@
-/* Generated from js/app.js (sha 46f39f0fe2eea209) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/app.js (sha 5aa2e71560c77b20) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -27,6 +27,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     const GRID_CHUNK = 120;
     const PAGE_IS_HTTPS = location.protocol === 'https:';
     const IS_IOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    // Running inside the StreamBox Android app (android/), and where the app's APK is downloaded (netlify.toml sends
+    // /apk to the newest GitHub release)
+    const IN_ANDROID_APP = /StreamBoxApp\//.test(navigator.userAgent);
+    const APK_URL = '/apk';
     const IS_ANDROID = /Android/.test(navigator.userAgent);
     const IS_SAFARI = /^((?!chrome|chromium|crios|fxios|edg|android).)*safari/i.test(navigator.userAgent);
     // iPhone, iPad and Safari play HLS natively. Only the native player can be sent to an Apple TV with AirPlay,
@@ -1586,7 +1590,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         <button class="btn btn-more" data-act="clearhist" style="font-size:13px;padding:6px 12px">Clear watch history</button>
         <h3>Download the app</h3>
         ${isInstalled() ? '<p style="color:var(--green)">StreamBox is installed on this device ✓</p>' : '<button class="btn btn-red" data-act="install" style="font-size:13px;padding:6px 12px">Download StreamBox</button>'}
-        <p style="margin-top:8px"><b>iPhone / iPad:</b> open in Safari → Share → <i>Add to Home Screen</i>.<br><b>Android:</b> open in Chrome → ⋮ menu → <i>Install app</i>.<br><b>Windows / Mac:</b> open in Chrome or Edge → install icon in the address bar.</p>
+        ${IN_ANDROID_APP ? '' : `<p style="margin-top:12px"><b>Android phones, tablets &amp; Android TV:</b> <a href="${APK_URL}" style="color:var(--text);text-decoration:underline">download the Android app (APK)</a>. Open the file when it has downloaded and choose <i>Install</i> (allow your browser to install apps if Android asks). On a TV, open the <b>Downloader</b> app and enter <code>${esc(location.origin)}${APK_URL}</code>.</p>`}
+        <p style="margin-top:8px"><b>iPhone / iPad:</b> open in Safari → Share → <i>Add to Home Screen</i>.<br><b>Android:</b> the app above, or open in Chrome → ⋮ menu → <i>Install app</i>.<br><b>Windows / Mac:</b> open in Chrome or Edge → install icon in the address bar.</p>
       </div>`);
         renderPasskeys();
     }
@@ -1667,9 +1672,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     // ---------------------------------------------------------------- install (download the app)
     // Chrome/Edge/Android hand us an install prompt; iOS Safari has no prompt, so we show the steps instead.
     let installPrompt = null;
-    const isInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    const isInstalled = () => IN_ANDROID_APP || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
     const installBtn = $('#installBtn');
-    const refreshInstallBtn = () => { installBtn.hidden = isInstalled() || !(installPrompt || IS_IOS); };
+    const refreshInstallBtn = () => { installBtn.hidden = isInstalled() || !(installPrompt || IS_IOS || IS_ANDROID); }; // Android: the APK is always on offer
     addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; refreshInstallBtn(); });
     addEventListener('appinstalled', () => { installPrompt = null; refreshInstallBtn(); toast('StreamBox installed ✓'); });
     function installApp() {
@@ -1678,7 +1683,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
                 toast('StreamBox is already installed');
                 return;
             }
-            if (installPrompt) {
+            if (installPrompt && !IS_ANDROID) { // on Android the window below offers the APK first
                 const prompt = installPrompt;
                 installPrompt = null;
                 prompt.prompt();
@@ -1693,8 +1698,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         <h2 style="font-size:24px;margin-bottom:6px">Download StreamBox</h2>
         <p style="color:var(--muted)">StreamBox installs straight from your browser — no app store needed. It opens full-screen with its own icon.</p>
         ${IS_IOS ? `<h3>iPhone / iPad</h3>
-        <p>1. Open this page in <b>Safari</b>.<br>2. Tap the <b>Share</b> button (the square with an arrow).<br>3. Choose <i>Add to Home Screen</i>, then <i>Add</i>.</p>` : `<h3>Android</h3>
-        <p>Open this page in <b>Chrome</b> → ⋮ menu → <i>Install app</i> (or <i>Add to Home screen</i>).</p>
+        <p>1. Open this page in <b>Safari</b>.<br>2. Tap the <b>Share</b> button (the square with an arrow).<br>3. Choose <i>Add to Home Screen</i>, then <i>Add</i>.</p>` : `<h3>Android phones, tablets &amp; Android TV</h3>
+        <p><a class="btn btn-red" href="${APK_URL}" style="font-size:15px;padding:8px 16px">Download the Android app (APK)</a></p>
+        <p>Open the downloaded file and choose <i>Install</i>. If Android asks, allow your browser to install apps (Settings → Apps → Special app access → <i>Install unknown apps</i>).<br>On <b>Android TV</b>: install the free <b>Downloader</b> app from the Play Store, open it and enter <code>${esc(location.origin)}${APK_URL}</code>.<br>Or, without the APK: open this page in <b>Chrome</b> → ⋮ menu → <i>Install app</i>.</p>
         <h3>Windows / Mac / Linux</h3>
         <p>Open this page in <b>Chrome</b> or <b>Edge</b> → click the install icon at the right of the address bar (or ⋮ menu → <i>Install StreamBox</i>).</p>
         <h3>iPhone / iPad</h3>
