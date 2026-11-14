@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <script>
+    // Older TV browsers (Chromium before 80) can't read the app's JavaScript (it uses ?. and ??). Mark them early, so
+    // js/tv.js can show how to update instead of leaving a blank screen.
+    (function () { try { new Function('var a = null; return a?.b ?? 1')(); } catch (e) { document.documentElement.className += ' legacy-js'; } })();
+  </script>
+  <script>
     // Passcode on every launch: when a passcode gate is in front of the app (it sets the sb_gate_on cookie),
     // this tab must have been unlocked in this session. sessionStorage is cleared when the tab or app closes.
     (function () {
@@ -27,6 +32,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/legacy.css"><!-- first: long-hand fallbacks that the real styles then override -->
   <link rel="stylesheet" href="/css/app.css">
   <link rel="stylesheet" href="/css/personal-library.css">
   <link rel="stylesheet" href="/css/apple.css">
@@ -36,6 +42,7 @@
   <link rel="stylesheet" href="/css/classics.css">
   <link rel="stylesheet" href="/css/watch.css">
   <link rel="stylesheet" href="/css/touch.css">
+  <link rel="stylesheet" href="/css/tv.css">
 </head>
 <body>
   <header class="topbar" id="topbar">
@@ -156,6 +163,7 @@
     <div class="modal-card" id="modalCard"></div>
   </div>
   <div class="toast" id="toast" hidden></div>
+  <script src="/js/tv.js"></script><!-- first, and plain ES5: remote control, media keys, TV mode, old-engine notice -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
   <script src="/js/zapper.js"></script>
   <script src="/js/subtitles.js"></script>

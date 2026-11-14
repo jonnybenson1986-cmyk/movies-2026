@@ -1244,6 +1244,10 @@
         <p>Checks for new movies on launch and once a day while the app is open. Saved titles stay available offline.</p>
         <p id="movieUpdateStatus" role="status" style="color:var(--muted)">${esc(movieUpdateText(movies.updates.status))}</p>
         <button class="btn btn-more" data-act="refreshmovies" style="font-size:13px;padding:6px 12px">Check for new movies</button>
+        <h3>TV &amp; remote control</h3>
+        <div class="form-row" style="align-items:center"><label for="optTv" style="flex:1">TV mode (large text, remote-control navigation)</label><select id="optTv" style="padding:8px 10px;border-radius:8px">
+          ${['auto', 'on', 'off'].map(m => `<option value="${m}"${(window.StreamBoxTV?.mode || 'auto') === m ? ' selected' : ''}>${m === 'auto' ? `Automatic (${window.StreamBoxTV?.detected ? 'TV found' : 'not a TV'})` : m === 'on' ? 'On' : 'Off'}</option>`).join('')}</select></div>
+        <p style="color:var(--muted);font-size:13px">With a remote or keyboard: arrows move, OK/Enter selects, Back closes or goes back, and the play/pause, rewind, fast-forward and skip buttons control what is playing.</p>
         <h3>Full screen &amp; AirPlay</h3>
         <label><input type="checkbox" id="optAutoFs" ${settings.autoFullscreen ? 'checked' : ''}> Open channels in full screen</label>
         <p style="color:var(--muted);font-size:13px">While watching: tap the full-screen button, double-tap or double-click the picture, or press <b>F</b>. ${IS_IOS ? 'On iPhone full screen uses the built-in video player.' : ''}</p>
@@ -1442,6 +1446,7 @@
     if (e.target.id === 'optShowAll') { settings.showAll = e.target.checked; saveSettings(); route(); }
     else if (e.target.id === 'optAuGuide') { settings.auGuide = e.target.value; saveSettings(); location.reload(); }
     else if (e.target.id === 'optAutoVlc') { settings.autoVlc = e.target.checked; saveSettings(); }
+    else if (e.target.id === 'optTv') { window.StreamBoxTV?.set(e.target.value); toast(window.StreamBoxTV?.on ? 'TV mode on' : 'TV mode off'); }
     else if (e.target.id === 'optAutoFs') { settings.autoFullscreen = e.target.checked; saveSettings(); }
     else if (e.target.id === 'optAutoSkip') { settings.autoSkip = e.target.checked; saveSettings(); }
     else if (e.target.id === 'optHideBad') { settings.hideBad = e.target.checked; saveSettings(); route(); }

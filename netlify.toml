@@ -3,7 +3,7 @@
 # To rebuild locally after editing playlists/: node scripts/build-channels.mjs [--fetch]
 [build]
   publish = "public"
-  command = "node scripts/build-channels.mjs --fetch"
+  command = "node scripts/build-channels.mjs --fetch && node scripts/build-legacy-css.mjs"
 
 [build.environment]
   NODE_VERSION = "20"

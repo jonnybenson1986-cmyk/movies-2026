@@ -1,0 +1,142 @@
+/* Android TV and other TV browsers / WebViews. Loaded last.
+   Part 1 applies everywhere: a focus highlight you can see from across the room whenever the keyboard or a remote is
+   used (with a fallback for engines that don't know :focus-visible).
+   Part 2 applies in TV mode (<html class="tv">, set by js/tv.js): the 10-foot layout with a 5% safe zone for overscan,
+   bigger type and controls, top navigation instead of the phone tab bar, and lighter effects for TV graphics chips.
+   Part 3 is fallbacks for older engines: :has() stand-ins, aspect-ratio boxes, and the notice for browsers too old. */
+
+/* ================================================================ 1. Focus you can see from 3 metres */
+:focus-visible { outline: 3px solid #fff; outline-offset: 3px; box-shadow: 0 0 0 7px rgba(10, 132, 255, .55); }
+/* Engines without :focus-visible (Chromium < 86): js/tv.js sets .kbd while keys are being used */
+html.kbd :focus { outline: 3px solid #fff; outline-offset: 3px; box-shadow: 0 0 0 7px rgba(10, 132, 255, .55); }
+/* Cards lift and grow when focused, the same as when hovered */
+html.kbd .card:focus, html.kbd .am-tile:focus, html.kbd .country-tile:focus, html.kbd .classic-card:focus, html.kbd .am-link:focus,
+.card:focus-visible, .am-tile:focus-visible, .country-tile:focus-visible, .classic-card:focus-visible, .am-link:focus-visible { transform: scale(1.06); z-index: 6; }
+/* A focused music cover shows its play button (it only appeared on hover) */
+.am-card:focus-within .am-go, .music-card:focus-within .music-go { opacity: 1; transform: none; }
+
+/* ================================================================ 2. TV mode: the 10-foot layout */
+html.tv {
+  --tv-x: 5vw;              /* title-safe area: 5% in from each edge, so overscan never cuts anything off */
+  --tv-y: 5vh;
+  --gutter: var(--tv-x);
+  --safe-top: var(--tv-y);
+  --safe-bottom: var(--tv-y);
+  font-size: 20px;
+}
+html.tv body { font-size: 20px; line-height: 1.45; cursor: default; }
+/* Focus: thicker, brighter, and it keeps clear of the fixed header when the page scrolls to it */
+html.tv :focus { outline: 4px solid #fff !important; outline-offset: 4px; box-shadow: 0 0 0 10px rgba(10, 132, 255, .6) !important; scroll-margin: calc(var(--tv-y) + 180px) var(--tv-x) calc(var(--tv-y) + 60px); }
+html.tv .card:focus, html.tv .am-tile:focus, html.tv .country-tile:focus, html.tv .classic-card:focus, html.tv .am-link:focus, html.tv .epg-prog:focus, html.tv .am-genre:focus { transform: scale(1.08); z-index: 8; }
+html.tv .nav a:focus, html.tv .chip:focus, html.tv .am-tabs a:focus { background: #fff !important; color: #000 !important; }
+html.tv .btn:focus { transform: scale(1.06); }
+html.tv .am-row:focus-within, html.tv .zap-row:focus, html.tv .epg-row:focus-within { background: rgba(255,255,255,.12); }
+
+/* Header: top navigation (a remote can reach it), inside the safe zone */
+html.tv .topbar { padding: var(--tv-y) var(--tv-x) 16px; gap: 24px; background: linear-gradient(rgba(0,0,0,.92), rgba(0,0,0,.6) 70%, transparent); }
+html.tv .topbar.solid { background: rgba(0,0,0,.94); }
+html.tv .logo { font-size: 30px; }
+/* The navigation gets its own full-width row under the logo, so every item fits inside the safe zone */
+html.tv .topbar { flex-wrap: wrap; row-gap: 12px; }
+html.tv .topbar-actions { margin-left: auto; }
+html.tv .nav { display: flex !important; position: static; transform: none; order: 3; flex: 1 0 100%; justify-content: flex-start; flex-wrap: nowrap; gap: 4px; margin: 0; max-width: none; overflow: visible; font-size: 18px; border-radius: 16px; }
+html.tv .nav a { font-size: 18px; padding: 8px 16px; white-space: nowrap; }
+html.tv .icon-btn { width: 56px; height: 56px; }
+html.tv .icon-btn svg { width: 30px; height: 30px; }
+html.tv .search-input.open { width: 360px; font-size: 20px; }
+/* No phone tab bar on a TV: everything is in the top navigation */
+html.tv .tabbar, html.tv .tab-more, html.tv .more-sheet { display: none !important; }
+html.tv body, html.tv #view { padding-bottom: var(--tv-y) !important; }
+html.tv .page { padding-top: calc(var(--tv-y) + 170px); }   /* below the two-row header */
+
+/* Type and controls sized for the sofa */
+html.tv .page-head h1, html.tv .am-title h1 { font-size: 48px; }
+html.tv .page-head .count, html.tv .am-title p { font-size: 22px; }
+html.tv .row-head h2, html.tv .am-shelf .row-head h2, html.tv .am-sec-head h2 { font-size: 30px; }
+html.tv .row-head .see-all { font-size: 20px; padding: 8px 14px; }
+html.tv .hero { height: 100vh; max-height: none; min-height: 0; }
+html.tv .hero-content { bottom: 16%; max-width: 62vw; }   /* clear of the two-row header */
+html.tv .hero h1 { font-size: 52px; margin: 8px 0 12px; }
+html.tv .hero p { font-size: 21px; max-width: 900px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html.tv .btn { font-size: 22px; padding: 14px 30px; min-height: 60px; }
+html.tv .chip { font-size: 20px; min-height: 56px; padding: 0 22px; }
+html.tv .card.apple { width: clamp(260px, 21vw, 380px); }
+html.tv .card.apple.poster { width: clamp(180px, 14vw, 260px); }
+html.tv .card.apple .caption .name { font-size: 20px; }
+html.tv .card.apple .caption .meta { font-size: 17px; }
+html.tv .row-track { gap: 24px; padding-top: 16px; padding-bottom: 24px; scroll-snap-type: none; }   /* room for the focus ring and the grow */
+html.tv .grid { gap: 32px 24px; }
+html.tv input:not([type=checkbox]):not([type=radio]):not([type=range]), html.tv select { font-size: 20px !important; min-height: 56px; }
+html.tv .modal-body label { font-size: 20px; min-height: 56px; }
+html.tv .modal-body input[type=checkbox] { width: 28px; height: 28px; }
+
+/* Music */
+html.tv .am-tabs a { font-size: 20px; padding: 12px 24px; }
+html.tv .am-card { width: clamp(220px, 16vw, 300px); }
+html.tv .am-name { font-size: 19px; }
+html.tv .am-by { font-size: 17px; }
+html.tv .am-row-text b { font-size: 20px; }
+html.tv .am-row-text small { font-size: 17px; }
+html.tv .am-heart { width: 56px; height: 56px; }
+html.tv .music-bar { left: var(--tv-x); right: var(--tv-x); bottom: var(--tv-y); max-width: none; padding: 12px 18px; }
+html.tv .music-bar .icon-btn { width: 56px; height: 56px; }
+html.tv .music-now b { font-size: 20px; }
+html.tv .music-now small { font-size: 17px; }
+html.tv .np-in { padding: var(--tv-y) var(--tv-x); }
+html.tv .np-text b { font-size: 34px; }
+html.tv .np-text a { font-size: 26px; }
+html.tv .np-controls .icon-btn { width: 88px; height: 88px; }
+
+/* Player: controls inside the safe zone and bigger. The on-screen D-pad isn't needed: the remote has one. */
+html.tv .player-top { padding: var(--tv-y) var(--tv-x) 40px; }
+html.tv .player-title strong { font-size: 28px; }
+html.tv .player-title small { font-size: 20px; }
+html.tv .player.live-mode .player-bar { padding: 50px var(--tv-x) var(--tv-y); gap: 12px; }
+html.tv .player-bar .icon-btn, html.tv .player-nav .icon-btn, html.tv #playerClose { width: 64px; height: 64px; }
+html.tv .player-bar .icon-btn svg { width: 34px; height: 34px; }
+html.tv .player.live-mode .zap-remote { display: none; }
+html.tv .player.live-mode .zap-banner { top: calc(var(--tv-y) + 90px); left: var(--tv-x); font-size: 120%; }
+html.tv .player.live-mode .zap-panel { width: min(520px, 45vw); padding: var(--tv-y) var(--tv-x) var(--tv-y) 16px; }
+html.tv .zap-row { padding: 14px; }
+html.tv .zap-name { font-size: 22px; }
+html.tv .zap-meta, html.tv .zap-n { font-size: 17px; }
+html.tv .player-msg { font-size: 22px; width: min(80%, 760px); }
+html.tv .player.movie-mode .movie-tools { padding: 16px var(--tv-x) var(--tv-y); }
+
+/* Windows, pop-ups and the TV guide */
+html.tv .modal { padding: var(--tv-y) var(--tv-x); }
+html.tv .modal-card { max-width: 1100px; }
+html.tv .toast { bottom: var(--tv-y); font-size: 22px; padding: 14px 28px; }
+html.tv .epg-prog { width: 300px; min-height: 100px; }
+html.tv .epg-prog b { font-size: 20px; }
+html.tv .epg-prog small { font-size: 16px; }
+
+/* TV graphics chips struggle with blur: solid backgrounds instead, and quicker animations */
+html.tv * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html.tv .modal { background: rgba(0,0,0,.88); }
+html.tv .modal-card, html.tv .music-bar, html.tv .zap-panel, html.tv .zap-banner, html.tv .subs-menu { background: #1c1c1e; }
+html.tv *, html.tv *::before, html.tv *::after { transition-duration: .12s !important; animation-duration: .15s !important; }
+
+/* ================================================================ 3. Older engines */
+/* :has() stand-ins (Chromium < 105): js/tv.js mirrors these states as classes */
+@media (max-width: 600px) {
+  .topbar.search-open .logo { display: none; }
+  .topbar.search-open .topbar-actions { flex: 1 1 auto; min-width: 0; }
+}
+.topbar.search-open .install-btn { display: none; }
+@media (pointer: coarse), (max-width: 820px) {
+  .modal-body label.has-check { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+}
+/* aspect-ratio (Chromium < 88): fixed-shape boxes from padding instead (their contents are positioned absolutely) */
+@supports not (aspect-ratio: 1 / 1) {
+  .card.apple .art { height: 0; padding-top: 56.25%; }
+  .card.apple.poster .art { padding-top: 150%; }
+  .am-tile, .am-hero-art, .am-artist-pic { height: 0; padding-top: 100%; }
+  .am-feature-art { height: 0; padding-top: 125%; }
+  .np-art { height: 0; width: min(100%, 52vh); padding-top: min(100%, 52vh); }
+}
+/* A browser too old for the app's JavaScript: a clear message instead of a blank screen (js/tv.js shows it) */
+#legacyNotice { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 5vh 5vw; background: #000; color: #f5f5f7; text-align: center; font: 24px/1.5 sans-serif; }
+#legacyNotice h1 { color: #e50914; font-size: 44px; letter-spacing: .04em; margin-bottom: 24px; }
+#legacyNotice p { max-width: 900px; margin: 0 0 16px; }
+#legacyNotice .legacy-small { color: #8e8e93; font-size: 18px; }
