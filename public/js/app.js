@@ -13,6 +13,14 @@
     { name: '7plus Live', url: 'https://7plus.com.au/live-tv?channel-id=Seven', icon: '📺', note: 'Free-to-air Seven Network' },
     { name: 'iptv-org', url: 'https://github.com/iptv-org/iptv', icon: '🌍', note: 'Source of the channel list' },
   ];
+  // Cricket from the broadcasters that hold the rights in Australia (Sports page). Each opens in the service's own app
+  // where it's installed, otherwise its website.
+  const CRICKET_LINKS = [
+    { name: '7plus Cricket', url: 'https://7plus.com.au/cricket', icon: '🏏', note: 'Free · Tests, BBL & WBBL live' },
+    { name: 'Kayo Sports', url: 'https://kayosports.com.au/sports/cricket', icon: '🏏', note: 'Subscription · every Fox Cricket match' },
+    { name: 'Cricket Australia Live', url: 'https://www.cricket.com.au/cricket-australia-live-app', icon: '🏏', note: 'Free official app · matches, scores & highlights' },
+    { name: 'ICC.tv', url: 'https://www.icc.tv/', icon: '🏆', note: 'ICC tournaments · where available' },
+  ];
 
   const CATEGORY_ORDER = ['Sports', 'Movies', 'News', 'Comedy & Series', 'Kids', 'Documentary', 'Music', 'Lifestyle', 'Religious', 'Entertainment'];
   const ROW_LIMIT = 30;
@@ -570,6 +578,7 @@
       <div class="rows">
         ${rowHTML('SKY Racing', channels.filter(c => c.source === 'SKY Racing'))}
         ${rowHTML('Sports Links', QUICK_LINKS.slice(0, 1).map((l, i) => ({ ...l, type: 'link', key: 'q:' + i })))}
+        ${rowHTML('Cricket', CRICKET_LINKS.map((l, i) => ({ ...l, type: 'link', key: 'cricket:' + i })))}
       </div>
       <div class="row-head"><h2>All Sports Channels</h2></div>
       <div id="gridMount"></div>

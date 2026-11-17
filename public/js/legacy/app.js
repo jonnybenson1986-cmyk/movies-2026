@@ -1,4 +1,4 @@
-/* Generated from js/app.js (sha 251abc69f1bcc969) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/app.js (sha 955e734d003a129f) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -21,6 +21,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     const QUICK_LINKS = [
         { name: '7plus Live', url: 'https://7plus.com.au/live-tv?channel-id=Seven', icon: '📺', note: 'Free-to-air Seven Network' },
         { name: 'iptv-org', url: 'https://github.com/iptv-org/iptv', icon: '🌍', note: 'Source of the channel list' },
+    ];
+    // Cricket from the broadcasters that hold the rights in Australia (Sports page). Each opens in the service's own app
+    // where it's installed, otherwise its website.
+    const CRICKET_LINKS = [
+        { name: '7plus Cricket', url: 'https://7plus.com.au/cricket', icon: '🏏', note: 'Free · Tests, BBL & WBBL live' },
+        { name: 'Kayo Sports', url: 'https://kayosports.com.au/sports/cricket', icon: '🏏', note: 'Subscription · every Fox Cricket match' },
+        { name: 'Cricket Australia Live', url: 'https://www.cricket.com.au/cricket-australia-live-app', icon: '🏏', note: 'Free official app · matches, scores & highlights' },
+        { name: 'ICC.tv', url: 'https://www.icc.tv/', icon: '🏆', note: 'ICC tournaments · where available' },
     ];
     const CATEGORY_ORDER = ['Sports', 'Movies', 'News', 'Comedy & Series', 'Kids', 'Documentary', 'Music', 'Lifestyle', 'Religious', 'Entertainment'];
     const ROW_LIMIT = 30;
@@ -663,6 +671,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
       <div class="rows">
         ${rowHTML('SKY Racing', channels.filter(c => c.source === 'SKY Racing'))}
         ${rowHTML('Sports Links', QUICK_LINKS.slice(0, 1).map((l, i) => (Object.assign(Object.assign({}, l), { type: 'link', key: 'q:' + i }))))}
+        ${rowHTML('Cricket', CRICKET_LINKS.map((l, i) => (Object.assign(Object.assign({}, l), { type: 'link', key: 'cricket:' + i }))))}
       </div>
       <div class="row-head"><h2>All Sports Channels</h2></div>
       <div id="gridMount"></div>
