@@ -1,4 +1,4 @@
-/* Generated from js/music.js (sha fe8afa7137f2a130) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/music.js (sha 5268e952bd2c0832) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -1054,7 +1054,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         failures = 0; position(); });
     for (const ev of ['durationchange', 'seeked', 'ratechange'])
         media.addEventListener(ev, position);
-    if (ms) {
+    // The lock screen / Control Center buttons. Videos in the main player take them over while they play (app.js), so
+    // music claims them back whenever it starts or resumes.
+    function claimSession() {
+        if (!ms)
+            return;
         const on = (name, fn) => { try {
             ms.setActionHandler(name, fn);
         }
@@ -1071,6 +1075,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         on('seekbackward', e => seekTo(media.currentTime - (e.seekOffset || 10)));
         on('seekforward', e => seekTo(media.currentTime + (e.seekOffset || 10)));
     }
+    claimSession();
+    media.addEventListener('play', () => { if (current)
+        describe(current); claimSession(); });
     const player = {
         audio: media, start, step, stop, toggle, seekTo, pause,
         prepare: () => bridge.load().catch(() => { }), // loads the YouTube bridge ahead of the first tap

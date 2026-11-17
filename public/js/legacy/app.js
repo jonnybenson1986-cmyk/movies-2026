@@ -1,4 +1,4 @@
-/* Generated from js/app.js (sha 492b0003b21c277d) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/app.js (sha 8066878fb41cef90) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -899,7 +899,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         store.set('progress', map);
     } });
     addEventListener('pagehide', () => saveProgress(true));
-    function teardown() {
+    // keepRoute: changing channel or video while it plays on an Apple TV. The video element then isn't reset (which
+    // can end the AirPlay connection); the next video simply replaces it on the TV.
+    const onAirPlay = () => !!video.webkitCurrentPlaybackTargetIsWireless;
+    function teardown({ keepRoute = false } = {}) {
         clearTimeout(stallTimer);
         moviePlayback.stop();
         movieFrame.src = 'about:blank';
@@ -912,8 +915,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             hls = null;
         }
         video.pause();
-        video.removeAttribute('src');
-        video.load();
+        if (!(keepRoute && onAirPlay())) {
+            video.removeAttribute('src');
+            video.load();
+        }
         closeSubsMenu();
     }
     // When a channel won't load, the player moves on to the next one in the same country by itself (Settings can turn
@@ -929,9 +934,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             (_a = window.StreamBoxMusic) === null || _a === void 0 ? void 0 : _a.pause(); // one thing playing at a time
             saveProgress(true); // where the previous video was up to
             progressKey = resumeFrom = null;
-            teardown();
+            teardown({ keepRoute: true });
             player.classList.remove('live-mode'); // each stream attempt calls teardown(), so this is reset here, not there
             current = item;
+            if (onAirPlay())
+                $('#airTitle').textContent = item.name; // the "Playing on your TV" screen follows the channel
             currentList = list.length ? list : [item];
             if (item.type === 'live') { // channels are zapped by country, like a TV remote
                 zap.remember(item);
@@ -1044,7 +1051,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
                         plan.push(native);
                 }
             }
-            if (hasProxy())
+            // A proxy on "This computer" (localhost) can't be reached by an Apple TV, so it's left out while AirPlaying
+            const localProxy = /^https?:\/\/(localhost|127\.|\[::1\])/i.test(settings.proxyUrl || '');
+            if (hasProxy() && !(localProxy && onAirPlay()))
                 plan.push({ url: proxiedUrl(item), native: !hlsJs, label: 'proxy' });
             const reasons = [];
             for (const attempt of plan) {
@@ -1078,7 +1087,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     // After it has resolved, a later failure is shown to the user directly.
     function attemptPlay(url, native, item) {
         return new Promise((resolve, reject) => {
-            teardown();
+            teardown({ keepRoute: true });
             let settled = false;
             const finish = err => {
                 if (settled)
@@ -1100,7 +1109,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
                 }
                 showPlayerMsg('Stream stopped', why, item);
             };
-            stallTimer = setTimeout(() => finish(new Error('no video after 10s')), 10000);
+            const wait = onAirPlay() ? 30000 : 10000; // an Apple TV takes longer to start a stream than this device
+            stallTimer = setTimeout(() => finish(new Error(`no video after ${wait / 1000}s`)), wait);
             video.onplaying = () => { finish(); msg.hidden = true; applySubs(); };
             video.onerror = () => {
                 var _a, _b;
@@ -1146,6 +1156,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     }
     let pendingMovieRender = false;
     function closePlayer() {
+        var _a, _b;
         closeZapPanel();
         hideBanner();
         digits.cancel();
@@ -1155,6 +1166,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         current = null;
         player.hidden = true;
         msg.hidden = true;
+        airScreen.hidden = airPrompt.hidden = true;
+        player.classList.remove('airplaying');
+        if (session && !((_b = (_a = window.StreamBoxMusic) === null || _a === void 0 ? void 0 : _a.player) === null || _b === void 0 ? void 0 : _b.current)) {
+            session.metadata = null;
+            session.playbackState = 'none';
+        }
         document.body.style.overflow = '';
         if (fsElement() === player || video.webkitDisplayingFullscreen)
             exitFullscreen();
@@ -1176,8 +1193,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     function wakeControls() {
         player.classList.remove('idle');
         clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => { if (zapPanel.hidden && subsMenu.hidden)
-            player.classList.add('idle'); }, 3500); // stays awake while the channel list is open
+        idleTimer = setTimeout(() => { if (zapPanel.hidden && subsMenu.hidden && !onAirPlay())
+            player.classList.add('idle'); }, 3500); // stays awake while the channel list is open, or while this screen is the remote for an Apple TV
     }
     // ---------------------------------------------------------------- live player controls
     // Play/pause, volume, full screen, picture-in-picture and touch gestures for live channels.
@@ -1282,16 +1299,81 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         pipBtn.hidden = !(document.pictureInPictureEnabled && !video.disablePictureInPicture);
         player.classList.toggle('no-volume', IS_IOS);
     }
-    // AirPlay (Safari on iPhone, iPad and Mac): the button only appears when an Apple TV or speaker is nearby
+    // AirPlay (Safari on iPhone, iPad and Mac, and StreamBox added to the Home Screen): the button only appears when an
+    // Apple TV or speaker is nearby. Every video StreamBox plays itself can be sent: live channels, Free Classics and
+    // your own library (films inside another site's player can't).
     let airplayAvailable = false;
-    video.addEventListener('webkitplaybacktargetavailabilitychanged', e => { airplayAvailable = e.availability === 'available'; syncPlayerUI(); });
-    video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', syncPlayerUI);
-    airBtn.onclick = airTopBtn.onclick = () => { try {
+    const airScreen = $('#airScreen'), airPrompt = $('#airPrompt');
+    const showAirPicker = () => { try {
         video.webkitShowPlaybackTargetPicker();
     }
     catch (_a) {
         toast('AirPlay isn’t available right now');
     } };
+    function syncAirPlay() {
+        const on = onAirPlay();
+        player.classList.toggle('airplaying', on);
+        airScreen.hidden = !on || player.hidden;
+        if (on) {
+            store.set('airplay-used', 1); // from now on a video offers "Play on TV" as soon as it starts
+            airPrompt.hidden = true;
+            $('#airTitle').textContent = (current === null || current === void 0 ? void 0 : current.name) || '';
+            wakeControls();
+        }
+        syncPlayerUI();
+    }
+    video.addEventListener('webkitplaybacktargetavailabilitychanged', e => { airplayAvailable = e.availability === 'available'; syncPlayerUI(); });
+    video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', syncAirPlay);
+    airBtn.onclick = airTopBtn.onclick = $('#airChange').onclick = showAirPicker;
+    // Someone who has used AirPlay on this device gets a big "Play on TV" button for a few seconds when a video starts,
+    // so going back to the Apple TV is one tap (Apple's picker then lists the TV)
+    let airPromptTimer = 0;
+    airPrompt.onclick = () => { airPrompt.hidden = true; showAirPicker(); };
+    video.addEventListener('playing', () => {
+        if (!airplayAvailable || onAirPlay() || !store.get('airplay-used', 0) || video.hidden)
+            return;
+        airPrompt.hidden = false;
+        clearTimeout(airPromptTimer);
+        airPromptTimer = setTimeout(() => { airPrompt.hidden = true; }, 7000);
+    });
+    // Lock screen, Control Center and the Apple TV remote (while AirPlaying): the video's title and picture, play/pause,
+    // and for live TV next/previous changes channel; for films and your own videos they skip 10 seconds. Music takes
+    // these back when it plays (music.js).
+    const session = 'mediaSession' in navigator ? navigator.mediaSession : null;
+    function describeVideo(item) {
+        if (!session || !item)
+            return;
+        const on = (name, fn) => { try {
+            session.setActionHandler(name, fn);
+        }
+        catch ( /* not supported here */_a) { /* not supported here */ } };
+        const live = item.type === 'live';
+        try {
+            const pic = item.logo ? logoSrc(item.logo, 512, 512) : item.poster || item.backdrop || '';
+            session.metadata = new MediaMetadata({
+                title: item.name,
+                artist: live ? ['Live TV', item.cc ? countryName(item.cc) : ''].filter(Boolean).join(' · ') : [item.year, item.catalog === 'personal' ? 'My Library' : ''].filter(Boolean).join(' · '),
+                album: 'StreamBox',
+                artwork: pic ? [{ src: pic, sizes: '512x512' }] : [{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
+            });
+        }
+        catch ( /* older browsers */_a) { /* older browsers */ }
+        on('play', () => video.play().catch(() => { }));
+        on('pause', () => video.pause());
+        on('stop', closePlayer);
+        on('nexttrack', live ? () => step(1) : null);
+        on('previoustrack', live ? () => step(-1) : null);
+        on('seekbackward', live ? null : e => { video.currentTime = Math.max(0, video.currentTime - (e.seekOffset || 10)); });
+        on('seekforward', live ? null : e => { video.currentTime = Math.min(video.duration || Infinity, video.currentTime + (e.seekOffset || 10)); });
+        on('seekto', live ? null : e => { video.currentTime = e.seekTime; });
+    }
+    video.addEventListener('playing', () => { if (current && !player.hidden) {
+        describeVideo(current);
+        if (session)
+            session.playbackState = 'playing';
+    } });
+    video.addEventListener('pause', () => { if (session && current)
+        session.playbackState = 'paused'; });
     function togglePlayback() {
         if (!video.paused) {
             video.pause();
@@ -1559,7 +1641,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         <h3>Full screen &amp; AirPlay</h3>
         <label><input type="checkbox" id="optAutoFs" ${settings.autoFullscreen ? 'checked' : ''}> Open channels in full screen</label>
         <p style="color:var(--muted);font-size:13px">While watching: tap the full-screen button, double-tap or double-click the picture, or press <b>F</b>. ${IS_IOS ? 'On iPhone full screen uses the built-in video player.' : ''}</p>
-        <p style="color:var(--muted);font-size:13px"><b>AirPlay</b> button appears in the player when an Apple TV or AirPlay speaker is on the same Wi-Fi. It works in Safari on iPhone, iPad and Mac (Chrome and Edge can’t AirPlay). Channels that play through your proxy or need VLC can’t be sent.</p>
+        <p style="color:var(--muted);font-size:13px"><b>AirPlay to an Apple TV:</b> open a channel, a Free Classic or a video from My Library, then tap the AirPlay button (the screen with a triangle) and pick your Apple TV. It works in Safari on iPhone, iPad and Mac, and in StreamBox added to the Home Screen, when the Apple TV is on the same Wi-Fi. While it plays on the TV, this screen is the remote: change channel and the new one plays on the TV too, and the lock screen and the Apple TV remote can pause and change channel. After the first time, a <i>Play on TV</i> button offers it as soon as a video starts. ${IN_ANDROID_APP || IS_ANDROID ? "<br><b>On Android</b> AirPlay isn’t available (it’s an Apple feature): use an iPhone, iPad or Mac to send to an Apple TV." : ""} Films that play inside another site’s player, channels that only play in VLC, and channels going through a proxy on “This computer” can’t be sent.</p>
         <h3>Channels</h3>
         <label><input type="checkbox" id="optShowAll" ${settings.showAll ? 'checked' : ''}> Show channels that only play in VLC (http:// or header-protected)</label>
         <label><input type="checkbox" id="optAutoVlc" ${settings.autoVlc ? 'checked' : ''}> On iPhone/Android, open those channels in VLC automatically</label>

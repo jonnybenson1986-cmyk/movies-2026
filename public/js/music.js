@@ -735,7 +735,10 @@
   media.addEventListener('error', () => { if (engine === 'yt' || (audio.getAttribute('src') && !silent())) failed(); });
   media.addEventListener('playing', () => { if (engine === 'yt' || !silent()) failures = 0; position(); });
   for (const ev of ['durationchange', 'seeked', 'ratechange']) media.addEventListener(ev, position);
-  if (ms) {
+  // The lock screen / Control Center buttons. Videos in the main player take them over while they play (app.js), so
+  // music claims them back whenever it starts or resumes.
+  function claimSession() {
+    if (!ms) return;
     const on = (name, fn) => { try { ms.setActionHandler(name, fn); } catch { /* not supported on this device */ } };
     on('play', resume);
     on('pause', pause);
@@ -746,6 +749,8 @@
     on('seekbackward', e => seekTo(media.currentTime - (e.seekOffset || 10)));
     on('seekforward', e => seekTo(media.currentTime + (e.seekOffset || 10)));
   }
+  claimSession();
+  media.addEventListener('play', () => { if (current) describe(current); claimSession(); });
 
   const player = {
     audio: media, start, step, stop, toggle, seekTo, pause,
