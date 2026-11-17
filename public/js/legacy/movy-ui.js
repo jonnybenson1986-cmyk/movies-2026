@@ -1,4 +1,4 @@
-/* Generated from js/movy-ui.js (sha 13e383888b9f706a) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/movy-ui.js (sha 805f6c56b83cff19) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -39,11 +39,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             probe.resolve(false);
         }
         protectedPlayback = false;
-        const touchPlayback = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const touchPlayback = window.matchMedia && window.matchMedia('(pointer: coarse)').matches || /iPad|iPhone|iPod/.test(navigator.userAgent);
         document.querySelectorAll('[data-movy-play]').forEach(b => { b.disabled = !touchPlayback; });
         if (touchPlayback) {
             const status = document.getElementById('movyProtection');
-            if (status) status.textContent = 'Tap an episode to play in the Browser box.';
+            if (status)
+                status.textContent = 'Tap an episode to play in the Browser box.';
             return Promise.resolve(false);
         }
         return new Promise(resolve => {
@@ -297,7 +298,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     }
     function showEpisodes(episodes) {
         const el = document.getElementById('movyEpisodes');
-        const touchPlayback = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const touchPlayback = window.matchMedia && window.matchMedia('(pointer: coarse)').matches || /iPad|iPhone|iPod/.test(navigator.userAgent);
         if (el)
             el.innerHTML = episodes.map(e => ((detailState === null || detailState === void 0 ? void 0 : detailState.record.mediaType) === 'tv' || (detailState === null || detailState === void 0 ? void 0 : detailState.record.embedId)) ? `<button class="movy-episode" type="button" data-movy-play="${esc(e.number)}" ${protectedPlayback || touchPlayback ? '' : 'disabled'}><span class="movy-episode-play" aria-hidden="true">▶</span><span class="movy-episode-copy">${esc(e.number)} · ${esc(e.title)}</span></button>` : `<div class="movy-episode">${esc(e.number)} · ${esc(e.title)}</div>`).join('');
     }
@@ -364,7 +365,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             season(Number(e.target.value), detailState);
     });
     document.addEventListener('click', (e) => __awaiter(void 0, void 0, void 0, function* () {
-        var _a, _b, _c, _d, _e, _f, _g;
+        var _a, _b, _c, _d, _e, _f, _g, _h;
         if (e.target.closest('#movyRetry'))
             hooks === null || hooks === void 0 ? void 0 : hooks.retry();
         if (e.target.closest('[data-movy-browser-home]')) {
@@ -379,7 +380,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             try {
                 url = playerUrl(record, seasonNumber, 1);
             }
-            catch (_h) {
+            catch (_j) {
                 url = 'https://www.movy.sx/' + (record.mediaType === 'anime' ? 'anime' : record.mediaType) + '/' + record.id;
             }
             (_c = window.StreamBoxMovyBrowser) === null || _c === void 0 ? void 0 : _c.open(url, record.name);
@@ -403,11 +404,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             if (record.mediaType !== 'movie' && !detailState.episodes.some(e => e.number === episodeNumber))
                 return;
             if (!protectedPlayback) {
-                if ((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches || /iPad|iPhone|iPod/.test(navigator.userAgent)) {
                     const url = playerUrl(record, seasonNumber, episodeNumber);
                     (_g = window.StreamBoxMovyBrowser) === null || _g === void 0 ? void 0 : _g.open(url, `${record.name} · S${seasonNumber} E${episodeNumber}`);
-                } else {
-                    (_g = window.StreamBoxMovySetup) === null || _g === void 0 ? void 0 : _g.open({ record, season: seasonNumber, episode: episodeNumber });
+                }
+                else {
+                    (_h = window.StreamBoxMovySetup) === null || _h === void 0 ? void 0 : _h.open({ record, season: seasonNumber, episode: episodeNumber });
                 }
                 return;
             }
