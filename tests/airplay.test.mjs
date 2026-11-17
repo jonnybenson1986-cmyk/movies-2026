@@ -33,6 +33,6 @@ test('while on the TV: a "Playing on your TV" screen, controls stay up, lock scr
 test('the AirPlay button is there on any browser that can AirPlay, so nobody has to fall back to Screen Mirroring', () => {
   assert.match(app, /const AIRPLAY_CAPABLE = 'WebKitPlaybackTargetAvailabilityEvent' in window && !IN_ANDROID_APP;/);
   assert.match(app, /airBtn\.hidden = !\(airplayAvailable \|\| AIRPLAY_CAPABLE\);/);
-  assert.match(app, /if \(!airplayAvailable \|\| onAirPlay\(\) \|\| video\.hidden\) return;/, '"Play on TV" for everyone with an Apple TV nearby');
+  assert.match(app, /if \(!airplayAvailable \|\| onAirPlay\(\) \|\| video\.hidden \|\| current\?\.type === 'live'\) return;/, '"Play on TV" for films and your own videos when an Apple TV is nearby, not over live TV');
   assert.match(html, /lock your phone/);
 });
