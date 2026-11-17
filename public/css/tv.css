@@ -136,7 +136,6 @@ html.tv .watch-hub-tile.skeleton { animation: none !important; }
   .card.apple .art { height: 0; padding-top: 56.25%; }
   .card.apple.poster .art { padding-top: 150%; }
   .am-tile, .am-hero-art, .am-artist-pic { height: 0; padding-top: 100%; }
-  .am-feature-art { height: 0; padding-top: 125%; }
   .np-art { height: 0; width: min(100%, 52vh); padding-top: min(100%, 52vh); }
 }
 /* A browser too old for the app's JavaScript: a clear message instead of a blank screen (js/tv.js shows it) */

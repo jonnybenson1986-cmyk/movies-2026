@@ -193,7 +193,7 @@
 
   // ---------------------------------------------------------------- D-pad spatial navigation
   var FOCUSABLE = 'a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), video[controls], [tabindex]:not([tabindex="-1"])';
-  var SKIP = '.row-arrow, .yt-bridge *, [aria-hidden="true"] *, [inert] *';
+  var SKIP = '.row-arrow, [aria-hidden="true"] *, [inert] *';
   function visible(el) {
     if (el.matches(SKIP)) return false;
     var r = el.getBoundingClientRect();

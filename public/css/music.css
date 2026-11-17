@@ -63,18 +63,6 @@
 .am-ok svg { width: 11px; height: 11px; fill: none; stroke: #fff; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Featured (large editorial cards) ---------- */
-.am-features { margin: 4px 0 26px; }
-.am-feature-track { display: flex; gap: 18px; overflow-x: auto; padding: 4px var(--gutter) 8px; scroll-snap-type: x mandatory; scroll-padding-left: var(--gutter); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-.am-feature-track::-webkit-scrollbar { display: none; }
-.am-feature { flex: 0 0 auto; width: min(80vw, 330px); display: flex; flex-direction: column; scroll-snap-align: start; color: inherit; }
-.am-feature-tag { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8e8e93; }
-.am-feature-title { font-size: 21px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.am-feature-by { font-size: 21px; color: #8e8e93; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.am-feature-art { position: relative; display: block; aspect-ratio: 4 / 5; max-height: 460px; border-radius: 14px; overflow: hidden; background: #1c1c1e; box-shadow: 0 10px 30px rgba(0,0,0,.45); transition: transform .25s; }
-.am-feature:hover .am-feature-art { transform: scale(1.015); }
-.am-feature-text { position: absolute; inset: auto 0 0 0; padding: 60px 16px 14px; display: flex; flex-direction: column; gap: 4px; background: linear-gradient(transparent, rgba(0,0,0,.82)); }
-.am-feature-text b { font-size: 14px; font-weight: 500; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.am-feature-text small { color: #c7c7cc; font-size: 12px; }
 
 /* ---------- Genres ---------- */
 .am-genres { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(46%, 210px), 1fr)); gap: 14px; padding: 6px var(--gutter) 0; }
@@ -97,8 +85,6 @@
 .am-row-text b { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .am-row-text small { font-size: 13px; color: #8e8e93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .am-row.playing .am-row-text b, .am-row.playing .am-num { color: var(--am, #fa2d48); }
-.am-row-artist { flex: none; font-size: 12px; color: #8e8e93; padding: 6px 8px; border-radius: 8px; }
-.am-row-artist:hover { color: #fff; background: rgba(255,255,255,.1); }
 .am-len { flex: none; width: 44px; text-align: right; color: #8e8e93; font-size: 13px; font-variant-numeric: tabular-nums; }
 
 /* ---------- Playlist / album / artist headers ---------- */
@@ -190,45 +176,47 @@ body.np-open { overflow: hidden; }
   .am-hero-art { width: min(62vw, 260px); }
   .am-actions { justify-content: center; }
   .am-hero .am-actions .am-btn, .am-artist-in .am-btn { flex: 1 1 40%; justify-content: center; }
-  .am-row-artist { display: none; }
   .am-card { width: 38vw; }
   .am-grid .am-card { width: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .np, .np-art, .am-tile, .am-genre { animation: none; transition: none; } }
 
-/* YouTube bridge: YouTube's own player for YouTube Music songs. Out of view (but still playing) until Now Playing
-   is open, then laid over the artwork so the video shows where the cover would be. */
-.yt-bridge { position: fixed; left: -10000px; top: 0; width: 200px; height: 200px; z-index: 89; pointer-events: none; border-radius: 14px; overflow: hidden; background: #000; opacity: 0; }
-.yt-bridge.shown { opacity: 1; transition: opacity .25s ease; }
-.yt-bridge iframe { width: 100%; height: 100%; border: 0; display: block; }
-/* The phone stopped YouTube's player starting by itself: it sits over the artwork, and one tap on it starts the song */
-.yt-bridge.tap { pointer-events: auto; box-shadow: 0 0 0 3px #fa2d48; }
-.np-tap { margin: -8px 0 0; text-align: center; font-size: 15px; font-weight: 600; color: #fff; }
-.np-tap[hidden] { display: none; }
-/* Where songs play: the Spotify app or StreamBox */
-.am-dest { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 0; border-radius: 999px; background: rgba(255,255,255,.08); color: #f5f5f7; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.am-dest svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; }
-.am-dest[aria-pressed="true"] { background: rgba(29,185,84,.18); color: #1ed760; }
-.np-spotify { display: flex; align-items: center; justify-content: center; gap: 10px; align-self: center; padding: 11px 20px; border-radius: 999px; background: #1db954; color: #000; font-weight: 700; font-size: 15px; }
-.np-spotify[hidden] { display: none; }
-.np-spotify svg { width: 22px; height: 22px; }
-.np-spotify svg circle { fill: #000; }
-.np-spotify svg path { stroke: #1db954; }
-@media (max-width: 640px) { .am-dest { order: 3; } }
-/* Spotify remote control */
-.am-connect { padding: 8px 16px; border: 0; border-radius: 999px; background: #1db954; color: #000; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-.am-setup { margin: 4px var(--gutter) 18px; padding: 18px 20px; border-radius: 16px; background: rgba(29,185,84,.1); border: 1px solid rgba(29,185,84,.35); max-width: 760px; line-height: 1.55; }
-.am-setup h2 { font-size: 20px; margin-bottom: 6px; }
-.am-setup ol { margin: 10px 0 14px 20px; }
+/* Your music: the library menu, adding files, the ⋯ menu, playlists and the music server */
+.am-muted { color: #8e8e93; font-size: 13px; margin-top: 6px; }
+.am-link-btn { border: 0; background: none; color: var(--am); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
+.am-libnav { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 0 24px; padding: 0 var(--gutter) 14px; }
+.am-libnav a { display: flex; align-items: center; gap: 14px; padding: 13px 4px; border-bottom: .5px solid rgba(255,255,255,.12); color: #f5f5f7; font-size: 18px; }
+.am-libnav a svg { flex: none; width: 24px; height: 24px; fill: none; stroke: var(--am); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.am-libnav a span { flex: 1; }
+.am-libnav a small { color: #8e8e93; font-size: 14px; }
+.am-libnav a.active { color: var(--am); }
+.am-import, .am-own, .am-setup { margin: 4px var(--gutter) 22px; padding: 18px 20px; border-radius: 16px; background: rgba(255,255,255,.06); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.am-import h2, .am-own h2 { font-size: 20px; }
+.am-own p { color: #c7c7cc; max-width: 640px; margin-top: 4px; line-height: 1.5; }
+.am-setup { display: block; max-width: 760px; line-height: 1.55; }
+.am-setup ul { margin: 10px 0 12px 20px; }
 .am-setup li { margin: 4px 0; }
-.am-setup a { color: #1ed760; text-decoration: underline; }
-.am-setup code { padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,.1); font-size: 13px; overflow-wrap: anywhere; user-select: all; }
-.am-setup form { display: flex; gap: 8px; flex-wrap: wrap; }
-.am-setup input { flex: 1 1 260px; min-width: 0; padding: 10px 14px; border-radius: 12px; border: 0; background: rgba(118,118,128,.24); color: #fff; font: inherit; font-size: 16px; font-family: ui-monospace, monospace; }
-.am-muted { color: #8e8e93; font-size: 13px; margin-top: 10px; }
-.np-via { display: flex; align-items: center; justify-content: center; gap: 8px; margin: -6px 0 0; color: #1ed760; font-size: 14px; font-weight: 600; }
-.np-via[hidden], .np-wake[hidden] { display: none; }
-.np-via svg { width: 18px; height: 18px; }
-.np-wake { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; color: #e5e5ea; font-size: 15px; line-height: 1.45; }
-.am-sp-line { padding: 0 var(--gutter); }
-.am-link-btn { border: 0; background: none; color: #1ed760; font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
+.am-setup a { color: var(--am); text-decoration: underline; }
+.am-progress { flex: 1 0 100%; display: grid; gap: 6px; }
+.am-progress[hidden] { display: none; }
+.am-progress i { display: block; height: 4px; width: 0; border-radius: 2px; background: var(--am); transition: width .2s; }
+.am-progress span { color: #c7c7cc; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.am-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.am-actions.am-small .btn { font-size: 13px; padding: 6px 14px; min-height: 0; }
+.am-more { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 50%; background: transparent; color: #8e8e93; cursor: pointer; }
+.am-more svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.am-more:hover, .am-more:focus-visible { color: #fff; background: rgba(255,255,255,.1); }
+.am-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.am-form input { flex: 1 1 220px; min-width: 0; padding: 10px 14px; border-radius: 12px; border: 0; background: rgba(118,118,128,.24); color: #fff; font: inherit; font-size: 16px; }
+.am-menu { display: grid; gap: 10px; }
+.am-menu h3 { font-size: 15px; color: #8e8e93; margin-top: 8px; }
+.am-menu-head { display: flex; align-items: center; gap: 14px; padding-right: 52px; }   /* clear of the window's close button */
+.am-menu-head > div { min-width: 0; }
+.am-menu-head h2 { overflow-wrap: anywhere; }
+.am-menu-head h2 { font-size: 20px; }
+.am-menu-head p { color: #8e8e93; }
+.am-menu-acts, .am-menu-lists { display: flex; flex-wrap: wrap; gap: 8px; }
+.am-menu .btn { display: inline-flex; align-items: center; gap: 8px; }
+.am-menu .btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.am-menu .am-row-art { flex: none; width: 56px; height: 56px; border-radius: 8px; }
+.np-info .np-more { width: 44px; height: 44px; }

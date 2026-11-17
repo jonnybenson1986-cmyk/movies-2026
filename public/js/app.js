@@ -624,7 +624,7 @@
       case 'australia': window.StreamBoxAustralia.render(view, arg, { streams: channels.filter(c => !(settings.hideBad && isBad(c))), card: cardHTML }); break;
       case 'countries': renderCountries(arg); break;
       case 'guide': renderGuide(arg); break;
-      case 'music': window.StreamBoxMusic.render(view, arg, { toast, isCurrent: () => version === routeVersion }); break;
+      case 'music': window.StreamBoxMusic.render(view, arg, { toast, openModal, closeModal, isCurrent: () => version === routeVersion }); break;
       case 'country': renderCountry(arg); break;
       case 'movies':
         movies.render(view, arg);

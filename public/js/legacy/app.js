@@ -1,4 +1,4 @@
-/* Generated from js/app.js (sha 5ea72f58f6348cb9) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/app.js (sha 251abc69f1bcc969) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -731,7 +731,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
                     renderGuide(arg);
                     break;
                 case 'music':
-                    window.StreamBoxMusic.render(view, arg, { toast, isCurrent: () => version === routeVersion });
+                    window.StreamBoxMusic.render(view, arg, { toast, openModal, closeModal, isCurrent: () => version === routeVersion });
                     break;
                 case 'country':
                     renderCountry(arg);

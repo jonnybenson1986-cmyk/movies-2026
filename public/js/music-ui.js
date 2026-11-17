@@ -1,13 +1,15 @@
-/* The Music pages, laid out the way Apple Music does it: Listen Now (shelves), Browse (genres), Radio, Library,
-   search, and pages for a playlist, an album and an artist. Plus the mini player that stays at the bottom and
-   the full-screen Now Playing view. Data and playback come from music.js (window.StreamBoxMusic). */
+/* The Music pages, laid out the way Apple Music does it: Listen Now, Browse (genres), Radio, Library (your music,
+   playlists, favourites, history and artists and albums), your music server, search, and pages for a playlist, an
+   album and an artist. Plus the mini player at the bottom and the full-screen Now Playing view.
+   Data and playback come from music.js (window.StreamBoxMusic); your own files from music-local.js. */
 (() => {
   'use strict';
   const M = window.StreamBoxMusic;
   if (!M || !M.player) return;
-  const { esc, clock, GENRES, genreById, player, data } = M;
+  const { esc, clock, GENRES, genreById, player, data, server } = M;
+  const L = () => window.StreamBoxMusicLocal || null;
   const $ = (s, root = document) => root.querySelector(s);
-  let toast = () => {};
+  let toast = () => {}, openModal = null, closeModal = () => {};
 
   const ICON = {
     play: '<svg viewBox="0 0 24 24"><path d="M7 4v16l13-8z" fill="currentColor" stroke="none"/></svg>',
@@ -17,27 +19,33 @@
     heart: '<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>',
     close: '<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     down: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
-    shuffle: '<svg viewBox="0 0 24 24"><path d="M3 7h3c4 0 6 10 10 10h5M3 17h3c1.5 0 2.7-1.4 3.8-3.2M21 7h-5c-1.300 0-2.400 1-3.400 2.400M18 4l3 3-3 3M18 14l3 3-3 3"/></svg>',
+    shuffle: '<svg viewBox="0 0 24 24"><path d="M3 7h3c4 0 6 10 10 10h5M3 17h3c1.5 0 2.7-1.4 3.8-3.2M21 7h-5c-1.3 0-2.4 1-3.4 2.4M18 4l3 3-3 3M18 14l3 3-3 3"/></svg>',
     note: '<svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>',
-    spotify: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#1db954" stroke="none"/><path d="M7 9.5c3.5-1 7-.8 10 .9M7.6 12.6c2.8-.8 5.7-.5 8.2.9M8.2 15.5c2.2-.6 4.4-.4 6.4.7" stroke="#000" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>',
     search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
     check: '<svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg>',
+    more: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg>',
+    plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    folder: '<svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+    server: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>',
+    list: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7M17 15v6M14 18h6"/></svg>',
+    person: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
+    disc: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>',
+    clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   };
 
   // ---- pieces
   const cover = (item, cls = '') => `<span class="am-cover ${cls}">${item.art ? `<img loading="lazy" decoding="async" src="${esc(item.art)}" alt="" onerror="this.remove()">` : ''}${ICON.note}</span>`;
   const favBtn = (item, favs) => { const on = M.isFav(favs, item.key); return `<button type="button" class="am-heart${on ? ' on' : ''}" data-m-fav="${esc(item.key)}" aria-pressed="${on}" aria-label="Favourite ${esc(item.name)}">${ICON.heart}</button>`; };
+  const moreBtn = item => `<button type="button" class="am-more" data-m-more="${esc(item.key)}" aria-label="More for ${esc(item.name)}">${ICON.more}</button>`;
 
-  let shown = new Map(), lists = [];
+  let shown = new Map(), lists = [], context = {};
   const reg = list => { list.forEach(i => shown.set(i.key, i)); lists.push(list); return lists.length - 1; };
 
   const songCard = (item, li, favs) => `<div class="am-card" data-m-play="${esc(item.key)}" data-m-list="${li}">
     <button type="button" class="am-tile" data-m="play" aria-label="Play ${esc(item.name)}${item.artist ? ', ' + esc(item.artist) : ''}">${cover(item)}<span class="am-go">${ICON.play}</span>${item.type === 'radio' ? '<span class="am-live">LIVE</span>' : ''}</button>
     ${favBtn(item, favs)}<span class="am-name">${esc(item.name)}</span><span class="am-by">${esc(item.artist || item.genre || '')}</span></div>`;
-  const linkCard = c => `<a class="am-card am-link" href="${esc(c.href)}"><span class="am-tile">${cover(c)}</span><span class="am-name">${esc(c.name)}</span><span class="am-by">${esc([c.by, c.note && c.kind === 'album' ? c.note : ''].filter(Boolean).join(' · '))}</span></a>`;
-  const artistCard = a => `<a class="am-card am-artist" href="${esc(a.href)}"><span class="am-tile">${cover(a)}</span><span class="am-name">${esc(a.name)}${a.verified ? ' <i class="am-ok" title="Verified artist">' + ICON.check + '</i>' : ''}</span><span class="am-by">Artist</span></a>`;
-  const featureCard = (c, label) => `<a class="am-feature" href="${esc(c.href)}"><span class="am-feature-tag">${esc(label)}</span><span class="am-feature-title">${esc(c.name)}</span><span class="am-feature-by">${esc(c.by)}</span>
-    <span class="am-feature-art">${cover(c)}<span class="am-feature-text"><b>${esc(c.note ? c.note.slice(0, 110) : c.name)}</b><small>${c.count ? `${c.count} songs` : ''}</small></span></span></a>`;
+  const linkCard = c => `<a class="am-card am-link" href="${esc(c.href)}"><span class="am-tile">${cover(c)}</span><span class="am-name">${esc(c.name)}</span><span class="am-by">${esc([c.by, c.note && c.kind === 'album' ? c.note : '', c.count && c.kind === 'mine' ? `${c.count} song${c.count === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · '))}</span></a>`;
+  const artistCard = a => `<a class="am-card am-artist" href="${esc(a.href)}"><span class="am-tile">${cover(a)}</span><span class="am-name">${esc(a.name)}${a.verified ? ' <i class="am-ok" title="Verified artist">' + ICON.check + '</i>' : ''}</span><span class="am-by">${esc(a.sub || (a.followers ? `${a.followers.toLocaleString()} followers` : ''))}</span></a>`;
 
   const shelf = (title, cards, { href = '', cls = '' } = {}) => (cards ? `<section class="row am-shelf ${cls}">
     <div class="row-head"><h2>${esc(title)}</h2>${href ? `<a class="see-all" href="${esc(href)}">See all ›</a>` : ''}</div>
@@ -46,31 +54,30 @@
       <button class="row-arrow right" aria-label="Scroll right"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button></div></section>` : '');
   const songShelf = (title, list, favs, opts) => { if (!list.length) return ''; const li = reg(list); return shelf(title, list.map(i => songCard(i, li, favs)).join(''), opts); };
   const grid = (list, favs) => { const li = reg(list); return `<div class="am-grid">${list.map(i => songCard(i, li, favs)).join('')}</div>`; };
+  const cardGrid = cards => `<div class="am-grid">${cards}</div>`;
 
-  // Apple-style song list: number or artwork, title, artist, length, heart
-  function rows(list, favs, { numbered = false, artistLinks = true } = {}) {
+  // Apple-style song list: number or artwork, title, artist, length, heart, and ⋯ for playlists and more
+  function rows(list, favs, { numbered = false } = {}) {
     if (!list.length) return '';
     const li = reg(list);
     return `<div class="am-rows" role="list">${list.map((s, i) => `<div class="am-row" role="listitem" data-m-play="${esc(s.key)}" data-m-list="${li}">
       <button type="button" class="am-row-main" data-m="play" aria-label="Play ${esc(s.name)}">
-        ${numbered ? `<span class="am-num">${i + 1}</span>` : cover(s, 'am-row-art')}
+        ${numbered ? `<span class="am-num">${s.track || i + 1}</span>` : cover(s, 'am-row-art')}
         <span class="am-row-text"><b>${esc(s.name)}</b><small>${esc([s.artist, s.album].filter(Boolean).join(' · '))}</small></span></button>
-      ${artistLinks && s.artistId ? `<a class="am-row-artist" href="#music/artist/${esc(encodeURIComponent(s.artistId))}" aria-label="Go to ${esc(s.artist)}">Artist</a>` : ''}
-      <span class="am-len">${esc(clock(s.duration))}</span>${favBtn(s, favs)}</div>`).join('')}</div>`;
+      <span class="am-len">${esc(clock(s.duration))}</span>${favBtn(s, favs)}${s.type === 'song' ? moreBtn(s) : ''}</div>`).join('')}</div>`;
   }
   const playButtons = li => `<div class="am-actions"><button type="button" class="btn am-btn" data-m-act="play" data-m-list="${li}">${ICON.play} Play</button><button type="button" class="btn am-btn ghost" data-m-act="shuffle" data-m-list="${li}">${ICON.shuffle} Shuffle</button></div>`;
+  const songsBlock = (title, list, favs, opts = {}) => { if (!list.length) return ''; const li = reg(list); return `<div class="am-sec-head"><h2>${esc(title)}${opts.count ? ` <small>${list.length}</small>` : ''}</h2>${playButtons(li)}</div>${rows(list, favs, opts)}`; };
 
   const TABS = [['', 'Listen Now', 'home'], ['browse', 'Browse', 'browse'], ['radio', 'Radio', 'radio'], ['library', 'Library', 'library']];
-  const tabOf = page => ({ genre: 'browse', charts: 'home', playlist: 'home', album: 'home', artist: 'home', search: 'search' }[page] || page);
+  const tabOf = page => ({ genre: 'browse', playlist: 'home', album: 'home', artist: 'home', search: 'search', mylist: 'library', myartist: 'library', myalbum: 'library', server: 'library', subalbum: 'library', subartist: 'library' }[page] || page);
   function chrome(r, body) {
     const active = tabOf(r.page);
     return `<div class="page am" id="amRoot">
       <div class="am-top"><nav class="am-tabs" aria-label="Music sections">${TABS.map(([path, label, id]) => `<a href="#music${path ? '/' + path : ''}" class="${active === id ? 'active' : ''}"${active === id ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
-        <button type="button" class="am-dest" data-m-dest aria-pressed="${dest() === 'spotify'}" title="Where chart and YouTube songs play">${destLabel()}</button>
-        ${dest() === 'spotify' && !window.StreamBoxSpotify?.connected ? '<button type="button" class="am-connect" data-m-sp="connect">Connect Spotify</button>' : ''}
-        <form class="am-search" id="amSearch" role="search">${ICON.search}<input type="search" name="q" maxlength="80" value="${esc(r.search || '')}" placeholder="Artists, songs, stations" autocomplete="off" aria-label="Search music"></form></div>
+        <form class="am-search" id="amSearch" role="search">${ICON.search}<input type="search" name="q" maxlength="80" value="${esc(r.search || '')}" placeholder="Your music, artists, songs, stations" autocomplete="off" aria-label="Search music"></form></div>
       ${body}
-      <p class="am-note">Today’s Top Songs is <a href="https://music.apple.com/au/browse" target="_blank" rel="noopener noreferrer">Apple Music’s chart</a> for Australia, updated daily, with its official artwork. Chart and YouTube songs play through Spotify: once Spotify is connected (Premium), StreamBox starts them in the Spotify app in the background and shows them here; until then they open in the Spotify app. The switch at the top plays them in YouTube’s own player here instead. Songs, playlists and artist pictures on Audius (published by the artists). Creative Commons songs from Jamendo via Openverse. Concerts and netlabel albums from the Internet Archive. Radio from SomaFM and Radio Browser.</p></div>`;
+      <p class="am-note">Free and legal, no subscription: your own music, your own server, artists who publish on <a href="https://audius.co" target="_blank" rel="noopener noreferrer">Audius</a>, Creative Commons songs from <a href="https://www.jamendo.com" target="_blank" rel="noopener noreferrer">Jamendo</a> (via Openverse), concerts and netlabels on the <a href="https://archive.org/details/audio" target="_blank" rel="noopener noreferrer">Internet Archive</a>, and internet radio. Albums without a cover show their official artwork from Apple’s catalogue.</p></div>`;
   }
   const title = (text, sub = '') => `<header class="am-title"><h1>${esc(text)}</h1>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
   const empty = text => `<div class="empty">${text}</div>`;
@@ -91,31 +98,35 @@
       }
     });
   }
+  const fixed = fn => Object.assign(fn, { fixed: true });   // built-in decoration: doesn't count as content arriving
+
+  // ---- your music on this device, organised
+  const mine = () => M.organise(L()?.all() || []);
+  const myArtistCard = a => artistCard({ name: a.name, art: a.art, href: '#music/my-artist/' + encodeURIComponent(a.name), sub: `${a.songs.length} song${a.songs.length === 1 ? '' : 's'}` });
+  const myAlbumCard = al => linkCard({ kind: 'album', name: al.name, by: al.by, art: al.art, note: al.year, href: '#music/my-album/' + encodeURIComponent(al.key) });
+  const playlistCard = p => linkCard({ kind: 'mine', name: p.name, by: 'Your playlist', art: p.items.find(i => i.art)?.art || '', count: p.items.length, href: '#music/list/' + encodeURIComponent(p.id) });
+  const ownMusicInvite = () => `<section class="am-own"><div><h2>Your music, no subscription</h2><p>Add music files from this device, or connect your own music server (Navidrome and similar), and they sit here alongside free music from artists and radio, with playlists, favourites, shuffle and history.</p></div>
+    <div class="am-actions"><a class="btn am-btn" href="#music/library">${ICON.plus} Add your music</a><a class="btn am-btn ghost" href="#music/server">${ICON.server} Connect a server</a></div></section>`;
 
   // ---- pages
   const pages = {
-    // Apple Music's Top 100 for Australia, numbered
-    charts(view, r, live) {
-      const favs = M.favs();
-      sections(view, r, live, title('Today’s Top Songs', 'Australia · Apple Music chart, updated daily'), [
-        async () => { const t = await data.charts('au'); if (!t.length) return ''; player.warm(t); if (dest() === 'spotify') player.warmSpotify(t); const li = reg(t); return `<div class="am-sec-head"><h2>Top ${t.length}</h2>${playButtons(li)}</div>${rows(t, favs, { numbered: true, artistLinks: false })}`; },
-      ]);
-    },
     home(view, r, live) {
-      const favs = M.favs();
-      const picks = [genreById('pop'), genreById('electronic'), genreById('hiphop'), genreById('rock')];
+      const favs = M.favs(), recent = M.recent(), own = L()?.all() || [], picks = [genreById('pop'), genreById('electronic'), genreById('hiphop'), genreById('rock')];
+      const lists_ = M.playlists();
       sections(view, r, live, title('Listen Now'), [
-        async () => { const t = await data.charts('au'); player.warm(t); if (dest() === 'spotify') player.warmSpotify(t); return songShelf('Today’s Top Songs · Australia', t, favs, { href: '#music/charts' }); },
-        async () => { const p = await data.ytSearch('top hits', 'music_playlists'); return p.length ? `<section class="am-features"><div class="am-feature-track">${p.slice(0, 8).map((c, i) => featureCard(c, i === 0 ? 'Featured playlist' : 'Playlist')).join('')}</div></section>` : ''; },
-        async () => { const p = await data.playlists(); return p.length ? shelf('Playlists on Audius', p.slice(0, 8).map(linkCard).join('')) : ''; },
+        async () => songShelf('Recently Played', recent.slice(0, 20), favs, { href: '#music/library/recent' }),
+        async () => (lists_.length ? shelf('Your Playlists', lists_.map(playlistCard).join(''), { href: '#music/library/playlists' }) : ''),
+        async () => songShelf('Recently Added to My Music', [...own].sort((a, b) => b.added - a.added).slice(0, 20), favs, { href: '#music/library/songs' }),
+        fixed(async () => (!own.length && !server.connected ? ownMusicInvite() : '')),
+        async () => (server.connected ? shelf('New on Your Server', (await data.serverAlbums('newest', 20)).map(linkCard).join(''), { href: '#music/server' }) : ''),
+        async () => { const p = await data.playlists(); return p.length ? shelf('Playlists on Audius', p.slice(0, 10).map(linkCard).join('')) : ''; },
         async () => songShelf('Trending on Audius', await data.trending('', 30), favs),
         async () => { const s = await data.soma(); return songShelf('Radio Stations', s.slice(0, 20), favs, { href: '#music/radio' }); },
-        async () => { const p = await data.playlists(); return shelf('More Playlists on Audius', p.slice(8).map(linkCard).join('')); },
         async () => songShelf('Underground: New & Rising', await data.underground(), favs),
         ...picks.map(g => async () => songShelf(`Top ${g.name}`, await data.trending(g.audius, 20), favs, { href: '#music/genre/' + g.id })),
         async () => songShelf('Creative Commons Picks', await data.cc('pop rock', 20), favs),
         async () => shelf('Live Concerts', (await data.concerts()).map(linkCard).join('')),
-        Object.assign(async () => shelf('Browse by Genre', GENRES.slice(0, 12).map(genreTile).join(''), { href: '#music/browse', cls: 'am-genre-shelf' }), { fixed: true }),   // built in: doesn't count as a source answering
+        fixed(async () => shelf('Browse by Genre', GENRES.slice(0, 12).map(genreTile).join(''), { href: '#music/browse', cls: 'am-genre-shelf' })),
       ]);
     },
     browse(view, r) {
@@ -124,9 +135,10 @@
     genre(view, r, live) {
       const g = genreById(r.genre), favs = M.favs();
       const head = `<header class="am-banner" style="--g1:${g.c[0]};--g2:${g.c[1]}"><a class="am-back" href="#music/browse">‹ Browse</a><h1>${esc(g.name)}</h1></header>`;
+      const own = (L()?.all() || []).filter(s => s.genre && s.genre.toLowerCase().includes(g.q.slice(0, 4)));
       sections(view, r, live, head, [
-        async () => { const s = await data.ytSearch(`${g.name} music`); if (!s.length) return ''; const li = reg(s); return `<div class="am-sec-head"><h2>Top Songs</h2>${playButtons(li)}</div>${rows(s.slice(0, 10), favs, { artistLinks: false })}${s.length > 10 ? songShelf('More ' + g.name, s.slice(10), favs) : ''}`; },
-        async () => { const t = await data.trending(g.audius, 40); if (!t.length) return ''; const li = reg(t); return `<div class="am-sec-head"><h2>Top Songs on Audius</h2>${playButtons(li)}</div>${rows(t.slice(0, 10), favs)}${t.length > 10 ? songShelf('More ' + g.name + ' on Audius', t.slice(10), favs) : ''}`; },
+        async () => songsBlock(`${g.name} in My Music`, own, favs),
+        async () => { const t = await data.trending(g.audius, 40); return t.length ? `${songsBlock('Top Songs on Audius', t.slice(0, 10), favs)}${t.length > 10 ? songShelf('More on Audius', t.slice(10), favs) : ''}` : ''; },
         async () => songShelf('Creative Commons Picks', await data.cc(g.q, 20), favs),
         async () => {
           const [soma, rb] = await Promise.all([data.soma().catch(() => []), data.stations({ tag: g.radio, limit: 30 }).catch(() => [])]);
@@ -139,32 +151,120 @@
       const favs = M.favs(), g = genreById(r.genre);
       const chips = `<div class="chips am-chips"><a class="chip${!g && !r.search ? ' active' : ''}" href="#music/radio">🇦🇺 Australia</a>${GENRES.map(x => `<a class="chip${g === x ? ' active' : ''}" href="#music/radio/${x.id}">${esc(x.name)}</a>`).join('')}</div>`;
       const head = `${title('Radio', r.search ? `Stations matching “${r.search}”` : g ? `${g.name} stations` : 'Live stations')}
-        <form class="am-inline-search" id="amRadioSearch"><input type="search" name="q" maxlength="80" value="${esc(r.search || '')}" placeholder="Find a station by name…" autocomplete="off" aria-label="Find a radio station"><button class="btn am-btn" type="submit">Find</button></form>${chips}`;
+        <form class="am-inline-search" id="amRadioSearch"><input type="search" name="q" maxlength="80" value="${esc(r.search || '')}" placeholder="Find a station by name…" autocomplete="off" aria-label="Find a radio station"><button class="btn am-btn" type="submit">Search</button></form>${chips}`;
       sections(view, r, live, head, [
         async () => { if (r.search) return ''; const s = await data.soma(); const pick = g ? s.filter(x => g.soma.includes(x.genre)) : s; return songShelf('SomaFM · commercial-free', pick, favs); },
         async () => { const s = await data.stations(r.search ? { name: r.search } : g ? { tag: g.radio } : { cc: 'AU' }); return s.length ? `<div class="am-sec-head"><h2>${r.search ? 'Stations' : g ? `${esc(g.name)} stations` : 'Australian stations'}</h2></div>${grid(s, favs)}` : ''; },
       ]);
-      $('#amRadioSearch', view).addEventListener('submit', e => { e.preventDefault(); const text = new FormData(e.currentTarget).get('q').trim().slice(0, 80); location.hash = text ? 'music/radio/search/' + encodeURIComponent(text) : 'music/radio'; });
     },
+
+    // Library: your music, organised, and everything you keep
     library(view, r) {
-      const favs = M.favs(), songs = favs.filter(i => i.type === 'song'), radios = favs.filter(i => i.type === 'radio');
-      let body = empty('Tap the ♥ on a song or a radio station to keep it here.<br>Your library is saved to your account, so it follows you to your other devices.');
-      if (favs.length) {
-        const li = songs.length ? reg(songs) : -1;
-        body = `${songs.length ? `<div class="am-sec-head"><h2>Songs <small>${songs.length}</small></h2>${playButtons(li)}</div>${rows(songs, favs)}` : ''}
-          ${radios.length ? `<div class="am-sec-head"><h2>Stations <small>${radios.length}</small></h2></div>${grid(radios, favs)}` : ''}`;
+      const part = r.part, favs = M.favs(), own = mine(), lists_ = M.playlists(), recent = M.recent();
+      const parts = [['playlists', 'Playlists', ICON.list, lists_.length], ['artists', 'Artists', ICON.person, own.artists.length], ['albums', 'Albums', ICON.disc, own.albums.length], ['songs', 'Songs', ICON.note, own.songs.length], ['favourites', 'Favourites', ICON.heart, favs.length], ['recent', 'Recently Played', ICON.clock, recent.length]];
+      const nav = `<nav class="am-libnav" aria-label="Your library">${parts.map(([id, label, icon, n]) => `<a href="#music/library/${id}" class="${part === id ? 'active' : ''}">${icon}<span>${label}</span><small>${n || ''}</small></a>`).join('')}<a href="#music/server" class="">${ICON.server}<span>${server.connected ? 'Your Server' : 'Connect a Server'}</span><small></small></a></nav>`;
+      const adder = `<section class="am-import" id="amImport"><div><h2>My Music</h2><p class="am-muted" id="amSpace">${own.songs.length ? `${own.songs.length} song${own.songs.length === 1 ? '' : 's'} on this device` : 'Add your own music files: they’re kept on this device and play with no connection.'}</p></div>
+        <div class="am-actions"><button type="button" class="btn am-btn" data-m-add="files">${ICON.plus} Add music files</button>${L()?.canPickFolder ? `<button type="button" class="btn am-btn ghost" data-m-add="folder">${ICON.folder} Add a folder</button>` : ''}</div>
+        <input type="file" id="amFiles" accept="audio/*,.mp3,.m4a,.aac,.flac,.wav,.ogg,.opus" multiple hidden><input type="file" id="amFolder" webkitdirectory multiple hidden>
+        <div class="am-progress" id="amProgress" hidden><i></i><span></span></div></section>`;
+      let body;
+      if (part === 'songs') body = own.songs.length ? songsBlock('Songs', own.songs, favs, { count: true }) : empty('No songs on this device yet. Use <b>Add music files</b> above.');
+      else if (part === 'artists') body = own.artists.length ? cardGrid(own.artists.map(myArtistCard).join('')) : empty('Artists appear here once you add music.');
+      else if (part === 'albums') body = own.albums.length ? cardGrid(own.albums.map(myAlbumCard).join('')) : empty('Albums appear here once you add music.');
+      else if (part === 'playlists') body = `<div class="am-sec-head"><h2>Playlists <small>${lists_.length}</small></h2><div class="am-actions"><button type="button" class="btn am-btn" data-m-newlist>${ICON.plus} New Playlist</button></div></div>
+        ${lists_.length ? cardGrid(lists_.map(playlistCard).join('')) : empty('Make a playlist with <b>New Playlist</b>, or with the ⋯ button on any song.')}`;
+      else if (part === 'favourites') {
+        const songs = favs.filter(i => i.type === 'song'), radios = favs.filter(i => i.type === 'radio');
+        body = favs.length ? `${songsBlock('Favourite Songs', songs, favs, { count: true })}${radios.length ? `<div class="am-sec-head"><h2>Stations <small>${radios.length}</small></h2></div>${grid(radios, favs)}` : ''}`
+          : empty('Tap the ♥ on a song or a radio station to keep it here.<br>Favourites are saved to your account, so they follow you to your other devices.');
+      } else if (part === 'recent') body = recent.length ? `${songsBlock('Recently Played', recent.filter(i => i.type === 'song'), favs)}${recent.some(i => i.type === 'radio') ? songShelf('Stations', recent.filter(i => i.type === 'radio'), favs) : ''}<p class="am-about"><button type="button" class="am-link-btn" data-m-clear>Clear listening history</button></p>` : empty('Songs and stations you play show up here.');
+      else {
+        body = `${adder}${songShelf('Recently Added', [...own.songs].sort((a, b) => b.added - a.added).slice(0, 20), favs, { href: '#music/library/songs' })}
+          ${own.albums.length ? shelf('Albums', own.albums.slice(0, 20).map(myAlbumCard).join(''), { href: '#music/library/albums' }) : ''}
+          ${lists_.length ? shelf('Your Playlists', lists_.map(playlistCard).join(''), { href: '#music/library/playlists' }) : ''}
+          ${songShelf('Recently Played', recent.slice(0, 20), favs, { href: '#music/library/recent' })}`;
       }
-      const spotifyLine = window.StreamBoxSpotify?.connected ? '<p class="am-muted am-sp-line">Spotify is connected on this device. <button type="button" class="am-link-btn" data-m-sp="disconnect">Disconnect Spotify</button></p>' : '';
-      view.innerHTML = chrome(r, `${title('Library', 'Your favourites')}${spotifyLine}${body}`);
+      view.innerHTML = chrome(r, `${title(part ? parts.find(p => p[0] === part)[1] : 'Library')}${nav}${body}`);
+      if (!part) showSpace(view);
     },
+    myartist(view, r) {
+      const a = mine().artists.find(x => x.name.toLowerCase() === r.name.toLowerCase());
+      if (!a) { view.innerHTML = chrome(r, empty('That artist isn’t in your music on this device.')); return; }
+      const favs = M.favs(), li = reg(a.songs);
+      view.innerHTML = chrome(r, `<header class="am-hero"><span class="am-hero-art">${cover({ art: a.art })}</span><div class="am-hero-text"><span class="am-kind">Artist · My Music</span><h1>${esc(a.name)}</h1>
+        <p class="am-hero-meta">${esc(`${a.albums.length} album${a.albums.length === 1 ? '' : 's'} · ${a.songs.length} song${a.songs.length === 1 ? '' : 's'}`)}</p>${playButtons(li)}</div></header>
+        ${shelf('Albums', a.albums.map(myAlbumCard).join(''))}${songsBlock('Songs', [...a.songs].sort((x, y) => x.name.localeCompare(y.name)), favs)}`);
+    },
+    myalbum(view, r) {
+      const al = mine().albums.find(x => x.key === r.key);
+      if (!al) { view.innerHTML = chrome(r, empty('That album isn’t in your music on this device.')); return; }
+      const favs = M.favs(), li = reg(al.songs), total = al.songs.reduce((n, s) => n + (s.duration || 0), 0);
+      view.innerHTML = chrome(r, `<header class="am-hero"><span class="am-hero-art">${cover({ art: al.art })}</span><div class="am-hero-text"><span class="am-kind">Album · My Music</span><h1>${esc(al.name)}</h1>
+        <p class="am-hero-by"><a href="#music/my-artist/${esc(encodeURIComponent(al.by))}">${esc(al.by)}</a></p>
+        <p class="am-hero-meta">${esc([al.year, `${al.songs.length} song${al.songs.length === 1 ? '' : 's'}`, total ? `${Math.round(total / 60)} min` : ''].filter(Boolean).join(' · '))}</p>${playButtons(li)}</div></header>${rows(al.songs, favs, { numbered: true })}`);
+    },
+    mylist(view, r) {
+      const p = M.playlists().find(x => x.id === r.id);
+      if (!p) { view.innerHTML = chrome(r, empty('That playlist doesn’t exist any more. <a href="#music/library/playlists">Your playlists ›</a>')); return; }
+      const favs = M.favs(), songs = p.items.filter(i => i.type === 'song'), li = songs.length ? reg(songs) : -1, total = songs.reduce((n, s) => n + (s.duration || 0), 0);
+      context = { playlist: p.id };
+      view.innerHTML = chrome(r, `<header class="am-hero"><span class="am-hero-art">${cover({ art: songs.find(s => s.art)?.art || '' })}</span><div class="am-hero-text"><span class="am-kind">Your Playlist</span><h1>${esc(p.name)}</h1>
+        <p class="am-hero-meta">${esc([`${songs.length} song${songs.length === 1 ? '' : 's'}`, total ? `${Math.round(total / 60)} min` : ''].filter(Boolean).join(' · '))}</p>
+        ${songs.length ? playButtons(li) : ''}<div class="am-actions am-small"><button type="button" class="btn am-btn ghost" data-m-list-act="rename">Rename</button><button type="button" class="btn am-btn ghost" data-m-list-act="delete">Delete</button></div></div></header>
+        ${songs.length ? rows(songs, favs) : empty('Add songs with the ⋯ button next to any song, then choose this playlist.')}`);
+    },
+
+    // your own music server
+    server(view, r, live) {
+      if (!server.connected) {
+        view.innerHTML = chrome(r, `${title('Your Music Server', 'Your whole collection, on every device')}
+          <section class="am-setup"><p>Run a free, open-source music server at home or on a small cloud machine, point it at your music folder, and StreamBox plays it on your phone, tablet, TV and computer, with its artists, albums, playlists and cover art. Any server that speaks the <b>Subsonic API</b> works:</p>
+          <ul><li><a href="https://www.navidrome.org" target="_blank" rel="noopener noreferrer">Navidrome</a> (recommended: light, fast, runs on a Raspberry Pi or a NAS)</li><li><a href="https://github.com/sentriz/gonic" target="_blank" rel="noopener noreferrer">Gonic</a>, <a href="https://github.com/airsonic-advanced/airsonic-advanced" target="_blank" rel="noopener noreferrer">Airsonic-Advanced</a>, or Jellyfin with its Subsonic plugin</li></ul>
+          <p class="am-muted">It needs an <b>https://</b> address that StreamBox can reach (for example through Tailscale, Cloudflare Tunnel or your NAS’s own https link). Your password isn’t stored: only a signed token, on this device.</p>
+          <form id="amServerForm" class="am-form"><input name="url" type="url" required placeholder="https://music.example.com" aria-label="Server address" autocomplete="url">
+            <input name="user" required placeholder="Username" aria-label="Username" autocomplete="username" autocapitalize="none" spellcheck="false">
+            <input name="password" type="password" required placeholder="Password" aria-label="Password" autocomplete="current-password">
+            <button class="btn am-btn" type="submit">Connect</button></form></section>`);
+        $('#amServerForm', view).addEventListener('submit', async e => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget), btn = e.currentTarget.querySelector('button');
+          btn.disabled = true; btn.textContent = 'Connecting…';
+          try { await server.connect(f.get('url'), f.get('user'), f.get('password')); toast('Music server connected'); rerender?.(); }
+          catch (err) { toast(err.message); btn.disabled = false; btn.textContent = 'Connect'; }
+        });
+        return;
+      }
+      const favs = M.favs(), host = (() => { try { return new URL(server.settings.url).host; } catch { return ''; } })();
+      sections(view, r, live, `${title('Your Music Server', `${server.settings.user} on ${host}`)}<p class="am-about"><button type="button" class="am-link-btn" data-m-disconnect>Disconnect this server</button></p>`, [
+        async () => shelf('Newest Albums', (await data.serverAlbums('newest', 24)).map(linkCard).join('')),
+        async () => shelf('Most Played', (await data.serverAlbums('frequent', 24)).map(linkCard).join('')),
+        async () => { const s = await data.serverRandom(40); return s.length ? `${songsBlock('Shuffle Your Collection', s.slice(0, 12), favs)}` : ''; },
+        async () => { const a = await data.serverArtists(); return a.length ? `<div class="am-sec-head"><h2>Artists <small>${a.length}</small></h2></div>${cardGrid(a.slice(0, 120).map(x => artistCard({ ...x, sub: `${x.albums} album${x.albums === 1 ? '' : 's'}` })).join(''))}` : ''; },
+      ]);
+    },
+    async subalbum(view, r, live) { return pages.collection(view, r, live, () => data.serverAlbum(r.id), 'Album · Your Server', '#music/server'); },
+    async subartist(view, r, live) {
+      view.innerHTML = chrome(r, '<div class="am-wait"><div class="spinner"></div></div>');
+      try {
+        const { info, albums } = await data.serverArtist(r.id);
+        if (!live()) return;
+        view.innerHTML = chrome(r, `<header class="am-hero"><span class="am-hero-art">${cover({ art: info?.art })}</span><div class="am-hero-text"><span class="am-kind">Artist · Your Server</span><h1>${esc(info?.name || '')}</h1>
+          <p class="am-hero-meta">${albums.length} album${albums.length === 1 ? '' : 's'}</p></div></header>${albums.length ? cardGrid(albums.map(linkCard).join('')) : empty('No albums.')}`);
+      } catch (e) { if (live()) fail(view, r, e, '#music/server'); }
+    },
+
     search(view, r, live) {
       const favs = M.favs(), text = r.search;
-      if (!text) { view.innerHTML = chrome(r, `${title('Search')}${empty('Type an artist, a song or a station above.')}`); return; }
+      if (!text) { view.innerHTML = chrome(r, `${title('Search')}${empty('Type an artist, a song, an album or a station above.')}`); return; }
+      const own = M.organise((L()?.all() || []).filter(s => M.matches(s, text)));
+      const myLists = M.playlists().filter(p => M.matches({ name: p.name }, text));
       sections(view, r, live, title('Search', `Results for “${text}”`), [
-        async () => { const s = await data.ytSearch(text); return s.length ? `<div class="am-sec-head"><h2>Songs</h2></div>${rows(s.slice(0, 12), favs, { artistLinks: false })}${s.length > 12 ? songShelf('More songs', s.slice(12), favs) : ''}` : ''; },
-        async () => shelf('Playlists', (await data.ytSearch(text, 'music_playlists')).map(linkCard).join('')),
+        async () => songsBlock('In My Music', own.songs.slice(0, 30), favs),
+        async () => (own.albums.length ? shelf('Albums in My Music', own.albums.map(myAlbumCard).join('')) : ''),
+        async () => (myLists.length ? shelf('Your Playlists', myLists.map(playlistCard).join('')) : ''),
+        async () => { if (!server.connected) return ''; const s = await data.serverSearch(text); return `${songsBlock('On Your Server', s.songs, favs)}${shelf('Albums on Your Server', s.albums.map(linkCard).join(''))}${shelf('Artists on Your Server', s.artists.map(a => artistCard({ ...a, sub: 'Your server' })).join(''), { cls: 'am-artists' })}`; },
         async () => shelf('Artists on Audius', (await data.artistSearch(text)).map(artistCard).join(''), { cls: 'am-artists' }),
-        async () => { const s = await data.songSearch(text); return s.length ? `<div class="am-sec-head"><h2>Songs on Audius</h2></div>${rows(s.slice(0, 12), favs)}${s.length > 12 ? songShelf('More songs on Audius', s.slice(12), favs) : ''}` : ''; },
+        async () => { const s = await data.songSearch(text); return s.length ? `${songsBlock('Songs on Audius', s.slice(0, 12), favs)}${s.length > 12 ? songShelf('More songs on Audius', s.slice(12), favs) : ''}` : ''; },
         async () => shelf('Playlists on Audius', (await data.playlistSearch(text)).map(linkCard).join('')),
         async () => songShelf('Creative Commons Songs', await data.cc(text, 20), favs),
         async () => songShelf('Stations', await data.stations({ name: text, limit: 30 }), favs),
@@ -178,19 +278,20 @@
         if (!live()) return;
         if (!info) throw new Error('That couldn’t be found.');
         const favs = M.favs(), li = tracks.length ? reg(tracks) : -1, total = tracks.reduce((n, t) => n + (t.duration || 0), 0);
+        const byHref = info.byId ? (r.page === 'subalbum' ? '#music/server/artist/' : '#music/artist/') + encodeURIComponent(info.byId) : '';
         view.innerHTML = chrome(r, `<header class="am-hero"><span class="am-hero-art">${cover({ art: M.bigArt(info) || info.art })}</span>
           <div class="am-hero-text"><span class="am-kind">${esc(kindLabel)}</span><h1>${esc(info.name)}</h1>
-            <p class="am-hero-by">${info.byId ? `<a href="#music/artist/${esc(encodeURIComponent(info.byId))}">${esc(info.by)}</a>` : esc(info.by)}</p>
+            <p class="am-hero-by">${byHref ? `<a href="${esc(byHref)}">${esc(info.by)}</a>` : esc(info.by)}</p>
             <p class="am-hero-meta">${esc([note || (info.kind === 'album' ? info.note : ''), `${tracks.length} song${tracks.length === 1 ? '' : 's'}`, total ? `${Math.round(total / 60)} min` : ''].filter(Boolean).join(' · '))}</p>
             ${tracks.length ? playButtons(li) : ''}</div></header>
           ${info.kind === 'playlist' && info.note ? `<p class="am-about">${esc(info.note.slice(0, 400))}</p>` : ''}
-          ${tracks.length ? rows(tracks, favs, { numbered: info.kind === 'album', artistLinks: info.kind !== 'album' }) : empty('Nothing here can be played in the app.')}
-          ${info.kind === 'album' ? `<p class="am-about"><a href="https://archive.org/details/${esc(encodeURIComponent(info.id))}" target="_blank" rel="noopener noreferrer">About this recording on the Internet Archive ↗</a></p>` : ''}`);
+          ${tracks.length ? rows(tracks, favs, { numbered: info.kind === 'album' }) : empty('Nothing here can be played in the app.')}
+          ${info.kind === 'album' && r.page === 'album' ? `<p class="am-about"><a href="https://archive.org/details/${esc(encodeURIComponent(info.id))}" target="_blank" rel="noopener noreferrer">About this recording on the Internet Archive ↗</a></p>` : ''}`);
         mark();
       } catch (e) { if (live()) fail(view, r, e, backHref); }
     },
-    playlist(view, r, live) { return pages.collection(view, r, live, () => data.playlist(r.id), 'Playlist', '#music'); },
-    album(view, r, live) { return pages.collection(view, r, live, () => data.album(r.id), 'Album', '#music'); },
+    playlist(view, r, live) { return pages.collection(view, r, live, () => data.playlist(r.id), 'Playlist · Audius', '#music'); },
+    album(view, r, live) { return pages.collection(view, r, live, () => data.album(r.id), 'Album · Internet Archive', '#music'); },
     async artist(view, r, live) {
       view.innerHTML = chrome(r, '<div class="am-wait"><div class="spinner"></div></div>');
       try {
@@ -204,7 +305,7 @@
               <p class="am-hero-meta">${esc([info.where, `${info.followers.toLocaleString()} followers`, `${info.tracks} songs`].filter(Boolean).join(' · '))}</p>
               ${tracks.length ? playButtons(li) : ''}</div></div></header>
           ${info.bio ? `<p class="am-about">${esc(info.bio.slice(0, 500))}</p>` : ''}
-          ${tracks.length ? `<div class="am-sec-head"><h2>Top Songs</h2></div>${rows(tracks, favs, { artistLinks: false })}` : empty('This artist has no songs to play yet.')}
+          ${tracks.length ? `<div class="am-sec-head"><h2>Top Songs</h2></div>${rows(tracks, favs)}` : empty('This artist has no songs to play yet.')}
           <p class="am-about"><a href="https://audius.co/${esc(encodeURIComponent(info.handle))}" target="_blank" rel="noopener noreferrer">${esc(info.name)} on Audius ↗</a></p>`);
         mark();
       } catch (e) { if (live()) fail(view, r, e, '#music'); }
@@ -212,80 +313,108 @@
   };
   const genreTile = g => `<a class="am-genre" href="#music/genre/${g.id}" style="--g1:${g.c[0]};--g2:${g.c[1]}"><span>${esc(g.name)}</span></a>`;
   function fail(view, r, e, back) {
-    view.innerHTML = chrome(r, `<div class="empty"><b>Couldn’t load this.</b><br>${esc(e.message)}<br><button class="btn btn-more" id="amRetry" type="button" style="margin-top:14px">Try again</button> <a class="btn btn-more" href="${esc(back)}" style="margin-top:14px">Back to Music</a></div>`);
+    view.innerHTML = chrome(r, `<div class="empty"><b>Couldn’t load this.</b><br>${esc(e.message)}<br><button class="btn btn-more" id="amRetry" type="button" style="margin-top:14px">Try again</button> <a class="btn btn-more" href="${esc(back || '#music')}" style="margin-top:14px">Back</a></div>`);
     $('#amRetry', view).onclick = () => rerender?.();
+  }
+  async function showSpace(view) {
+    const s = await L()?.space?.(), el = $('#amSpace', view), n = L()?.count || 0;
+    if (!el || !s || !n) return;
+    const gb = b => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b < 1e6 ? 'under 1 MB' : `${Math.round(b / 1e6)} MB`);
+    el.textContent = `${n} song${n === 1 ? '' : 's'} on this device · ${gb(s.used)} used, about ${gb(s.free)} free`;
+  }
+
+  // ---- adding your own music
+  async function addFiles(view, files) {
+    if (!files?.length || !L()) return;
+    const box = $('#amProgress', view), bar = box?.querySelector('i'), label = box?.querySelector('span');
+    if (box) box.hidden = false;
+    try {
+      const r = await L().add(files, (done, total, name) => {
+        if (bar) bar.style.width = `${total ? (done / total) * 100 : 0}%`;
+        if (label) label.textContent = done < total ? `Adding ${done + 1} of ${total}: ${name}` : 'Finishing…';
+      });
+      toast(r.total ? `Added ${r.added} song${r.added === 1 ? '' : 's'}${r.skipped ? `, ${r.skipped} already here` : ''}${r.failed ? `, ${r.failed} couldn’t be added` : ''}` : 'No music files there');
+    } catch (e) { toast(e.message || 'Couldn’t add music on this device'); }
+    rerender?.();
+  }
+
+  // A name typed into the app's own window (prompt() is awkward with a TV remote)
+  function ask(heading, value, button, done) {
+    if (!openModal) { const v = prompt(heading, value); if (v !== null) done(v); return; }
+    openModal(`<div class="modal-body am-menu"><h2>${esc(heading)}</h2><form class="am-form" id="amAsk"><input name="v" maxlength="80" value="${esc(value)}" aria-label="${esc(heading)}" autofocus><button class="btn btn-red" type="submit">${esc(button)}</button></form></div>`);
+    const form = document.querySelector('#modal #amAsk');
+    form?.querySelector('input')?.focus();
+    form?.addEventListener('submit', e => { e.preventDefault(); const v = new FormData(form).get('v'); closeModal(); done(String(v)); });
+  }
+
+  // ---- the ⋯ menu for a song: play next, favourite, playlists, and (for your own files) its album and removal
+  function songMenu(item) {
+    if (!openModal) return;
+    const lists_ = M.playlists(), inList = context.playlist, fav = M.isFav(M.favs(), item.key);
+    openModal(`<div class="modal-body am-menu"><div class="am-menu-head">${cover(item, 'am-row-art')}<div><h2>${esc(item.name)}</h2><p>${esc([item.artist, item.album].filter(Boolean).join(' · '))}</p></div></div>
+      <div class="am-menu-acts"><button type="button" class="btn btn-more" data-mm="next">${ICON.next} Play Next</button><button type="button" class="btn btn-more" data-mm="fav">${ICON.heart} ${fav ? 'Remove from Favourites' : 'Add to Favourites'}</button>
+        ${inList ? `<button type="button" class="btn btn-more" data-mm="up">Move Up</button><button type="button" class="btn btn-more" data-mm="down">Move Down</button><button type="button" class="btn btn-more" data-mm="unlist">Remove from This Playlist</button>` : ''}
+        ${item.src === 'local' ? `<a class="btn btn-more" href="#music/my-album/${esc(encodeURIComponent(M.organise([item]).albums[0].key))}">${ICON.disc} Go to Album</a><button type="button" class="btn btn-more" data-mm="delete">Remove from This Device</button>` : ''}</div>
+      <h3>Add to a Playlist</h3><div class="am-menu-lists">${lists_.filter(p => p.id !== inList).map(p => `<button type="button" class="btn btn-more" data-mm-add="${esc(p.id)}">${ICON.list} ${esc(p.name)}</button>`).join('') || '<p class="am-muted">No playlists yet.</p>'}</div>
+      <form class="am-form" id="amNewList"><input name="name" maxlength="80" placeholder="New playlist name" aria-label="New playlist name"><button class="btn btn-red" type="submit">${ICON.plus} New Playlist</button></form></div>`);
+    const body = document.querySelector('#modal .am-menu');
+    if (!body) return;
+    body.addEventListener('click', e => {
+      const b = e.target.closest('[data-mm], [data-mm-add]');
+      if (!b) return;
+      if (b.dataset.mmAdd) { M.playlist.add(b.dataset.mmAdd, [item]); toast(`Added to “${M.playlists().find(p => p.id === b.dataset.mmAdd)?.name || 'playlist'}”`); }
+      else if (b.dataset.mm === 'next') { player.playNext(item); toast(player.current?.key === item.key ? 'Playing' : 'Plays next'); }
+      else if (b.dataset.mm === 'fav') toast(M.favourite(item) ? 'Added to Favourites' : 'Removed from Favourites');
+      else if (b.dataset.mm === 'unlist') { M.playlist.remove(inList, item.key); toast('Removed from this playlist'); }
+      else if (b.dataset.mm === 'up' || b.dataset.mm === 'down') M.playlist.move(inList, item.key, b.dataset.mm === 'up' ? -1 : 1);
+      else if (b.dataset.mm === 'delete') { if (!confirm(`Remove “${item.name}” from this device?`)) return; if (player.current?.key === item.key) player.stop(); L()?.remove(item.id).then(() => { toast('Removed from this device'); rerender?.(); }); }
+      closeModal(); rerender?.();
+    });
+    body.querySelector('#amNewList').addEventListener('submit', e => {
+      e.preventDefault();
+      const name = new FormData(e.currentTarget).get('name');
+      M.playlist.create(name, [item]);
+      toast(`Added to new playlist “${String(name).trim() || 'New Playlist'}”`);
+      closeModal(); rerender?.();
+    });
   }
 
   // ---- one click handler for the whole Music page
   let rerender = null;
-  // Where chart and YouTube songs play: in the Spotify app (the default) or here in StreamBox (YouTube's player)
-  const DEST = 'sb:music-dest';
-  const dest = () => { try { return localStorage.getItem(DEST) === 'here' ? 'here' : 'spotify'; } catch { return 'spotify'; } };
-  function setDest(value) {
-    try { localStorage.setItem(DEST, value); } catch { /* private mode */ }
-    document.querySelectorAll('[data-m-dest]').forEach(b => { b.innerHTML = destLabel(); b.setAttribute('aria-pressed', String(value === 'spotify')); });
-    toast(value === 'spotify' ? 'Songs open in the Spotify app' : 'Songs play here in StreamBox');
-  }
-  const destLabel = () => (dest() !== 'spotify' ? `${ICON.note}<span>Songs play in StreamBox</span>`
-    : window.StreamBoxSpotify?.connected ? `${ICON.spotify}<span>Playing through Spotify</span>` : `${ICON.spotify}<span>Songs open in Spotify</span>`);
-  // ---- connecting Spotify (remote control: StreamBox picks, the Spotify app plays in the background)
-  async function connectSpotify(view) {
-    try { await window.StreamBoxSpotify.connect(location.hash || '#music'); }
-    catch (e) { if (e.code === 'no-client') showSetup(view); else toast(e.message); }
-  }
-  function showSetup(view) {
-    const root = view.querySelector('#amRoot'), old = view.querySelector('#amSetup');
-    if (!root || old) { old?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-    const redirect = window.StreamBoxSpotify.redirectUri(location.origin);
-    root.querySelector('.am-top').insertAdjacentHTML('afterend', `<section class="am-setup" id="amSetup">
-      <h2>Connect Spotify</h2>
-      <p>StreamBox picks the songs and shows Now Playing; the Spotify app plays them in the background, so you never have to switch apps. It needs <b>Spotify Premium</b>, and a free Spotify developer app (one-off, about two minutes):</p>
-      <ol><li>Open <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer">developer.spotify.com/dashboard</a>, sign in, and choose <b>Create app</b>.</li>
-        <li>Any name and description. Under <b>Redirect URIs</b> add exactly: <code>${esc(redirect)}</code></li>
-        <li>Tick <b>Web API</b>, save, then copy the app's <b>Client ID</b> into the box below.</li>
-        <li>In the app's <b>User Management</b>, add the Spotify email of everyone who will use it.</li></ol>
-      <form id="amSetupForm"><input name="id" maxlength="32" autocomplete="off" spellcheck="false" placeholder="Client ID (32 letters and numbers)" aria-label="Spotify Client ID"><button class="btn am-btn" type="submit">Save and connect</button></form>
-      <p class="am-muted">The Client ID isn't secret. To set it for every device at once, add it in Netlify as the environment variable <code>SPOTIFY_CLIENT_ID</code>.</p></section>`);
-    view.querySelector('#amSetupForm').addEventListener('submit', e => {
-      e.preventDefault();
-      try { window.StreamBoxSpotify.setClientId(new FormData(e.currentTarget).get('id')); connectSpotify(view); } catch (err) { toast(err.message); }
-    });
-  }
-  // Opened from inside the tap (phones only let a tap open another app). The Spotify app opens at the song.
-  function openSpotify(item) {
-    if (!player.paused) player.pause();
-    const a = document.createElement('a');
-    a.href = M.spotifyUrl(item); a.target = '_blank'; a.rel = 'noopener noreferrer';
-    document.body.appendChild(a); a.click(); a.remove();
-    toast(`Opening “${item.name}” in Spotify`);
-  }
-
-  function onClick(e) {
+  function onClick(e, view) {
     const fav = e.target.closest('[data-m-fav]');
-    if (fav) { const item = shown.get(fav.dataset.mFav) || (player.current?.key === fav.dataset.mFav ? player.current : null); if (item) toast(M.favourite(item) ? 'Added to your Library' : 'Removed from your Library'); return; }
+    if (fav) { const item = shown.get(fav.dataset.mFav) || (player.current?.key === fav.dataset.mFav ? player.current : null); if (item) toast(M.favourite(item) ? 'Added to Favourites' : 'Removed from Favourites'); return; }
+    const more = e.target.closest('[data-m-more]');
+    if (more) { const item = shown.get(more.dataset.mMore); if (item) songMenu(item); return; }
     const act = e.target.closest('[data-m-act]');
     if (act) {
       const list = (lists[+act.dataset.mList] || []).filter(i => i.type === 'song');
       if (!list.length) return;
       const shuffle = act.dataset.mAct === 'shuffle';
-      player.start(shuffle ? list[Math.floor(Math.random() * list.length)] : list[0], list, { shuffle, spotify: dest() === 'spotify' && !!window.StreamBoxSpotify?.connected });
+      player.start(shuffle ? list[Math.floor(Math.random() * list.length)] : list[0], list, { shuffle });
       return;
     }
-    if (e.target.closest('[data-m-dest]')) { setDest(dest() === 'spotify' ? 'here' : 'spotify'); rerender?.(); return; }
-    const sp = e.target.closest('[data-m-sp]');
-    if (sp) {
-      if (sp.dataset.mSp === 'connect') connectSpotify(sp.closest('#view') || document.querySelector('#view'));
-      else if (sp.dataset.mSp === 'disconnect') { window.StreamBoxSpotify.disconnect(); if (player.engine === 'spotify') player.stop(); toast('Spotify disconnected on this device'); rerender?.(); }
+    const add = e.target.closest('[data-m-add]');
+    if (add) { $(add.dataset.mAdd === 'folder' ? '#amFolder' : '#amFiles', view)?.click(); return; }
+    if (e.target.closest('[data-m-newlist]')) {
+      ask('New Playlist', '', 'Create', name => { const id = M.playlist.create(name, []); location.hash = 'music/list/' + encodeURIComponent(id); });
       return;
     }
+    const la = e.target.closest('[data-m-list-act]');
+    if (la && context.playlist) {
+      const p = M.playlists().find(x => x.id === context.playlist);
+      if (la.dataset.mListAct === 'rename') { const id = context.playlist; ask('Rename Playlist', p?.name || '', 'Save', name => { M.playlist.rename(id, name); rerender?.(); }); }
+      else if (confirm(`Delete the playlist “${p?.name || ''}”? The songs stay where they are.`)) { M.playlist.delete(context.playlist); location.hash = 'music/library/playlists'; }
+      return;
+    }
+    if (e.target.closest('[data-m-clear]')) { M.clearRecent(); rerender?.(); return; }
+    if (e.target.closest('[data-m-disconnect]')) { server.disconnect(); toast('Music server disconnected on this device'); rerender?.(); return; }
     const hit = e.target.closest('[data-m="play"]')?.closest('[data-m-play]');
     if (!hit) return;
     const item = shown.get(hit.dataset.mPlay);
     if (!item) return;
-    const viaSpotify = dest() === 'spotify' && !!window.StreamBoxSpotify?.connected;
-    if (dest() === 'spotify' && M.onSpotify(item) && !viaSpotify) { openSpotify(item); return; }   // not connected yet: opens in the Spotify app
     if (player.current?.key === item.key) player.toggle();
-    else player.start(item, (lists[+hit.dataset.mList] || [item]).filter(i => i.type === item.type), { spotify: viaSpotify });
+    else player.start(item, (lists[+hit.dataset.mList] || [item]).filter(i => i.type === item.type));
   }
 
   // The app keeps the same page container and replaces its contents, so the listeners are attached once
@@ -293,28 +422,32 @@
   function wire(view) {
     if (wired.has(view)) return;
     wired.add(view);
-    view.addEventListener('click', e => { if (location.hash.startsWith('#music')) onClick(e); });
+    view.addEventListener('click', e => { if (location.hash.startsWith('#music')) onClick(e, view); });
+    // the files are copied out before the input is cleared (clearing it empties the same list), so the same files can be picked again
+    view.addEventListener('change', e => { if (e.target.id === 'amFiles' || e.target.id === 'amFolder') { const files = [...(e.target.files || [])]; e.target.value = ''; addFiles(view, files); } });
     view.addEventListener('submit', e => {
-      if (e.target.id !== 'amSearch') return;
-      e.preventDefault();
-      const text = new FormData(e.target).get('q').trim().slice(0, 80);
-      location.hash = text ? 'music/search/' + encodeURIComponent(text) : 'music';
+      if (e.target.id === 'amSearch') {
+        e.preventDefault();
+        const text = new FormData(e.target).get('q').trim().slice(0, 80);
+        location.hash = text ? 'music/search/' + encodeURIComponent(text) : 'music';
+      } else if (e.target.id === 'amRadioSearch') {
+        e.preventDefault();
+        const text = new FormData(e.target).get('q').trim().slice(0, 80);
+        location.hash = text ? 'music/radio/search/' + encodeURIComponent(text) : 'music/radio';
+      }
     });
   }
-  let libraryCount = -1;
   function render(view, arg, ctx = {}) {
-    toast = ctx.toast || toast;
+    toast = ctx.toast || toast; openModal = ctx.openModal || openModal; closeModal = ctx.closeModal || closeModal;
     player.onProblem = (item, why) => toast(`Couldn’t play “${item.name}”${why ? `: ${why}` : ''}`);
-    player.onNotice = text => toast(text);
-    player.prepare?.();   // the YouTube bridge is loaded before the first song is tapped
     const live = ctx.isCurrent || (() => true);
     const r = M.parseRoute(arg);
-    shown = new Map(); lists = [];
-    rerender = () => render(view, arg, ctx);
-    libraryCount = r.page === 'library' ? M.favs().length : -1;
+    shown = new Map(); lists = []; context = {};
+    rerender = () => { if (live()) render(view, arg, ctx); };
     wire(view);
-    (pages[r.page] || pages.home)(view, r, live);
-    mark();
+    const go = () => { if (live()) { (pages[r.page] || pages.home)(view, r, live); mark(); } };
+    const lib = L();
+    if (lib) lib.load().then(go, () => go()); else go();
   }
 
   // ================================================================ mini player + Now Playing
@@ -335,14 +468,10 @@
       <button class="np-down" id="npDown" type="button" aria-label="Close Now Playing">${ICON.down}</button>
       <div class="np-main">
         <div class="np-art" id="npArt"></div>
-        <p class="np-tap" id="npTap" hidden>Tap the picture to start the full song</p>
-        <div class="np-info"><div class="np-text"><b id="npTitle"></b><a id="npArtist" href="#music"></a></div><button type="button" class="am-heart np-heart" id="npFav" aria-label="Favourite" aria-pressed="false">${ICON.heart}</button></div>
+        <div class="np-info"><div class="np-text"><b id="npTitle"></b><a id="npArtist" href="#music"></a></div><button type="button" class="am-heart np-heart" id="npFav" aria-label="Favourite" aria-pressed="false">${ICON.heart}</button><button type="button" class="am-more np-more" id="npMore" aria-label="More">${ICON.more}</button></div>
         <div class="np-scrub" id="npScrub"><input type="range" id="npSeek" min="0" max="1000" value="0" aria-label="Position in the song"><div class="np-times"><span id="npElapsed">0:00</span><span id="npLeft"></span></div></div>
         <div class="np-live" id="npLive" hidden><span class="dot"></span>LIVE RADIO</div>
-        <div class="np-controls"><button class="icon-btn" id="npPrev" type="button" aria-label="Previous">${ICON.prev}</button><button class="icon-btn np-play" id="npPlay" type="button" aria-label="Pause">${ICON.pause}</button><button class="icon-btn" id="npNext" type="button" aria-label="Next">${ICON.next}</button></div>
-        <a class="np-spotify" id="npSpotify" target="_blank" rel="noopener noreferrer" hidden>${ICON.spotify}<span>Play the full song on Spotify</span></a>
-        <p class="np-via" id="npVia" hidden>${ICON.spotify}<span></span></p>
-        <div class="np-wake" id="npWake" hidden><p>Open the Spotify app once, then come back: StreamBox will start the song on it and keep control from here.</p><a class="np-spotify" href="spotify://">${ICON.spotify}<span>Open Spotify</span></a></div>
+        <div class="np-controls"><button class="icon-btn" id="npShuffle" type="button" aria-label="Shuffle the rest">${ICON.shuffle}</button><button class="icon-btn" id="npPrev" type="button" aria-label="Previous">${ICON.prev}</button><button class="icon-btn np-play" id="npPlay" type="button" aria-label="Pause">${ICON.pause}</button><button class="icon-btn" id="npNext" type="button" aria-label="Next">${ICON.next}</button></div>
         <p class="np-hint">Keeps playing with the screen off. Use the lock-screen controls to pause or skip.</p>
       </div>
       <div class="np-queue" id="npQueue"></div>
@@ -350,24 +479,25 @@
   document.body.append(bar, np);
   const audio = player.audio, seek = $('#npSeek');
 
-  const openNP = () => { if (!player.current) return; np.hidden = false; document.body.classList.add('np-open'); sync(); placeBridge?.(); $('#npDown').focus({ preventScroll: true }); };
-  const closeNP = () => { if (np.hidden) return; np.hidden = true; document.body.classList.remove('np-open'); placeBridge?.(); };
+  const openNP = () => { if (!player.current) return; np.hidden = false; document.body.classList.add('np-open'); sync(); $('#npDown').focus({ preventScroll: true }); };
+  const closeNP = () => { if (np.hidden) return; np.hidden = true; document.body.classList.remove('np-open'); };
 
   function mark() {   // highlight what is playing, and keep the hearts right, on the page behind
     const key = player.current?.key, favs = M.favs();
     document.querySelectorAll('[data-m-play]').forEach(el => { const on = el.dataset.mPlay === key; el.classList.toggle('playing', on); el.classList.toggle('paused', on && player.paused); });
     document.querySelectorAll('[data-m-fav]').forEach(b => { const on = M.isFav(favs, b.dataset.mFav); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
   }
-  let lastKey = '';
+  const artistHref = c => (c.src === 'local' ? '#music/my-artist/' + encodeURIComponent(c.albumArtist || c.artist) : c.src === 'sub' && c.artistId ? '#music/server/artist/' + encodeURIComponent(c.artistId) : c.src === 'audius' && c.artistId ? '#music/artist/' + encodeURIComponent(c.artistId) : '');
+  let lastKey = '', lastArt = '';
   function sync() {
     const c = player.current;
-    if (libraryCount >= 0 && location.hash.startsWith('#music/library') && M.favs().length !== libraryCount) rerender?.();   // a favourite was added or removed
     mark();
     if (!c) { bar.hidden = true; document.body.classList.remove('has-music'); closeNP(); lastKey = ''; return; }
     bar.hidden = false; document.body.classList.add('has-music');
     const paused = player.paused, many = player.queue.length > 1, radio = c.type === 'radio';
-    if (c.key !== lastKey) {
-      lastKey = c.key;
+    if (c.key !== lastKey || c.art !== lastArt) {   // a new song, or its poster just arrived
+      if (c.key !== lastKey) { seek.value = 0; $('#npElapsed').textContent = '0:00'; $('#musicProgress').style.width = '0%'; }
+      lastKey = c.key; lastArt = c.art;
       $('#musicArt').innerHTML = cover(c);
       $('#musicTitle').textContent = c.name;
       $('#musicSub').textContent = radio ? `LIVE · ${c.artist || 'Radio'}` : c.artist;
@@ -375,21 +505,14 @@
       $('#npArt').innerHTML = cover({ art: big });
       $('#npBg').style.backgroundImage = big ? `url("${big.replace(/["\\\n]/g, '')}")` : '';
       $('#npTitle').textContent = c.name;
-      const a = $('#npArtist'); a.textContent = c.artist || (radio ? 'Radio' : '');
-      if (c.artistId) a.href = '#music/artist/' + encodeURIComponent(c.artistId); else a.removeAttribute('href');
-      $('#npScrub').hidden = radio; $('#npLive').hidden = !radio;
-      seek.value = 0; $('#npElapsed').textContent = '0:00'; $('#npLeft').textContent = c.duration ? '-' + clock(c.duration) : '';
-      $('#musicProgress').style.width = '0%';
+      const a = $('#npArtist'), href = artistHref(c); a.textContent = c.artist || (radio ? 'Radio' : '');
+      if (href) a.href = href; else a.removeAttribute('href');
+      $('#npScrub').hidden = radio; $('#npLive').hidden = !radio; $('#npMore').hidden = radio; $('#npShuffle').hidden = radio;
+      $('#npLeft').textContent = c.duration ? '-' + clock(c.duration) : '';
     }
     for (const id of ['#musicPlay', '#npPlay']) { const b = $(id); b.innerHTML = paused ? ICON.play : ICON.pause; b.setAttribute('aria-label', paused ? 'Play' : 'Pause'); }
-    for (const id of ['#musicPrev', '#musicNext', '#npPrev', '#npNext']) $(id).disabled = !many;
+    for (const id of ['#musicPrev', '#musicNext', '#npPrev', '#npNext', '#npShuffle']) $(id).disabled = !many;
     np.classList.toggle('paused', paused);
-    const onSp = player.engine === 'spotify';
-    const sp = $('#npSpotify'); sp.hidden = onSp || !M.onSpotify(c); if (!sp.hidden) sp.href = M.spotifyUrl(c);
-    const via = $('#npVia'); via.hidden = !onSp || player.needsSpotify; via.querySelector('span').textContent = `Playing through Spotify${player.spotifyDevice ? ` on ${player.spotifyDevice}` : ''}`;
-    $('#npWake').hidden = !player.needsSpotify;
-    if (player.needsSpotify && np.hidden && !wakeShown) { wakeShown = true; openNP(); }
-    if (!player.needsSpotify) wakeShown = false;
     const fav = M.isFav(M.favs(), c.key);
     $('#npFav').classList.toggle('on', fav); $('#npFav').setAttribute('aria-pressed', String(fav));
     if (!np.hidden) {
@@ -397,27 +520,6 @@
       $('#npQueue').innerHTML = next.length ? `<h3>Up Next</h3>${next.map((s, n) => `<button type="button" class="np-next" data-np="${n + 1}">${cover(s, 'am-row-art')}<span class="am-row-text"><b>${esc(s.name)}</b><small>${esc(s.artist || '')}</small></span></button>`).join('')}` : '';
     }
   }
-  // The YouTube bridge (YouTube's own player) is shown over the artwork while Now Playing is open and a YouTube
-  // song plays on it; the rest of the time it waits in a small box out of view, still playing.
-  const bridge = player.bridge;
-  let tapShown = false, wakeShown = false;
-  function placeBridge() {
-    if (!bridge) return;
-    // The phone stopped the player starting by itself: show it, so one tap on it starts the full song
-    if (player.needsTap && np.hidden && !tapShown) { tapShown = true; openNP(); }
-    if (!player.needsTap) tapShown = false;
-    $('#npTap').hidden = !player.needsTap;
-    bridge.classList.toggle('tap', !!player.needsTap && !np.hidden);
-    const show = !np.hidden && player.engine === 'yt';
-    bridge.classList.toggle('shown', show);
-    if (!show) return;
-    const r = $('#npArt').getBoundingClientRect();
-    Object.assign(bridge.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
-  }
-  addEventListener('resize', placeBridge);
-  np.addEventListener('transitionend', placeBridge);
-  np.addEventListener('animationend', placeBridge);
-  document.addEventListener('sb-music', placeBridge);
   function tick() {
     const d = audio.duration, t = audio.currentTime;
     if (!(d > 0) || !Number.isFinite(d)) return;
@@ -430,13 +532,14 @@
   document.addEventListener('sb-music', sync);
 
   $('#musicOpen').onclick = openNP;
-  $('#musicPlay').onclick = $('#npPlay').onclick = () => (player.needsTap ? openNP() : player.toggle());
+  $('#musicPlay').onclick = $('#npPlay').onclick = () => player.toggle();
   $('#musicPrev').onclick = $('#npPrev').onclick = () => player.step(-1);
   $('#musicNext').onclick = $('#npNext').onclick = () => player.step(1);
   $('#musicClose').onclick = () => player.stop();
   $('#npDown').onclick = closeNP;
-  $('#npSpotify').addEventListener('click', () => { if (!player.paused) player.pause(); });   // the Spotify app takes over
-  $('#npFav').onclick = () => { if (player.current) toast(M.favourite(player.current) ? 'Added to your Library' : 'Removed from your Library'); };
+  $('#npShuffle').onclick = () => { player.shuffleRest(); toast('Shuffled what’s next'); };
+  $('#npFav').onclick = () => { if (player.current) toast(M.favourite(player.current) ? 'Added to Favourites' : 'Removed from Favourites'); };
+  $('#npMore').onclick = () => { if (player.current) { closeNP(); songMenu(player.current); } };
   $('#npArtist').addEventListener('click', closeNP);
   seek.addEventListener('input', () => { if (audio.duration > 0) player.seekTo((seek.value / 1000) * audio.duration); });
   $('#npQueue').addEventListener('click', e => { const b = e.target.closest('[data-np]'); if (!b) return; const q = player.queue; player.start(q[(player.index + +b.dataset.np) % q.length], q); });

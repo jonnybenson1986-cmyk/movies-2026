@@ -43,17 +43,6 @@ People never see each other's data. Signing out clears the lists from that devic
 
 **Tests:** `npm test` covers the sign-in (`tests/gate.test.mjs`), the stored data and sync (`tests/accounts.test.mjs`).
 
-## Connecting Spotify (one-off setup)
-
-Spotify remote control needs a free Spotify developer app (no secret is used: the sign-in is OAuth with PKCE, and each device keeps its own tokens for the signed-in StreamBox person; signing out of StreamBox forgets them).
-
-1. At [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) choose **Create app**. Under **Redirect URIs** add `https://<your-site>/spotify-callback.html` (the Music page shows the exact address). Tick **Web API** and save.
-2. Copy the app's **Client ID** into Netlify as the environment variable `SPOTIFY_CLIENT_ID` (or paste it into the box the Music page shows; that only sets it on that device).
-3. While the Spotify app is in development mode, add the Spotify account email of each person who will use it under **User Management**.
-4. Each person taps **Connect Spotify** once. **Library → Disconnect Spotify** undoes it on a device.
-
-The code is `public/js/spotify.js`, `public/spotify-callback.html` and `netlify/functions/spotify-config.mjs`, with tests in `tests/spotify.test.mjs`.
-
 ## Sign in with Face ID or a fingerprint
 
 Each person can sign in with their face or fingerprint instead of typing their password, the way banking and other apps do. On the web this is a **passkey**: the device's own Face ID, Touch ID, fingerprint reader or Windows Hello.
@@ -112,7 +101,7 @@ The app (`android/`) opens the website full screen, so **website changes reach i
 - the remote's D-pad, Back and media keys;
 - full-screen video;
 - the screen staying on while something plays;
-- links to VLC and Spotify opening those apps.
+- links to VLC and other apps opening those apps.
 
 Back closes the player or window on top, then goes back a page, then leaves the app.
 
@@ -218,35 +207,44 @@ Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other
 
 ## Music
 
-**Music** (`#music`, in the top bar and the phone tab bar) is laid out the way Apple Music is:
+**Music** (`#music`) is a personal music system with **no subscription**: your own music and free, legal music platforms in one place, laid out the way Apple Music is.
 
-- **Listen Now** – shelves in priority order: **Today's Top Songs · Australia** (Apple Music's real chart; *See all* shows the numbered Top 100), Featured playlists (YouTube Music), Playlists on Audius, Trending on Audius, Radio Stations, More Playlists on Audius, Underground, Top Pop / Electronic / Hip-Hop / Rock, Creative Commons Picks, Live Concerts, and Browse by Genre.
-- **Browse** – 22 genre tiles. A genre page gathers that genre from every source: top songs (with Play and Shuffle), Creative Commons picks, radio, and netlabel albums.
-- **Radio** – SomaFM's commercial-free channels with their logos, Australian stations first, then stations by genre or by name.
-- **Library** – your favourites: tap the ♥ on any song or station. Saved to the signed-in person's account, so each person has their own and it follows them to their other devices.
-- **Search** – artists (round pictures), songs, playlists, Creative Commons songs, stations, and albums & concerts in one go.
-- **Playlist, album and artist pages** – big artwork, Play / Shuffle, and an Apple-style song list. Artist pages show the artist's own cover photo and picture, with a tick when Audius has verified them.
+- **Listen Now**: what you played recently, your playlists, music you added recently, new albums on your server, then free music: playlists and trending songs from Audius, radio, new artists, top songs by genre, Creative Commons picks and live concerts.
+- **Browse**: 22 genres, each gathering that genre from your music and every free source.
+- **Radio**: SomaFM's commercial-free channels, Australian stations first, then stations by genre or name.
+- **Library**: Playlists, Artists, Albums, Songs, Favourites and Recently Played. This is also where you add your own music and connect a music server.
+- **Search**: one box searches your music (songs, albums, playlists, in any word order), your server, and every free source.
+- **Every song** has ♥ (favourite) and ⋯: *Play Next*, *Add to a Playlist* (or start a new one), *Go to Album* and *Remove from This Device* for your own files, and *Move Up/Down* or *Remove* inside a playlist.
+- **Play and Shuffle** on every list. In Now Playing, the shuffle button shuffles what's coming up without restarting the song playing.
 
-**Where the music comes from** (all open, no API keys):
+**Where the music comes from** (all free and legal, no keys):
 
 | Source | What it gives |
 |---|---|
-| Spotify | **Chart and YouTube songs play through Spotify.** Once someone connects Spotify (*Connect Spotify* on the Music page; needs **Spotify Premium**), StreamBox remote-controls the Spotify app through Spotify's official Web API (Spotify Connect): you pick songs in StreamBox, the Spotify app on the same device plays them in the background, and StreamBox shows Now Playing with the artwork, play / pause, skip, scrubbing and progress ("Playing through Spotify on <device>"). The song and the ones after it go to Spotify as one list, so it carries on by itself with the screen off. If the Spotify app isn't running, Now Playing asks you to open it once and then carries on when you come back. Until Spotify is connected, songs open in the Spotify app instead. The switch at the top (*Songs play in StreamBox*) plays them in YouTube's own player here instead. Spotify's sound never passes through StreamBox: Spotify doesn't allow that, and an iPad doesn't let one app play another's audio |
-| Apple Music charts | Today's Top Songs: Apple's official most-played chart for Australia (`rss.marketingtools.apple.com`), refreshed daily, with official artwork. Each song plays **in full** in YouTube's own player, matched by title and artist (live versions, remixes and covers are passed over). The best few uploads are kept, so if the owner of one (often the official video) has switched off playing it on other sites, the next one (usually YouTube Music's official audio) plays. If a phone stops the player starting by itself, Now Playing opens with the player and one tap on it starts the song. A song with no playable upload is played from Audius if the same artist published it there, otherwise skipped. No 30-second previews |
-| YouTube Music | Search and playlists, first in every list — reached the same way the [Open-Source-Music-Streaming-Apps](https://github.com/chayotic/Open-Source-Music-Streaming-Apps) apps do it, through community Piped and Invidious instances fronted by the site's `/api/music-yt` function |
+| **My Music** (this device) | Your own files: *Library → Add music files* (or *Add a folder* on computers). They're stored in the browser's own database (IndexedDB), play with no connection, and never leave the device. Song details come from the files' tags, read by [jsmediatags](https://github.com/aadsm/jsmediatags) (open source, BSD licence, loaded from cdnjs only while adding): title, artist, album artist, album, track and disc, year, genre and the embedded cover. Without tags, folder and file names are used (`Artist/Album/01 Title.mp3`, or `Artist - Title.mp3`). |
+| **Your music server** (optional) | Your whole collection on every device: [Navidrome](https://www.navidrome.org) (recommended), [Gonic](https://github.com/sentriz/gonic), [Airsonic-Advanced](https://github.com/airsonic-advanced/airsonic-advanced) or anything else that speaks the open **Subsonic API**. *Library → Connect a Server* asks for its `https://` address, username and password. Only a signed token is kept (md5 of password and salt, as the API defines); the password isn't stored and is never sent. The server's artists, albums, newest and most-played albums, shuffle, search and cover art all show up in StreamBox. |
 | [Audius](https://audius.co) | Songs, playlists and artists, published by the artists themselves |
-| [Openverse](https://openverse.org) | Creative Commons songs (Jamendo's catalogue), searched by genre |
+| [Openverse](https://openverse.org) | Creative Commons songs (Jamendo's catalogue) |
 | [Internet Archive](https://archive.org/details/etree) | Live concerts (the Live Music Archive) and netlabel albums |
-| [SomaFM](https://somafm.com) | About 50 listener-supported radio channels |
-| [Radio Browser](https://www.radio-browser.info) | Community directory of internet radio; only `https` streams are listed |
+| [SomaFM](https://somafm.com) and [Radio Browser](https://www.radio-browser.info) | Listener-supported and community-listed internet radio; only `https` streams are listed |
 
-**Artwork** is always the official picture the artist, label or station published with the music: the track or playlist cover and the artist's picture from Audius (the largest size on the Now Playing and lock screens), the album cover from Jamendo, the station's logo from SomaFM, and the Archive's image for a recording. Nothing is guessed or matched from elsewhere, so a few items have no picture and show a note icon.
+**Posters**: everything shows its artwork. Songs from the free sources use the cover their artist, label or station published. Your files use their embedded cover; an album without one gets its **official artwork**, looked up by artist and album in Apple's public catalogue search (`netlify/functions/music-art.mjs`, `/api/music-art`). That lookup returns only the picture's address, and it's saved with the songs so it happens once.
 
-**Player, made for phones and tablets.** A mini player stays above the tab bar while you use the rest of the app. Tap it for **Now Playing**: full-screen artwork over a blurred backdrop, a scrubber, large previous / play / next buttons, ♥, and **Up Next** (beside the artwork on tablets, below it on phones). Swipe down or tap the chevron to put it away.
+**What's kept, and where**:
+- **Favourites** (`sb:music`) sync to the signed-in person's account. Your own files and server songs are kept by their id, never by an address, because a server song's address carries the sign-in token.
+- **Playlists** (`sb:music-playlists`), **listening history** (`sb:music-recent`, last 100) and the **server connection** (`sb:music-server`) stay on the device.
+- Signing out forgets the server connection.
 
-**Screen off.** Music keeps playing when the phone is locked or the app is in the background: it plays through a single audio element, and the phone's lock screen and notification shade show the song, its artwork and play / pause / next / previous / scrub controls (the Media Session API). The next song starts by itself while locked, and a radio station that drops out on a patchy connection is reconnected. On iPhone and iPad this works in Safari and in the app added to the Home Screen; opening a TV channel or a video pauses the music.
+**Player.** One audio element plays everything, so music keeps going with the screen off. The lock screen, Control Center and headphones get the song, its poster and play/pause/next/previous/seek. A mini player stays above the tab bar; tap it for **Now Playing**, which has the poster, a scrubber, controls, ♥, ⋯ and Up Next. Your own files start inside the tap that asked for them, which phones require. Long sessions are fine: your files are read from the device one song at a time.
 
-The code is `public/js/music.js` (sources, favourites, player), `public/js/music-ui.js` (pages, mini player, Now Playing), `public/css/music.css`, `netlify/functions/music-yt.mjs` (the YouTube Music backend and the Apple chart; it never hands out audio addresses: songs play in YouTube's embedded player) and `netlify/lib/account-data.mjs`, with tests in `tests/music.test.mjs` and `tests/music-yt.test.mjs`. Openverse allows a couple of hundred anonymous searches a day per network, so its answers are kept for six hours. The [Open-Source-Music-Streaming-Apps](https://github.com/chayotic/Open-Source-Music-Streaming-Apps) list that prompted the page is a catalogue of separate apps; StreamBox now uses the YouTube Music backends those apps use, kept behind the site's own function and prioritised over the open sources, so a failing instance never breaks the page.
+**How it fits together (for developers).**
+- `public/js/music.js`: sources, the Subsonic client, favourites, playlists, history, organising by artist and album, and the player. Its first half is plain logic, tested on its own.
+- `public/js/music-local.js`: My Music (IndexedDB stores `tracks`, `files` and `art`; importing; tags).
+- `public/js/music-ui.js`: the pages, the ⋯ menu, the mini player and Now Playing.
+- `public/css/music.css` and `netlify/functions/music-art.mjs`.
+- Tests: `tests/music.test.mjs` and `tests/music-art.test.mjs`.
+
+To add another free source, add an item builder (like `songItem`) and a `data.*` loader in `music.js`, then a shelf or section in `music-ui.js`.
 
 ## Why some channels don't play in the app (and what fixes each)
 

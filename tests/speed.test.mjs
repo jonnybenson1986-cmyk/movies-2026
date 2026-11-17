@@ -70,7 +70,7 @@ test('the web font never holds up the first screen', () => {
 
 test('every class in the stylesheets is used somewhere in the app', () => {
   const code = readdirSync(new URL('../public/js/', import.meta.url)).filter(f => f.endsWith('.js')).map(f => read('js/' + f)).join('\n')
-    + ['index.html', 'spotify-callback.html', 'playback-protection.html'].map(read).join('\n');
+    + ['index.html', 'playback-protection.html'].map(read).join('\n');
   for (const f of readdirSync(new URL('../public/css/', import.meta.url)).filter(f => f.endsWith('.css'))) {
     const css = read('css/' + f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\([^)]*\)/g, '');
     for (const [, cls] of css.matchAll(/\.([a-zA-Z][\w-]*)/g)) {

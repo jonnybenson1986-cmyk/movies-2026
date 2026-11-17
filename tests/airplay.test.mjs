@@ -27,7 +27,7 @@ test('while on the TV: a "Playing on your TV" screen, controls stay up, lock scr
   assert.match(html, /id="airPrompt"/);
   assert.match(app, /!onAirPlay\(\)\) player\.classList\.add\('idle'\)/);
   for (const action of ['play', 'pause', 'stop', 'nexttrack', 'previoustrack', 'seekforward', 'seekbackward']) assert.match(app, new RegExp(`on\\('${action}'`), action);
-  assert.match(read('js/music.js'), /media\.addEventListener\('play', \(\) => \{ if \(current\) describe\(current\); claimSession\(\); \}\)/, 'music takes the lock screen back');
+  assert.match(read('js/music.js'), /media\.addEventListener\('play', \(\) => \{ if \(current && !silent\(\)\) describe\(current\); claimSession\(\); \}\)/, 'music takes the lock screen back');
 });
 
 test('the AirPlay button is there on any browser that can AirPlay, so nobody has to fall back to Screen Mirroring', () => {

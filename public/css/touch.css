@@ -18,7 +18,7 @@ html { -webkit-tap-highlight-color: transparent; }
   .modal-close { width: 44px; height: 44px; }
   .am-tabs a { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
   .am-heart { width: 44px; height: 44px; }
-  .am-btn, .am-dest, .am-connect { min-height: 44px; }
+  .am-btn, .am-more { min-height: 44px; min-width: 44px; }
   .am-row-main { min-height: 56px; }
   .epg-prog { min-height: 76px; }
   .zap-key { width: 48px; height: 48px; }
@@ -36,9 +36,9 @@ html { -webkit-tap-highlight-color: transparent; }
   .am-go { opacity: 1; width: 34px; height: 34px; left: 8px; bottom: 8px; }
 
   /* ---------- Pressed feedback ---------- */
-  .btn:active, .chip:active, .icon-btn:active, .am-tabs a:active, .am-dest:active, .am-connect:active, .am-btn:active,
+  .btn:active, .chip:active, .icon-btn:active, .am-tabs a:active, .am-btn:active,
   .tabbar a:active, .tab-more:active, .more-grid > *:active, .zap-key:active, .epg-prog:active { transform: scale(.96); opacity: .82; }
-  .card:active, .am-tile:active, .am-genre:active, .country-tile:active, .classic-card:active, .am-feature:active { transform: scale(.97); transition: transform .08s; }
+  .card:active, .am-tile:active, .am-genre:active, .country-tile:active, .classic-card:active { transform: scale(.97); transition: transform .08s; }
   .am-row:active, .zap-row:active { background: rgba(255,255,255,.1); }
 }
 

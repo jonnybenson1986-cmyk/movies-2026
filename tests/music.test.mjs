@@ -63,9 +63,7 @@ test('every genre maps to each source, and stream and search addresses are built
   assert.equal(new Set(m.GENRES.map(g => g.id)).size, m.GENRES.length);
   for (const g of m.GENRES) assert.ok(g.name && g.audius && g.q && g.radio && Array.isArray(g.soma) && g.c.length === 2, g.id);
   assert.equal(m.genreById('hiphop').audius, 'Hip-Hop/Rap'); assert.equal(m.genreById('nope'), null);
-  assert.equal(m.streamUrl(m.songItem(track({ id: 'a/b' }))), 'https://api.audius.co/v1/tracks/a%2Fb/stream?app_name=StreamBox');
-  assert.equal(m.streamUrl(m.ccItem(cc())), 'https://prod-1.storage.jamendo.com/?trackid=1227396&format=mp32');
-  assert.equal(m.streamUrl(m.stationItem(station())), 'https://live.example/triplej.mp3');
+  assert.equal(m.urls.stream('a/b'), 'https://api.audius.co/v1/tracks/a%2Fb/stream?app_name=StreamBox');
   const t = new URL(m.urls.trending('Hip-Hop/Rap'));
   assert.equal(t.pathname, '/v1/tracks/trending'); assert.equal(t.searchParams.get('genre'), 'Hip-Hop/Rap'); assert.equal(t.searchParams.get('app_name'), 'StreamBox');
   assert.equal(new URL(m.urls.trending('<nope>')).searchParams.has('genre'), false, 'unknown genres are ignored');
@@ -75,28 +73,6 @@ test('every genre maps to each source, and stream and search addresses are built
   assert.equal(m.urls.archiveItem('a b'), 'https://archive.org/metadata/a%20b');
   const s = new URLSearchParams(m.urls.stations({ cc: 'AU' }).split('?')[1]);
   assert.equal(s.get('countrycode'), 'AU'); assert.equal(s.get('is_https'), 'true'); assert.equal(s.has('tag'), false);
-});
-
-test('a YouTube Music song is played by its id, and its playlists carry the yt- prefix', () => {
-  const v = { id: 'khnokW3Mw24', name: ' Instant Crush ', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', duration: 338 };
-  assert.deepEqual(m.ytSong(v), { key: 'y:khnokW3Mw24', type: 'song', src: 'yt', id: 'khnokW3Mw24', name: 'Instant Crush', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', duration: 338, genre: '' });
-  assert.equal(m.ytSong({ ...v, art: 'http://plain.example/x.jpg' }).art, '', 'only https artwork is used');
-  assert.equal(m.ytSong({ ...v, id: 'too short' }), null);
-  assert.equal(m.ytSong({ ...v, name: '' }), null);
-  assert.equal(m.ytSong(null), null);
-  const p = m.ytPlaylist({ id: 'PLrAXtmErZgOdP_8GztsuPi9g_pyC8S1ys', name: 'Today’s hits', by: 'YouTube Music', count: 50, art: 'https://p.example/c.jpg' });
-  assert.deepEqual(p, { kind: 'playlist', id: 'yt-PLrAXtmErZgOdP_8GztsuPi9g_pyC8S1ys', name: 'Today’s hits', by: 'YouTube Music', art: 'https://p.example/c.jpg', count: 50, note: '', href: '#music/playlist/yt-PLrAXtmErZgOdP_8GztsuPi9g_pyC8S1ys' });
-  assert.equal(m.ytPlaylist({ id: 'short', name: 'x' }), null);
-});
-
-test('a YouTube Music favourite keeps no stream address: it is re-resolved when played', () => {
-  const y = m.ytSong({ id: 'khnokW3Mw24', name: 'Instant Crush', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', duration: 338 });
-  const list = m.toggleFav([], y);
-  assert.equal('url' in list[0], false);
-  assert.ok(m.validFav(list[0]));
-  assert.ok(!m.validFav({ ...list[0], src: 'other' }), 'a song from an unknown source still needs its own address');
-  assert.equal(m.streamUrl(y), '', 'the address is looked up through /api/music-yt when the song starts');
-  assert.deepEqual(JSON.parse(JSON.stringify(list[0])), { key: 'y:khnokW3Mw24', type: 'song', src: 'yt', id: 'khnokW3Mw24', name: 'Instant Crush', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', genre: '', duration: 338 });
 });
 
 test('favourites: newest first, no duplicates, and tapping again removes', () => {
@@ -129,12 +105,21 @@ test('page addresses map to what is shown', () => {
   assert.deepEqual(m.parseRoute('radio'), { page: 'radio', genre: '' });
   assert.deepEqual(m.parseRoute('radio/jazz'), { page: 'radio', genre: 'jazz' });
   assert.deepEqual(m.parseRoute('radio/search/abc'), { page: 'radio', search: 'abc' });
-  assert.deepEqual(m.parseRoute('library'), { page: 'library' });
-  assert.deepEqual(m.parseRoute('favourites'), { page: 'library' }, 'the old address still works');
+  assert.deepEqual(m.parseRoute('library'), { page: 'library', part: '' });
+  assert.deepEqual(m.parseRoute('library/artists'), { page: 'library', part: 'artists' });
+  assert.deepEqual(m.parseRoute('library/<x>'), { page: 'library', part: '' });
+  assert.deepEqual(m.parseRoute('favourites'), { page: 'library', part: 'favourites' }, 'the old address still works');
+  assert.deepEqual(m.parseRoute('list/abc123'), { page: 'mylist', id: 'abc123' });
+  assert.deepEqual(m.parseRoute('my-artist/AC/DC'), { page: 'myartist', name: 'AC/DC' });
+  assert.deepEqual(m.parseRoute('my-album/ac/dc||back in black'), { page: 'myalbum', key: 'ac/dc||back in black' });
+  assert.deepEqual(m.parseRoute('server'), { page: 'server' });
+  assert.deepEqual(m.parseRoute('server/album/al-1'), { page: 'subalbum', id: 'al-1' });
+  assert.deepEqual(m.parseRoute('server/artist/ar-9'), { page: 'subartist', id: 'ar-9' });
+  assert.deepEqual(m.parseRoute('charts'), { page: 'home' }, 'the old chart page goes to Listen Now');
   assert.deepEqual(m.parseRoute('playlist/DOPRl'), { page: 'playlist', id: 'DOPRl' });
   assert.deepEqual(m.parseRoute('album/gd85-06-30.sbd'), { page: 'album', id: 'gd85-06-30.sbd' });
   assert.deepEqual(m.parseRoute('artist/G2ag35x'), { page: 'artist', id: 'G2ag35x' });
-  assert.equal(m.clock(187), '3:07'); assert.equal(m.clock(0), ''); assert.equal(m.seconds('1:02:03'), 3723); assert.equal(m.seconds('abc'), 0);
+  assert.equal(m.clock(187), '3:07'); assert.equal(m.clock(0), '');
 });
 
 // ------------------------------------------------------------------ what the account keeps
@@ -145,9 +130,8 @@ test('favourite music is rebuilt from safe fields before it is stored', () => {
   assert.equal(cleanMusicItem(ccFav).url, 'https://prod-1.storage.jamendo.com/?trackid=1227396&format=mp32');
   assert.equal(cleanMusicItem(ccFav).album, 'Midnight Grooves');
   assert.equal(cleanMusicItem({ ...ccFav, url: 'javascript:alert(1)' }), null, 'a song from outside Audius must have an https address');
-  const yt = m.ytSong({ id: 'khnokW3Mw24', name: 'Instant Crush', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', duration: 338 });
-  assert.deepEqual(cleanMusicItem(yt), { key: 'y:khnokW3Mw24', type: 'song', src: 'yt', id: 'khnokW3Mw24', name: 'Instant Crush', artist: 'Daft Punk', art: 'https://proxy.example/x.jpg', duration: 338 }, 'a YouTube Music song is kept without an address and replayed by its id');
-  assert.equal(cleanMusicItem({ ...yt, src: 'random', url: '' }), null, 'a song from an unknown source still needs an https address');
+  assert.equal(cleanMusicItem({ key: 'y:khnokW3Mw24', type: 'song', src: 'yt', id: 'khnokW3Mw24', name: 'Old YouTube favourite' }), null, 'YouTube songs are gone: an old favourite of one is dropped');
+  assert.equal(cleanMusicItem({ ...song, src: 'random', url: '' }), null, 'a song from an unknown source still needs an https address');
   assert.equal(cleanMusicItem({ ...radio, url: 'http://plain.example/s' }), null, 'a station must have an https stream');
   assert.equal(cleanMusicItem({ ...song, art: 'https://x.example/" onerror="alert(1)' }).art, undefined, 'artwork must be a clean https address');
   assert.ok(cleanMusicItem({ key: 's:1', type: 'song', id: '1', name: 'Saved before sources were added' }));
@@ -169,38 +153,102 @@ test('favourites sync like the other lists: size-limited, newest list wins, othe
   assert.equal(merged.mylist.items.length, 1);
 });
 
-test('a YouTube song is looked up elsewhere by its cleaned title and artist, closest match first', () => {
-  assert.equal(m.cleanTitle('Never Gonna Give You Up (Official Video) (4K Remaster)'), 'Never Gonna Give You Up');
-  assert.deepEqual(m.ytQueries({ name: 'Rick Astley - Never Gonna Give You Up (Official Video)', artist: 'Rick Astley' }), ['Never Gonna Give You Up Rick Astley', 'Never Gonna Give You Up']);
-  assert.deepEqual(m.ytQueries({ name: 'Blinding Lights', artist: 'The Weeknd - Topic' }), ['Blinding Lights The Weeknd', 'Blinding Lights']);
-  const yt = { name: 'Blinding Lights', artist: 'The Weeknd - Topic' };
-  const exact = m.matchScore(yt, { name: 'The Weeknd - Blinding Lights', artist: 'x' });
-  assert.ok(exact > m.matchScore(yt, { name: 'Blinding Lights (DJ Velocity Remix)', artist: 'y' }));
-  assert.ok(exact > m.matchScore(yt, { name: 'Something Else', artist: 'z' }));
+
+// ------------------------------------------------------------------ your own music server (Subsonic API)
+import { createHash } from 'node:crypto';
+test('md5 (for the music server’s sign-in token) matches the standard', () => {
+  for (const t of ['', 'a', 'password' + 'c19b2d', 'ünïcödé 🎵', 'x'.repeat(55), 'y'.repeat(56), 'z'.repeat(64), 'w'.repeat(200)]) assert.equal(m.md5(t), createHash('md5').update(t).digest('hex'), JSON.stringify(t.slice(0, 20)));
 });
 
-test('a song from Apple’s chart is kept by its Apple id, with its official artwork, and syncs to the account', () => {
-  const c = m.chartItem({ id: '1844932150', rank: 1, name: "Choosin' Texas", artist: 'Ella Langley', art: 'https://is1-ssl.mzstatic.com/x/600x600bb.jpg', genre: 'Country' });
-  assert.deepEqual(c, { key: 'ch:1844932150', type: 'song', src: 'chart', id: '1844932150', name: "Choosin' Texas", artist: 'Ella Langley', art: 'https://is1-ssl.mzstatic.com/x/600x600bb.jpg', duration: 0, genre: 'Country', rank: 1 });
-  assert.equal(m.chartItem({ id: 'abc', name: 'x' }), null);
-  assert.equal(m.chartItem({ id: '1', name: '' }), null);
-  assert.equal(m.bigArt(c), 'https://is1-ssl.mzstatic.com/x/1000x1000bb.jpg', 'the lock screen and Now Playing get the large official cover');
-  assert.equal(m.streamUrl(c), '', 'a chart song has no audio address of its own: it plays in YouTube’s player');
-  const fav = m.toggleFav([], c)[0];
-  assert.equal('url' in fav, false); assert.ok(m.validFav(fav));
-  assert.deepEqual(cleanMusicItem(fav), { key: 'ch:1844932150', type: 'song', id: '1844932150', name: "Choosin' Texas", artist: 'Ella Langley', genre: 'Country', src: 'chart', art: 'https://is1-ssl.mzstatic.com/x/600x600bb.jpg' });
-  assert.deepEqual(m.parseRoute('charts'), { page: 'charts' });
+test('connecting a server keeps a signed token, never the password, and needs https', () => {
+  const s = m.serverLogin(' https://music.example.com/rest/ ', ' jonny ', 'sesame', 'c19b2d');
+  assert.deepEqual(s, { url: 'https://music.example.com', user: 'jonny', salt: 'c19b2d', token: m.md5('sesamec19b2d') });
+  assert.ok(!JSON.stringify(s).includes('sesame'));
+  assert.throws(() => m.serverLogin('http://192.168.1.5:4533', 'a', 'b', 's'), /https/);
+  assert.throws(() => m.serverLogin('https://x.example', '', 'b', 's'), /username/);
+  const u = new URL(m.subUrl(s, 'getAlbum', { id: 'al 1' }));
+  assert.equal(u.pathname, '/rest/getAlbum');
+  for (const [k, v] of [['u', 'jonny'], ['t', s.token], ['s', 'c19b2d'], ['f', 'json'], ['c', 'StreamBox'], ['id', 'al 1']]) assert.equal(u.searchParams.get(k), v, k);
+  assert.equal(u.searchParams.has('p'), false, 'no password in any request');
 });
 
-test('a chart or YouTube song can be opened in Spotify by its title and artist', () => {
-  const c = m.chartItem({ id: '1844932152', rank: 3, name: 'Man I Need', artist: 'Olivia Dean', art: '', genre: 'Pop' });
-  assert.equal(m.spotifyUrl(c), 'https://open.spotify.com/search/Man%20I%20Need%20Olivia%20Dean');
-  const y = m.ytSong({ id: 'oIv_Y2RPQ_A', name: 'Olivia Dean - Man I Need (Official Video)', artist: 'OliviaDeanVEVO' });
-  assert.match(m.spotifyUrl(y), /^https:\/\/open\.spotify\.com\/search\//);
-  assert.ok(!decodeURIComponent(m.spotifyUrl(y)).includes('Official Video'), 'YouTube extras are left out of the search');
-  assert.ok(!decodeURIComponent(m.spotifyUrl(y)).includes('VEVO'));
-  assert.equal(m.spotifyUrl({ name: 'a/b?c#d', artist: '' }), 'https://open.spotify.com/search/a%2Fb%3Fc%23d', 'the search can’t break out of the address');
-  assert.ok(m.onSpotify(c) && m.onSpotify(y));
-  assert.ok(!m.onSpotify(m.songItem({ id: 'x', title: 'Indie', user: { name: 'A' } })), 'Audius songs play here');
-  assert.ok(!m.onSpotify(m.stationItem({ stationuuid: 's', name: 'Radio', url_resolved: 'https://r.example/s' })), 'radio plays here');
+test('server songs, albums and artists; a server song keeps no address or picture (they carry the token)', () => {
+  const song = m.subSong({ id: 'tr1', title: 'Help!', artist: 'The Beatles', artistId: 'ar1', album: 'Help!', albumId: 'al1', coverArt: 'al1', duration: 139, track: 1, genre: 'Rock' });
+  assert.deepEqual(song, { key: 'v:tr1', type: 'song', src: 'sub', id: 'tr1', name: 'Help!', artist: 'The Beatles', artistId: 'ar1', album: 'Help!', albumId: 'al1', coverArt: 'al1', duration: 139, genre: 'Rock', track: 1 });
+  assert.equal(m.subSong({ id: 'v', title: 'Clip', isVideo: true }), null);
+  assert.equal(m.subAlbum({ id: 'al1', name: 'Help!', artist: 'The Beatles', artistId: 'ar1', songCount: 14, year: 1965 }).href, '#music/server/album/al1');
+  assert.equal(m.subArtist({ id: 'ar1', name: 'The Beatles', albumCount: 13 }).href, '#music/server/artist/ar1');
+  const kept = m.slim({ ...song, art: 'https://music.example.com/rest/getCoverArt?t=secret', url: 'https://music.example.com/rest/stream?t=secret' });
+  assert.ok(!JSON.stringify(kept).includes('secret'), 'nothing with the token is saved or synced');
+  assert.equal(kept.coverArt, 'al1');
+  const synced = cleanMusicItem({ ...kept, url: 'https://music.example.com/rest/stream?t=secret' });
+  assert.ok(synced && !('url' in synced) && synced.coverArt === 'al1', 'the account keeps it by its id');
+});
+
+// ------------------------------------------------------------------ playlists, history, your music
+const song = (n, extra = {}) => ({ key: 'm:' + n, type: 'song', src: 'local', id: String(n), name: 'Song ' + n, artist: 'Artist', art: 'blob:https://x/1', ...extra });
+test('your playlists: create, add without duplicates, remove, move, rename, delete', () => {
+  let { lists, id } = m.createPlaylist([], '  Road Trip  ', [song(1)], 'p1');
+  assert.deepEqual(lists.map(p => [p.id, p.name, p.items.length]), [['p1', 'Road Trip', 1]]);
+  assert.equal('art' in lists[0].items[0], false, 'a picture made on this device (blob:) isn’t kept');
+  lists = m.addToPlaylist(lists, id, [song(1), song(2), song(3)]);
+  assert.deepEqual(lists[0].items.map(i => i.id), ['1', '2', '3']);
+  lists = m.moveInPlaylist(lists, id, 'm:3', -2);
+  assert.deepEqual(lists[0].items.map(i => i.id), ['3', '1', '2']);
+  lists = m.removeFromPlaylist(lists, id, 'm:1');
+  assert.deepEqual(lists[0].items.map(i => i.id), ['3', '2']);
+  lists = m.renamePlaylist(lists, id, 'Summer');
+  assert.equal(lists[0].name, 'Summer');
+  assert.equal(m.createPlaylist(lists, '').lists[0].name, 'New Playlist');
+  assert.deepEqual(m.deletePlaylist(lists, id), []);
+  const cleaned = m.cleanPlaylists([{ id: 'x', name: 'Ok', items: [song(1), { key: 'bad' }, { key: 'c:1', type: 'song', src: 'cc', id: '1', name: 'No address' }] }, { name: 'no id' }, null]);
+  assert.deepEqual(cleaned.map(p => p.items.length), [1]);
+});
+
+test('listening history: newest first, each song once, limited', () => {
+  let h = [];
+  for (const n of [1, 2, 3, 2]) h = m.addRecent(h, song(n), n);
+  assert.deepEqual(h.map(i => i.id), ['2', '3', '1']);
+  for (let n = 0; n < 150; n++) h = m.addRecent(h, song(n + 10));
+  assert.equal(h.length, m.LIMITS.recent);
+});
+
+test('your music is organised by artist (album artist first) and album, in track order', () => {
+  const songs = [
+    song(1, { name: 'Help!', artist: 'The Beatles', album: 'Help!', track: 1 }),
+    song(2, { name: 'Ticket to Ride', artist: 'The Beatles', album: 'Help!', track: 7, art: '' }),
+    song(3, { name: 'The Night Before', artist: 'The Beatles', album: 'Help!', track: 2 }),
+    song(4, { name: 'Feat. song', artist: 'Guest', albumArtist: 'Abba', album: 'Gold', track: 3 }),
+    song(5, { name: 'Loose single', artist: 'Abba', album: '' }),
+  ];
+  const o = m.organise(songs);
+  assert.deepEqual(o.artists.map(a => a.name), ['Abba', 'The Beatles'], '"The" is ignored when sorting');
+  assert.deepEqual(o.artists[0].albums.map(a => a.name), ['Gold', 'Singles']);
+  const help = o.albums.find(a => a.name === 'Help!');
+  assert.deepEqual(help.songs.map(s => s.track), [1, 2, 7]);
+  assert.equal(help.art, 'blob:https://x/1', 'the album poster comes from one of its songs');
+  assert.ok(m.matches(songs[0], 'beatles help') && !m.matches(songs[0], 'abba'));
+});
+
+test('song details are read from tags, or from the folder and file name when there are none', async () => {
+  const vm = await import('node:vm');
+  const { readFileSync } = await import('node:fs');
+  const ctx = { window: { indexedDB: {} }, document: { createElement: () => ({}) }, URL, Blob, console };
+  ctx.window.window = ctx.window; ctx.window.document = ctx.document;
+  vm.runInNewContext(readFileSync(new URL('../public/js/music-local.js', import.meta.url), 'utf8'), ctx.window);
+  const d = ctx.window.StreamBoxMusicLocal.describe;
+  assert.deepEqual(JSON.parse(JSON.stringify(d({ name: 'x.mp3' }, { title: 'Help!', artist: 'The Beatles', album: 'Help!', track: '1/14', year: '1965-08-06', genre: '(17)Rock', TPE2: { data: 'The Beatles' }, TPOS: { data: '1/1' } }))),
+    { name: 'Help!', artist: 'The Beatles', albumArtist: 'The Beatles', album: 'Help!', track: 1, disc: 1, year: '1965', genre: 'Rock' });
+  const f = d({ name: '07 Ticket to Ride.mp3', webkitRelativePath: 'Music/The Beatles/Help!/07 Ticket to Ride.mp3' }, {});
+  assert.equal(f.name, 'Ticket to Ride'); assert.equal(f.artist, 'The Beatles'); assert.equal(f.album, 'Help!'); assert.equal(f.track, 7);
+  const g = d({ name: 'Daft Punk - One More Time.m4a' }, {});
+  assert.equal(g.name, 'One More Time'); assert.equal(g.artist, 'Daft Punk');
+  assert.equal(d({ name: 'untitled.wav' }, {}).artist, 'Unknown Artist');
+});
+
+test('your own files and server songs are favourites by their id (they play from this device or your server)', () => {
+  const fav = m.toggleFav([], song(9, { album: 'Gold' }))[0];
+  assert.ok(m.validFav(fav));
+  assert.equal('art' in fav || 'url' in fav, false);
+  assert.ok(cleanMusicItem(fav), 'the account accepts it');
 });
