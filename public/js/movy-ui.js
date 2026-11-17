@@ -23,7 +23,13 @@
   function checkProtection() {
     if (probe) { clearTimeout(probe.timer); probe.resolve(false); }
     protectedPlayback = false;
-    document.querySelectorAll('[data-movy-play]').forEach(b => { b.disabled = true; });
+    const touchPlayback = window.matchMedia && window.matchMedia('(pointer: coarse)').matches || /iPad|iPhone|iPod/.test(navigator.userAgent);
+    document.querySelectorAll('[data-movy-play]').forEach(b => { b.disabled = !touchPlayback; });
+    if (touchPlayback) {
+      const status = document.getElementById('movyProtection');
+      if (status) status.textContent = 'Tap an episode to play in the Browser box.';
+      return Promise.resolve(false);
+    }
     return new Promise(resolve => {
       const nonce = crypto.randomUUID();
       probe = { nonce, resolve, timer: setTimeout(() => {
@@ -237,7 +243,8 @@
   }
   function showEpisodes(episodes) {
     const el = document.getElementById('movyEpisodes');
-    if (el) el.innerHTML = episodes.map(e => (detailState?.record.mediaType === 'tv' || detailState?.record.embedId) ? `<button class="movy-episode" data-movy-play="${esc(e.number)}" ${protectedPlayback ? '' : 'disabled'}>▶ ${esc(e.number)} · ${esc(e.title)}</button>` : `<div class="movy-episode">${esc(e.number)} · ${esc(e.title)}</div>`).join('');
+    const touchPlayback = window.matchMedia && window.matchMedia('(pointer: coarse)').matches || /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (el) el.innerHTML = episodes.map(e => (detailState?.record.mediaType === 'tv' || detailState?.record.embedId) ? `<button class="movy-episode" type="button" data-movy-play="${esc(e.number)}" ${protectedPlayback || touchPlayback ? '' : 'disabled'}><span class="movy-episode-play" aria-hidden="true">▶</span><span class="movy-episode-copy">${esc(e.number)} · ${esc(e.title)}</span></button>` : `<div class="movy-episode">${esc(e.number)} · ${esc(e.title)}</div>`).join('');
   }
   async function season(number, state) {
     const el = document.getElementById('movyEpisodes');
@@ -313,7 +320,15 @@
       const episodeNumber = Number(play.dataset.movyPlay);
       const record = detailState.record;
       if (record.mediaType !== 'movie' && !detailState.episodes.some(e => e.number === episodeNumber)) return;
-      if (!protectedPlayback) { window.StreamBoxMovySetup?.open({ record, season: seasonNumber, episode: episodeNumber }); return; }
+      if (!protectedPlayback) {
+        if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches || /iPad|iPhone|iPod/.test(navigator.userAgent)) {
+          const url = playerUrl(record, seasonNumber, episodeNumber);
+          window.StreamBoxMovyBrowser?.open(url, `${record.name} · S${seasonNumber} E${episodeNumber}`);
+        } else {
+          window.StreamBoxMovySetup?.open({ record, season: seasonNumber, episode: episodeNumber });
+        }
+        return;
+      }
       const state = detailState;
       if (await checkProtection() && state === detailState && state.token === version) hooks.play({ ...record, season: seasonNumber, episode: episodeNumber });
     }

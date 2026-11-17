@@ -98,3 +98,12 @@ html { -webkit-tap-highlight-color: transparent; }
   .topbar:has(.search-input.open) .topbar-actions { flex: 1 1 auto; min-width: 0; }
   .search-input.open { flex: 1 1 auto; width: auto !important; min-width: 0; }
 }
+
+/* Movy episode selection: thumb-friendly targets on phones and tablets. */
+@media (pointer: coarse), (max-width: 820px) {
+  .movy-episodes { display:grid; gap:10px; }
+  .movy-episode { display:flex; align-items:center; justify-content:flex-start; gap:12px; width:100%; min-height:58px; padding:14px 16px; border-radius:9px; text-align:left; font-size:16px; line-height:1.35; white-space:normal; touch-action:manipulation; -webkit-user-select:none; user-select:none; }
+  button.movy-episode:not(:disabled) { cursor:pointer; }
+  .movy-episode-play { flex:0 0 auto; }
+  .movy-episode-copy { min-width:0; }
+}

@@ -39,7 +39,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             probe.resolve(false);
         }
         protectedPlayback = false;
-        document.querySelectorAll('[data-movy-play]').forEach(b => { b.disabled = true; });
+        const touchPlayback = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /iPad|iPhone|iPod/.test(navigator.userAgent);
+        document.querySelectorAll('[data-movy-play]').forEach(b => { b.disabled = !touchPlayback; });
+        if (touchPlayback) {
+            const status = document.getElementById('movyProtection');
+            if (status) status.textContent = 'Tap an episode to play in the Browser box.';
+            return Promise.resolve(false);
+        }
         return new Promise(resolve => {
             const nonce = crypto.randomUUID();
             probe = { nonce, resolve, timer: setTimeout(() => {
@@ -291,8 +297,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     }
     function showEpisodes(episodes) {
         const el = document.getElementById('movyEpisodes');
+        const touchPlayback = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /iPad|iPhone|iPod/.test(navigator.userAgent);
         if (el)
-            el.innerHTML = episodes.map(e => ((detailState === null || detailState === void 0 ? void 0 : detailState.record.mediaType) === 'tv' || (detailState === null || detailState === void 0 ? void 0 : detailState.record.embedId)) ? `<button class="movy-episode" data-movy-play="${esc(e.number)}" ${protectedPlayback ? '' : 'disabled'}>▶ ${esc(e.number)} · ${esc(e.title)}</button>` : `<div class="movy-episode">${esc(e.number)} · ${esc(e.title)}</div>`).join('');
+            el.innerHTML = episodes.map(e => ((detailState === null || detailState === void 0 ? void 0 : detailState.record.mediaType) === 'tv' || (detailState === null || detailState === void 0 ? void 0 : detailState.record.embedId)) ? `<button class="movy-episode" type="button" data-movy-play="${esc(e.number)}" ${protectedPlayback || touchPlayback ? '' : 'disabled'}><span class="movy-episode-play" aria-hidden="true">▶</span><span class="movy-episode-copy">${esc(e.number)} · ${esc(e.title)}</span></button>` : `<div class="movy-episode">${esc(e.number)} · ${esc(e.title)}</div>`).join('');
     }
     function season(number, state) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -396,7 +403,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             if (record.mediaType !== 'movie' && !detailState.episodes.some(e => e.number === episodeNumber))
                 return;
             if (!protectedPlayback) {
-                (_g = window.StreamBoxMovySetup) === null || _g === void 0 ? void 0 : _g.open({ record, season: seasonNumber, episode: episodeNumber });
+                if ((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                    const url = playerUrl(record, seasonNumber, episodeNumber);
+                    (_g = window.StreamBoxMovyBrowser) === null || _g === void 0 ? void 0 : _g.open(url, `${record.name} · S${seasonNumber} E${episodeNumber}`);
+                } else {
+                    (_g = window.StreamBoxMovySetup) === null || _g === void 0 ? void 0 : _g.open({ record, season: seasonNumber, episode: episodeNumber });
+                }
                 return;
             }
             const state = detailState;
