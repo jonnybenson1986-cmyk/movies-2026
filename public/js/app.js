@@ -24,6 +24,11 @@
   const IN_ANDROID_APP = /StreamBoxApp\//.test(navigator.userAgent);
   const APK_URL = '/apk';
   const IS_ANDROID = /Android/.test(navigator.userAgent);
+  // Safari (and other browsers on iPhone/iPad) can AirPlay a video. The button is shown there whether or not Safari
+  // has reported an Apple TV yet: without it the only way left was Control Center's Screen Mirroring, which copies
+  // the whole screen and stops when the phone locks. AirPlay from the button sends just the video: the Apple TV then
+  // plays the stream itself, and the phone can be locked.
+  const AIRPLAY_CAPABLE = 'WebKitPlaybackTargetAvailabilityEvent' in window && !IN_ANDROID_APP;
   const IS_SAFARI = /^((?!chrome|chromium|crios|fxios|edg|android).)*safari/i.test(navigator.userAgent);
   // iPhone, iPad and Safari play HLS natively. Only the native player can be sent to an Apple TV with AirPlay,
   // and it needs no CORS permission from the stream.
@@ -1061,13 +1066,13 @@
     fsBtn.innerHTML = fsTopBtn.innerHTML = full ? ICON.exit : ICON.enter;
     for (const b of [fsBtn, fsTopBtn]) b.setAttribute('aria-label', full ? 'Exit full screen' : 'Full screen');
     airBtn.innerHTML = ICON.airplay;
-    airBtn.hidden = !airplayAvailable;
+    airBtn.hidden = !(airplayAvailable || AIRPLAY_CAPABLE);
     airBtn.classList.toggle('on', !!video.webkitCurrentPlaybackTargetIsWireless);
     airBtn.setAttribute('aria-label', video.webkitCurrentPlaybackTargetIsWireless ? 'Playing on AirPlay. Tap to change' : 'AirPlay');
     // The same button at the top of the movie player, for a video StreamBox plays itself (not one inside another site's frame)
     const ownMovie = player.classList.contains('movie-mode') && !video.hidden;
     airTopBtn.innerHTML = ICON.airplay;
-    airTopBtn.hidden = !(ownMovie && airplayAvailable);
+    airTopBtn.hidden = !(ownMovie && (airplayAvailable || AIRPLAY_CAPABLE));
     airTopBtn.classList.toggle('on', !!video.webkitCurrentPlaybackTargetIsWireless);
     airTopBtn.setAttribute('aria-label', airBtn.getAttribute('aria-label'));
     syncAppFullscreen();
@@ -1097,12 +1102,12 @@
   video.addEventListener('webkitplaybacktargetavailabilitychanged', e => { airplayAvailable = e.availability === 'available'; syncPlayerUI(); });
   video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', syncAirPlay);
   airBtn.onclick = airTopBtn.onclick = $('#airChange').onclick = showAirPicker;
-  // Someone who has used AirPlay on this device gets a big "Play on TV" button for a few seconds when a video starts,
-  // so going back to the Apple TV is one tap (Apple's picker then lists the TV)
+  // When an Apple TV is nearby, a big "Play on TV" button shows for a few seconds as a video starts: one tap, then
+  // pick the TV in Apple's list
   let airPromptTimer = 0;
   airPrompt.onclick = () => { airPrompt.hidden = true; showAirPicker(); };
   video.addEventListener('playing', () => {
-    if (!airplayAvailable || onAirPlay() || !store.get('airplay-used', 0) || video.hidden) return;
+    if (!airplayAvailable || onAirPlay() || video.hidden) return;
     airPrompt.hidden = false;
     clearTimeout(airPromptTimer);
     airPromptTimer = setTimeout(() => { airPrompt.hidden = true; }, 7000);
@@ -1327,7 +1332,7 @@
         <h3>Full screen &amp; AirPlay</h3>
         <label><input type="checkbox" id="optAutoFs" ${settings.autoFullscreen ? 'checked' : ''}> Open channels in full screen</label>
         <p style="color:var(--muted);font-size:13px">While watching: tap the full-screen button, double-tap or double-click the picture, or press <b>F</b>. ${IS_IOS ? 'On iPhone full screen uses the built-in video player.' : ''}</p>
-        <p style="color:var(--muted);font-size:13px"><b>AirPlay to an Apple TV:</b> open a channel, a Free Classic or a video from My Library, then tap the AirPlay button (the screen with a triangle) and pick your Apple TV. It works in Safari on iPhone, iPad and Mac, and in StreamBox added to the Home Screen, when the Apple TV is on the same Wi-Fi. While it plays on the TV, this screen is the remote: change channel and the new one plays on the TV too, and the lock screen and the Apple TV remote can pause and change channel. After the first time, a <i>Play on TV</i> button offers it as soon as a video starts. ${IN_ANDROID_APP || IS_ANDROID ? "<br><b>On Android</b> AirPlay isn’t available (it’s an Apple feature): use an iPhone, iPad or Mac to send to an Apple TV." : ""} Films that play inside another site’s player, channels that only play in VLC, and channels going through a proxy on “This computer” can’t be sent.</p>
+        <p style="color:var(--muted);font-size:13px"><b>AirPlay to an Apple TV:</b> open a channel, a Free Classic or a video from My Library, then tap <b>Play on TV</b> or the AirPlay button in the player (the screen with a triangle) and pick your Apple TV. It works in Safari on iPhone, iPad and Mac, and in StreamBox added to the Home Screen, when the Apple TV is on the same Wi-Fi. While it plays on the TV, this screen is the remote: change channel and the new one plays on the TV too, and the lock screen and the Apple TV remote can pause and change channel. Use the button in the player rather than <i>Screen Mirroring</i> in Control Center: the button sends just the video, so the Apple TV keeps playing when you lock your phone or use other apps; mirroring copies the whole screen and stops when the phone locks. ${IN_ANDROID_APP || IS_ANDROID ? "<br><b>On Android</b> AirPlay isn’t available (it’s an Apple feature): use an iPhone, iPad or Mac to send to an Apple TV." : ""} Films that play inside another site’s player, channels that only play in VLC, and channels going through a proxy on “This computer” can’t be sent.</p>
         <h3>Channels</h3>
         <label><input type="checkbox" id="optShowAll" ${settings.showAll ? 'checked' : ''}> Show channels that only play in VLC (http:// or header-protected)</label>
         <label><input type="checkbox" id="optAutoVlc" ${settings.autoVlc ? 'checked' : ''}> On iPhone/Android, open those channels in VLC automatically</label>

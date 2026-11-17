@@ -29,3 +29,10 @@ test('while on the TV: a "Playing on your TV" screen, controls stay up, lock scr
   for (const action of ['play', 'pause', 'stop', 'nexttrack', 'previoustrack', 'seekforward', 'seekbackward']) assert.match(app, new RegExp(`on\\('${action}'`), action);
   assert.match(read('js/music.js'), /media\.addEventListener\('play', \(\) => \{ if \(current\) describe\(current\); claimSession\(\); \}\)/, 'music takes the lock screen back');
 });
+
+test('the AirPlay button is there on any browser that can AirPlay, so nobody has to fall back to Screen Mirroring', () => {
+  assert.match(app, /const AIRPLAY_CAPABLE = 'WebKitPlaybackTargetAvailabilityEvent' in window && !IN_ANDROID_APP;/);
+  assert.match(app, /airBtn\.hidden = !\(airplayAvailable \|\| AIRPLAY_CAPABLE\);/);
+  assert.match(app, /if \(!airplayAvailable \|\| onAirPlay\(\) \|\| video\.hidden\) return;/, '"Play on TV" for everyone with an Apple TV nearby');
+  assert.match(html, /lock your phone/);
+});
