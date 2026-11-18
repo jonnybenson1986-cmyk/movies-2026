@@ -259,6 +259,7 @@
       const own = M.organise((L()?.all() || []).filter(s => M.matches(s, text)));
       const myLists = M.playlists().filter(p => M.matches({ name: p.name }, text));
       sections(view, r, live, title('Search', `Results for “${text}”`), [
+        async () => { const s = await data.openTuneSearch(text); return s.length ? songsBlock('OpenTune · YouTube Music', s, favs) : ''; },
         async () => songsBlock('In My Music', own.songs.slice(0, 30), favs),
         async () => (own.albums.length ? shelf('Albums in My Music', own.albums.map(myAlbumCard).join('')) : ''),
         async () => (myLists.length ? shelf('Your Playlists', myLists.map(playlistCard).join('')) : ''),
@@ -379,6 +380,28 @@
     });
   }
 
+  // OpenTune uses YouTube's official embedded player; no audio is downloaded or proxied.
+  let youtubeLayer = null;
+  function closeYouTube() { if (youtubeLayer) { youtubeLayer.remove(); youtubeLayer = null; } }
+  function openYouTube(item) {
+    closeYouTube();
+    player.pause();
+    const layer = document.createElement('div');
+    layer.className = 'am-youtube-layer';
+    layer.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px;';
+    layer.innerHTML = '<div style="width:min(100%,960px);display:flex;align-items:center;justify-content:space-between;color:white;padding:0 0 12px"><div style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></b><small style="opacity:.75"></small></div><button type="button" aria-label="Close YouTube player" style="font-size:26px;color:white;background:#333;border:0;border-radius:50%;width:42px;height:42px;margin-left:12px">×</button></div><div style="width:min(100%,960px);aspect-ratio:16/9;background:#111"><iframe title="YouTube Music playback" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="width:100%;height:100%;border:0"></iframe></div><small style="color:#bbb;margin-top:12px;text-align:center">Playback provided by YouTube</small>';
+    layer.querySelector('b').textContent = item.name;
+    layer.querySelector('small').textContent = item.artist || 'YouTube Music';
+    layer.querySelector('button').addEventListener('click', closeYouTube);
+    layer.querySelector('iframe').src = 'https://www.youtube.com/embed/' + encodeURIComponent(item.id) + '?autoplay=1&playsinline=1&rel=0';
+    layer.addEventListener('click', e => { if (e.target === layer) closeYouTube(); });
+    document.body.appendChild(layer); youtubeLayer = layer;
+  }
+  function playMusicItem(item, items, opts = {}) {
+    if (item?.src === 'youtube') { openYouTube(item); return; }
+    closeYouTube(); player.start(item, items, opts);
+  }
+
   // ---- one click handler for the whole Music page
   let rerender = null;
   function onClick(e, view) {
@@ -391,7 +414,8 @@
       const list = (lists[+act.dataset.mList] || []).filter(i => i.type === 'song');
       if (!list.length) return;
       const shuffle = act.dataset.mAct === 'shuffle';
-      player.start(shuffle ? list[Math.floor(Math.random() * list.length)] : list[0], list, { shuffle });
+      const first = shuffle ? list[Math.floor(Math.random() * list.length)] : list[0];
+      playMusicItem(first, list, { shuffle });
       return;
     }
     const add = e.target.closest('[data-m-add]');
@@ -413,8 +437,9 @@
     if (!hit) return;
     const item = shown.get(hit.dataset.mPlay);
     if (!item) return;
+    if (item.src === 'youtube' && player.current?.key === item.key) { closeYouTube(); return; }
     if (player.current?.key === item.key) player.toggle();
-    else player.start(item, (lists[+hit.dataset.mList] || [item]).filter(i => i.type === item.type));
+    else playMusicItem(item, (lists[+hit.dataset.mList] || [item]).filter(i => i.type === item.type));
   }
 
   // The app keeps the same page container and replaces its contents, so the listeners are attached once

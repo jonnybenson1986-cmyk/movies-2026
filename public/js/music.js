@@ -158,7 +158,7 @@
   // ---- your playlists and listening history
   // What is kept of a song or station: enough to show it and play it again. Songs played by their id keep no address
   // (a server song's address carries the sign-in token, and your own files are found on the device by their id).
-  const BY_ID = new Set(['audius', 'local', 'sub']);
+  const BY_ID = new Set(['audius', 'local', 'sub', 'youtube']);
   function slim(item) {
     const { key, type, src, id, name, artist, artistId, art, url, duration, genre, album, albumId, coverArt } = item;
     const keepArt = src !== 'sub' && src !== 'local' && https(art);   // those two get their picture back from their source
@@ -370,6 +370,17 @@
   }
 
   const data = {
+    openTuneSearch: async query => {
+      const response = await fetch('https://streambox-opentune.onrender.com/api/search?q=' + encodeURIComponent(query));
+      if (!response.ok) throw new Error('OpenTune search unavailable');
+      const payload = await response.json();
+      return (payload.results || []).map(track => {
+        if (!track.videoId || !track.title) return null;
+        const parts = String(track.duration || '').split(':').map(Number);
+        const duration = parts.reduce((total, part) => total * 60 + (Number.isFinite(part) ? part : 0), 0);
+        return { key: 'yt:' + track.videoId, type: 'song', src: 'youtube', id: String(track.videoId), name: String(track.title), artist: String(track.artist || ''), art: https(track.thumbnail), duration };
+      }).filter(Boolean);
+    },
     trending: async (genre, limit) => list((await getJSON(urls.trending(genre, limit))).data, songItem),
     underground: async () => list((await getJSON(urls.underground())).data, songItem),
     songSearch: async text => list((await getJSON(urls.songSearch(text))).data, songItem),
