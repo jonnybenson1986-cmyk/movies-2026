@@ -53,7 +53,7 @@ export default function App() {
     </ScrollView>}
     {sportsUrl&&<View style={styles.sportsViewer}><View style={styles.sportsToolbar}><Pressable onPress={()=>setSportsUrl(null)}><Text style={styles.watch}>‹ BACK TO SPORTS</Text></Pressable><Text style={styles.muted}>SmartCric</Text></View><WebView source={{uri:sportsUrl}} allowsFullscreenVideo javaScriptEnabled domStorageEnabled style={{flex:1,backgroundColor:"#000"}}/></View>}
     {playing&&<Pressable style={styles.mini} onPress={()=>setPlaying(playing)}><View style={{flex:1}}><Text style={styles.rowTitle} numberOfLines={1}>{playing.title}</Text><Text style={styles.muted}>{playing.artist}</Text></View><Text style={styles.muted}>YouTube</Text><Pressable onPress={()=>setPlaying(null)}><Text style={styles.rowTitle}>×</Text></Pressable></Pressable>}
-    <View style={styles.bottom}>{(["Home","Search","Your Library"] as Tab[]).map(t=><Pressable key={t} onPress={()=>setTab(t)}><Text style={[styles.bottomText,tab===t&&styles.activeTab]}>{t}</Text></Pressable>)}</View>
+    <View style={styles.bottom}>{(["Home","Search","Your Library","Sports"] as Tab[]).map(t=><Pressable key={t} onPress={()=>setTab(t)}><Text style={[styles.bottomText,tab===t&&styles.activeTab]}>{t}</Text></Pressable>)}</View>
     <YouTubePlayer track={playing} onClose={()=>setPlaying(null)}/>
   </SafeAreaView>;
 }
