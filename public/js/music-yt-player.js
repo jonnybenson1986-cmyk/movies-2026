@@ -35,7 +35,8 @@
 
   // ---- state
   let layer = null, yt = null, list = [], order = [], at = 0, repeat = 'off', shuffleOn = false, tick = 0, toast = () => {}, tries = 0, startTimer = 0;
-  const ids = new Map();   // chart song key -> YouTube video id (found once)
+  let candidates = [], cand = 0;   // the uploads of the song playing that can be tried, and which one is on
+  const ids = new Map();   // chart song key -> its YouTube video ids, best first (found once)
   const current = () => list[order[at]];
 
   function build() {
@@ -118,30 +119,50 @@
   }
 
   // ---- playing
-  async function videoOf(item) {
-    if (item.src === 'youtube') return item.id;
-    if (ids.has(item.key)) return ids.get(item.key);
-    const found = await M.findOnYouTube(item);
-    if (found) ids.set(item.key, found.id);
-    return found?.id || '';
+  async function videosOf(item) {
+    if (item.src === 'youtube') return [item.id];
+    if (!ids.has(item.key)) {
+      const found = await M.findOnYouTube(item, { onWait: () => toast('Waking up the YouTube Music search… the first song can take up to a minute') });
+      ids.set(item.key, found.slice(0, 4).map(f => f.id));
+    }
+    return ids.get(item.key);
+  }
+  // YouTube's player, in a frame made here so it can say which site it's on: the site otherwise sends no referrer
+  // (netlify.toml), and YouTube's player then refuses to play ("Error 153").
+  function frameFor(id) {
+    const f = document.createElement('iframe');
+    const q = new URLSearchParams({ enablejsapi: '1', autoplay: '1', playsinline: '1', rel: '0', origin: location.origin, widget_referrer: location.origin + '/' });
+    f.src = `https://www.youtube.com/embed/${encodeURIComponent(id)}?${q}`;
+    f.title = 'YouTube video player';
+    f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    f.setAttribute('allowfullscreen', '');
+    f.referrerPolicy = 'strict-origin-when-cross-origin';
+    f.id = 'amytFrame';
+    return f;
   }
   async function playCurrent() {
     const item = current();
     if (!item) return;
     paintSong(); paintButtons();
     $('#amytTap', layer).hidden = true;
-    const id = await videoOf(item);
+    let found;
+    try { found = await videosOf(item); } catch (e) {
+      if (current() === item && layer) toast(`${e.message}. Try again in a moment.`);   // the search is down: no point skipping through the list
+      return;
+    }
     if (current() !== item || !layer) return;
-    if (!id) { toast(`Couldn’t find “${item.name}” on YouTube Music`); skipBroken(); return; }
+    if (!found.length) { toast(`Couldn’t find “${item.name}” on YouTube Music`); skipBroken(); return; }
+    candidates = found; cand = 0;
     M.remember(item);
     const YT = await loadApi().catch(e => { toast(e.message); return null; });
     if (!YT || current() !== item || !layer) return;
+    load(YT, candidates[0]);
+  }
+  function load(YT, id) {
     if (!yt) {
-      yt = new YT.Player($('#amytFrame', layer), {
-        videoId: id, width: '100%', height: '100%',
-        playerVars: { autoplay: 1, playsinline: 1, rel: 0, origin: location.origin },
-        events: { onReady: e => { e.target.playVideo(); paintButtons(); }, onStateChange, onError },
-      });
+      const frame = frameFor(id);
+      $('#amytFrame', layer).replaceWith(frame);
+      yt = new YT.Player(frame, { events: { onReady: e => { e.target.playVideo(); paintButtons(); }, onStateChange, onError } });
     } else yt.loadVideoById(id);
     // A phone can refuse to start YouTube's player by itself: then a tap on the video starts it
     clearTimeout(startTimer);
@@ -154,7 +175,13 @@
     }
     paintButtons();
   }
-  function onError() { toast(`YouTube won’t play “${current()?.name || 'this song'}” here`); skipBroken(); }
+  // 101/150: its owner doesn't allow playing on other sites; 100: removed; 2/5: a bad or unplayable video;
+  // 152/153: the player couldn't tell which site it's on. The next upload of the same song is tried before moving on.
+  function onError(e) {
+    if (cand + 1 < candidates.length && window.YT) { cand++; load(window.YT, candidates[cand]); return; }
+    const why = e?.data === 153 || e?.data === 152 ? 'YouTube’s player couldn’t start here' : `YouTube won’t play “${current()?.name || 'this song'}” here`;
+    toast(why); skipBroken();
+  }
   function skipBroken() { if (++tries < Math.min(5, order.length)) step(1, true); else { tries = 0; paintButtons(); } }
   // dir: +1 next, -1 previous. byHand: a press (wraps around); at the end of the list without repeat, it stops.
   function step(dir, byHand) {

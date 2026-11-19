@@ -269,7 +269,7 @@
       const own = M.organise((L()?.all() || []).filter(s => M.matches(s, text)));
       const myLists = M.playlists().filter(p => M.matches({ name: p.name }, text));
       sections(view, r, live, title('Search', `Results for “${text}”`), [
-        async () => { const s = await data.openTuneSearch(text); return s.length ? songsBlock('OpenTune · YouTube Music', s, favs) : ''; },
+        async () => { const s = await data.openTuneSearch(text); return s.length ? songsBlock('YouTube Music', s, favs) : ''; },
         async () => songsBlock('In My Music', own.songs.slice(0, 30), favs),
         async () => (own.albums.length ? shelf('Albums in My Music', own.albums.map(myAlbumCard).join('')) : ''),
         async () => (myLists.length ? shelf('Your Playlists', myLists.map(playlistCard).join('')) : ''),
@@ -463,6 +463,7 @@
     toast = ctx.toast || toast; openModal = ctx.openModal || openModal; closeModal = ctx.closeModal || closeModal;
     player.onProblem = (item, why) => toast(`Couldn’t play “${item.name}”${why ? `: ${why}` : ''}`);
     const live = ctx.isCurrent || (() => true);
+    data.wakeOpenTune?.();   // the YouTube Music search server sleeps when idle: wake it before a song is tapped
     const r = M.parseRoute(arg);
     shown = new Map(); lists = []; context = {};
     rerender = () => { if (live()) render(view, arg, ctx); };

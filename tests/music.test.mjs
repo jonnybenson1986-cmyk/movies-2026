@@ -286,3 +286,15 @@ test('music can go to speakers, TVs, Bluetooth and cars, and the queue never sto
   assert.match(src, /\['96x96', '256x256', '512x512', '600x600'\]/, 'artwork in the sizes car and Bluetooth screens ask for');
   assert.match(src, /const own = items\.filter\(i => i === item \|\| inPlayer\(i\)\)/, 'chart and YouTube songs are left out of the screen-off queue');
 });
+
+test('every matching upload of a chart song is kept, best first, and an empty artist name matches nobody', () => {
+  const song = m.chartItem({ name: 'Patient Zero', artist: 'Taylor Swift' });
+  const ranked = m.rankYouTube(song, [
+    { id: 'video', name: 'Patient Zero (Official Music Video)', artist: 'Taylor Swift' },
+    { id: 'topic', name: 'Patient Zero', artist: 'Taylor Swift' },
+    { id: 'blank', name: 'Patient Zero', artist: '' },
+    { id: 'other', name: 'Patient Zero', artist: 'Someone Else' },
+  ]);
+  assert.deepEqual(ranked.map(r => r.id), ['topic', 'video'], 'the exact title first, then the official video to try if YouTube refuses the first');
+  assert.equal(m.pickYouTube(song, [{ id: 'blank', name: 'Patient Zero', artist: '' }]), null);
+});

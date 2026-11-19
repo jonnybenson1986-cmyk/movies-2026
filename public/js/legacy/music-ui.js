@@ -1,4 +1,4 @@
-/* Generated from js/music-ui.js (sha 32d6a952b8057393) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/music-ui.js (sha f12c8c7c8eade024) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -339,7 +339,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             const own = M.organise((((_a = L()) === null || _a === void 0 ? void 0 : _a.all()) || []).filter(s => M.matches(s, text)));
             const myLists = M.playlists().filter(p => M.matches({ name: p.name }, text));
             sections(view, r, live, title('Search', `Results for “${text}”`), [
-                () => __awaiter(this, void 0, void 0, function* () { const s = yield data.openTuneSearch(text); return s.length ? songsBlock('OpenTune · YouTube Music', s, favs) : ''; }),
+                () => __awaiter(this, void 0, void 0, function* () { const s = yield data.openTuneSearch(text); return s.length ? songsBlock('YouTube Music', s, favs) : ''; }),
                 () => __awaiter(this, void 0, void 0, function* () { return songsBlock('In My Music', own.songs.slice(0, 30), favs); }),
                 () => __awaiter(this, void 0, void 0, function* () { return (own.albums.length ? shelf('Albums in My Music', own.albums.map(myAlbumCard).join('')) : ''); }),
                 () => __awaiter(this, void 0, void 0, function* () { return (myLists.length ? shelf('Your Playlists', myLists.map(playlistCard).join('')) : ''); }),
@@ -628,11 +628,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         });
     }
     function render(view, arg, ctx = {}) {
+        var _a;
         toast = ctx.toast || toast;
         openModal = ctx.openModal || openModal;
         closeModal = ctx.closeModal || closeModal;
         player.onProblem = (item, why) => toast(`Couldn’t play “${item.name}”${why ? `: ${why}` : ''}`);
         const live = ctx.isCurrent || (() => true);
+        (_a = data.wakeOpenTune) === null || _a === void 0 ? void 0 : _a.call(data); // the YouTube Music search server sleeps when idle: wake it before a song is tapped
         const r = M.parseRoute(arg);
         shown = new Map();
         lists = [];

@@ -131,20 +131,25 @@
   }
   // The same song among OpenTune's YouTube Music results: the title and the artist have to match, and karaoke,
   // covers, instrumentals and remixes lose out (unless that's what the chart song is)
-  function pickYouTube(item, results) {
+  // Every upload that matches, best first: when YouTube won't play one here (its owner switched off playing on other
+  // sites, often the official video), the next one (usually the "Topic" audio) is tried
+  function rankYouTube(item, results) {
     const want = simple(item.name).replace(/\b(feat|ft|featuring|with)\b.*$/, '').trim(), who = simple(String(item.artist).split(/,|&|\bfeat\.?|\bx\b/i)[0]);
     const extra = /\b(karaoke|cover|instrumental|remix|sped up|slowed|8d|live|tribute|lyrics?)\b/;
-    let best = null, bestScore = 0;
+    const out = [];
     for (const r of results || []) {
       const title = simple(r.name), artist = simple(r.artist);
-      if (!title.includes(want) && !want.includes(title)) continue;
-      let score = 1 + (title === want ? 1 : 0) + (artist.includes(who) || who.includes(artist) ? 2 : 0);
+      if (!want || !title || (!title.includes(want) && !want.includes(title))) continue;
+      const sameArtist = !!artist && !!who && (artist.includes(who) || who.includes(artist));   // an empty name matches nobody
+      let score = 1 + (title === want ? 1 : 0) + (sameArtist ? 2 : 0);
       const raw = `${r.name} ${r.artist}`.toLowerCase();   // brackets kept: "(Cover)", "(Karaoke Version)"
       if (extra.test(raw) && !extra.test(String(item.name).toLowerCase())) score -= 3;
-      if (score > bestScore) { best = r; bestScore = score; }
+      if (str(r.name).toLowerCase() === str(item.name).toLowerCase()) score += 0.5;   // the plain song ("Topic" audio) before "(Official Video)"
+      if (score >= 3) out.push({ r, score });   // the artist has to match: a wrong song is worse than none
     }
-    return bestScore >= 3 ? best : null;   // the artist has to match: a wrong song is worse than none
+    return out.sort((a, b) => b.score - a.score).map(x => x.r);
   }
+  const pickYouTube = (item, results) => rankYouTube(item, results)[0] || null;
 
   // ---- your own music server (Navidrome, Gonic, Airsonic...: the Subsonic API)
   // Requests are signed with a token (md5 of the password and a random salt), so the password itself is never kept.
@@ -309,7 +314,7 @@
   }
 
   const pure = {
-    GENRES, genreById, chartItem, pickYouTube, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, albumItem, artistItem, bigArt, urls, md5, serverLogin, subUrl, subSong, subAlbum, subArtist,
+    GENRES, genreById, chartItem, pickYouTube, rankYouTube, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, albumItem, artistItem, bigArt, urls, md5, serverLogin, subUrl, subSong, subAlbum, subArtist,
     slim, isFav, toggleFav, validFav, validItem, addRecent, createPlaylist, addToPlaylist, removeFromPlaylist, moveInPlaylist, renamePlaylist, deletePlaylist, cleanPlaylists,
     organise, matches, shuffled, parseRoute, esc, clock, LIMITS,
   };
@@ -399,19 +404,40 @@
     return artLookups.get(k);
   }
 
+  const OPENTUNE = 'https://streambox-opentune.onrender.com', openTuneCache = new Map();
+  let openTuneWoken = 0;
   const data = {
     charts: async () => list((await getJSON('/api/music-charts')).items, chartItem),
-    openTuneSearch: async query => {
-      const response = await fetch('https://streambox-opentune.onrender.com/api/search?q=' + encodeURIComponent(query));
-      if (!response.ok) throw new Error('OpenTune search unavailable');
-      const payload = await response.json();
-      return (payload.results || []).map(track => {
+    // OpenTune's YouTube Music search runs on a free server that sleeps when nobody has used it for a while: the
+    // first search can take up to a minute while it wakes (it may answer 502/503 meanwhile). So each try has a time
+    // limit, it's retried while it wakes, onWait() is told so the page can say what's happening, and answers are kept.
+    openTuneSearch: async (query, { onWait } = {}) => {
+      const q = String(query).trim().slice(0, 200), key = q.toLowerCase();
+      if (openTuneCache.has(key)) return openTuneCache.get(key);
+      const started = Date.now();
+      let payload = null, last = null;
+      for (let attempt = 0; attempt < 5 && Date.now() - started < 75000; attempt++) {
+        if (attempt === 1) onWait?.();
+        try {
+          const response = await fetch(`${OPENTUNE}/api/search?q=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(attempt ? 30000 : 12000) });
+          if (response.ok) { payload = await response.json(); break; }
+          last = new Error(response.status >= 500 ? 'YouTube Music search is starting up' : `YouTube Music search answered ${response.status}`);
+          if (response.status < 500) break;
+        } catch (e) { last = e.name === 'TimeoutError' || e.name === 'AbortError' ? new Error('YouTube Music search is taking too long') : new Error('YouTube Music search can’t be reached'); }
+        await new Promise(r => setTimeout(r, 2500 * (attempt + 1)));
+      }
+      if (!payload) throw last || new Error('YouTube Music search unavailable');
+      const found = (payload.results || []).map(track => {
         if (!track.videoId || !track.title) return null;
         const parts = String(track.duration || '').split(':').map(Number);
         const duration = parts.reduce((total, part) => total * 60 + (Number.isFinite(part) ? part : 0), 0);
         return { key: 'yt:' + track.videoId, type: 'song', src: 'youtube', id: String(track.videoId), name: String(track.title), artist: String(track.artist || ''), art: https(track.thumbnail), duration };
       }).filter(Boolean);
+      openTuneCache.set(key, found);
+      return found;
     },
+    // A quick request when the Music page opens, so a sleeping search server is awake by the time a song is tapped
+    wakeOpenTune: () => { if (Date.now() - openTuneWoken > 600000) { openTuneWoken = Date.now(); fetch(`${OPENTUNE}/api/health`, { signal: AbortSignal.timeout(60000) }).catch(() => {}); } },
     trending: async (genre, limit) => list((await getJSON(urls.trending(genre, limit))).data, songItem),
     underground: async () => list((await getJSON(urls.underground())).data, songItem),
     songSearch: async text => list((await getJSON(urls.songSearch(text))).data, songItem),
@@ -636,6 +662,8 @@
     // songs played outside the audio player (YouTube's player) still go into the listening history
     remember: item => { write(KEYS.recent, addRecent(read(KEYS.recent, []).filter(validItem), item)); changed(); },
     // a chart song's full version on YouTube Music (OpenTune search), or null
-    findOnYouTube: async item => pickYouTube(item, await data.openTuneSearch(`${item.name} ${item.artist}`).catch(() => [])),
+    // a chart song's full version on YouTube Music (OpenTune search): every matching upload, best first. Throws when
+    // the search itself is unavailable, so the page can say so instead of "not found".
+    findOnYouTube: async (item, opts) => rankYouTube(item, await data.openTuneSearch(`${item.name} ${item.artist}`, opts)),
   };
 })();
