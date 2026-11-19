@@ -390,52 +390,11 @@
     });
   }
 
-  // OpenTune uses YouTube's official embedded player; no audio is downloaded or proxied.
-  let youtubeLayer = null;
-  function closeYouTube() { if (youtubeLayer) { youtubeLayer.remove(); youtubeLayer = null; } }
-  function openYouTube(item, onNext) {
-    closeYouTube();
-    player.pause();
-    const layer = document.createElement('div');
-    layer.className = 'am-youtube-layer';
-    layer.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px;';
-    layer.innerHTML = '<div style="width:min(100%,960px);display:flex;align-items:center;justify-content:space-between;color:white;padding:0 0 12px"><div style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></b><small style="opacity:.75"></small></div><button type="button" aria-label="Close YouTube player" style="font-size:26px;color:white;background:#333;border:0;border-radius:50%;width:42px;height:42px;margin-left:12px">×</button></div><div style="width:min(100%,960px);aspect-ratio:16/9;background:#111"><iframe title="YouTube Music playback" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="width:100%;height:100%;border:0"></iframe></div><small style="color:#bbb;margin-top:12px;text-align:center">Playback provided by YouTube</small>';
-    layer.querySelector('b').textContent = item.name;
-    layer.querySelector('small').textContent = item.artist || 'YouTube Music';
-    layer.querySelector('button').addEventListener('click', closeYouTube);
-    layer.querySelector('iframe').src = 'https://www.youtube.com/embed/' + encodeURIComponent(item.id) + '?autoplay=1&playsinline=1&rel=0';
-    layer.addEventListener('click', e => { if (e.target === layer) closeYouTube(); });
-    const note = document.createElement('p');
-    note.className = 'am-yt-note';
-    note.textContent = 'Chart songs play in YouTube’s player, which stops when the screen locks. Music from your library, your server, Audius and radio keeps playing.';
-    layer.appendChild(note);
-    if (onNext) {   // the next song of the list it came from (the chart, a search)
-      const next = document.createElement('button');
-      next.type = 'button'; next.className = 'btn btn-more am-yt-next'; next.textContent = 'Next ›';
-      next.addEventListener('click', onNext);
-      layer.querySelector('button').before(next);
-    }
-    document.body.appendChild(layer); youtubeLayer = layer;
-    layer.querySelector('button').focus({ preventScroll: true });   // a TV remote starts on the player's buttons
-  }
-  document.addEventListener('keydown', e => { if (youtubeLayer && (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack')) { e.preventDefault(); e.stopPropagation(); closeYouTube(); } }, true);
-  addEventListener('hashchange', closeYouTube);
-  // Chart songs and YouTube Music songs play in YouTube's official player; a chart song is found there first
-  async function playOnYouTube(item, items, shuffle = false) {
-    let list = (items || [item]).filter(i => i.src === 'youtube' || i.src === 'chart');
-    if (shuffle) list = M.shuffled(list, item);
-    const at = list.findIndex(x => x.key === item.key);
-    const next = list.length > 1 ? () => playOnYouTube(list[(at + 1) % list.length], list) : null;
-    let video = item;
-    if (item.src === 'chart') {
-      toast(`Finding “${item.name}”…`);
-      const found = await M.findOnYouTube(item);
-      if (!found) { toast(`Couldn’t find “${item.name}” on YouTube Music right now`); return; }
-      video = { ...found, name: item.name, artist: item.artist };
-    }
-    M.remember(item);
-    openYouTube(video, next);
-  }
+  // Chart songs and YouTube Music songs play in the YouTube Music–style player (music-yt-player.js), which drives
+  // YouTube's official embedded player; a chart song is found on YouTube Music first.
+  const ytPlayer = () => window.StreamBoxYouTubePlayer;
+  const closeYouTube = () => ytPlayer()?.close();
+  function playOnYouTube(item, items, shuffle = false) { ytPlayer()?.play(item, items, { shuffle, toast }); }
   function playMusicItem(item, items, opts = {}) {
     if (item?.src === 'youtube' || item?.src === 'chart') { playOnYouTube(item, items, opts.shuffle); return; }
     closeYouTube(); player.start(item, items, opts);
@@ -476,7 +435,6 @@
     if (!hit) return;
     const item = shown.get(hit.dataset.mPlay);
     if (!item) return;
-    if (item.src === 'youtube' && player.current?.key === item.key) { closeYouTube(); return; }
     if (player.current?.key === item.key) player.toggle();
     else playMusicItem(item, (lists[+hit.dataset.mList] || [item]).filter(i => i.type === item.type));
   }

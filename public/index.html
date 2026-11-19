@@ -199,7 +199,7 @@
       if (c.indexOf(' too-old ') >= 0) return;
       var dir = c.indexOf(' legacy-js ') >= 0 ? '/js/legacy/' : '/js/', tags = '';
       var V = {};   // filled in at deploy by scripts/version-assets.mjs: a fingerprint per script, so browsers can keep them
-      var files = ['zapper', 'subtitles', 'tv-guide', 'classics', 'music-local', 'music', 'music-ui', 'account', 'passkey', 'artwork', 'movie-catalog', 'movies-ui', 'australia-ui', 'movy-browser', 'movy-setup', 'watch-providers', 'movy-ui', 'movie-playback', 'personal-library', 'app', 'touch'];
+      var files = ['zapper', 'subtitles', 'tv-guide', 'classics', 'music-local', 'music', 'music-ui', 'music-yt-player', 'account', 'passkey', 'artwork', 'movie-catalog', 'movies-ui', 'australia-ui', 'movy-browser', 'movy-setup', 'watch-providers', 'movy-ui', 'movie-playback', 'personal-library', 'app', 'touch'];
       for (var i = 0; i < files.length; i++) tags += '<script src="' + dir + files[i] + '.js' + (V[files[i]] ? '?v=' + V[files[i]] : '') + '"><\/script>';
       document.write(tags);
     })();
