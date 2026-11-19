@@ -42,3 +42,7 @@ The project config declares iOS `UIBackgroundModes: [audio]`. Track Player must 
 
 ## Git hygiene
 Secrets belong in local `.env` files and must never be committed. Copy `.env.example` to `.env` for local overrides.
+
+
+## Sports / SmartCric
+The Sports tab lists the cricket match pages currently published on SmartCric and opens the selected page inside the app using the site's own player. StreamBox does not extract stream URLs, bypass access controls, download, proxy, or re-host video. Match availability and rights are controlled by the source site; the displayed match list is a snapshot and should be refreshed against https://smartcric.ch/ when schedules change. For production distribution, verify that embedding SmartCric pages in an in-app WebView is permitted by its terms and applicable broadcast rights; otherwise open the source in the device browser or replace it with authorised broadcaster links.
