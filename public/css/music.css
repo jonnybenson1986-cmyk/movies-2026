@@ -220,3 +220,6 @@ body.np-open { overflow: hidden; }
 .am-menu .btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 .am-menu .am-row-art { flex: none; width: 56px; height: 56px; border-radius: 8px; }
 .np-info .np-more { width: 44px; height: 44px; }
+/* The chart: the YouTube player's Next button, and numbered rows with the poster */
+.am-yt-next { margin-left: auto; margin-right: 10px; font-size: 14px; padding: 8px 16px; }
+.am-row .am-num + .am-cover { margin-left: 4px; }

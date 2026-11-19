@@ -33,7 +33,8 @@ export function cleanMusicItem(raw) {
   const url = httpsUrl(raw.url, 1000); if (url) item.url = url;
   // A station is its stream address, and so is a song, except from Audius, your own files ('local') and your own music
   // server ('sub'): those are played by their id (a server song's address would carry its sign-in token)
-  if (!item.url && (item.type === 'radio' || (item.src && item.src !== 'audius' && item.src !== 'local' && item.src !== 'sub'))) return null;
+  // (also chart songs and YouTube Music songs, which play in YouTube's player by their id)
+  if (!item.url && (item.type === 'radio' || (item.src && !['audius', 'local', 'sub', 'chart', 'youtube'].includes(item.src)))) return null;
   if (item.src === 'local' || item.src === 'sub') delete item.url;
   if (Number.isFinite(raw.duration) && raw.duration > 0) item.duration = Math.min(Math.round(raw.duration), 1e6);
   return item;

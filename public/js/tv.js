@@ -188,7 +188,7 @@
   function shown(sel) { var el = doc.querySelector(sel); return el && !el.hidden && el.getClientRects().length ? el : null; }
   // Layers, top first. Navigation stays inside the top one.
   function topLayer() {
-    return shown('#legacyNotice') || shown('#moreSheet') || shown('#subsMenu') || shown('#modal') || shown('.np') || shown('#player') || null;
+    return shown('#legacyNotice') || shown('.am-youtube-layer') || shown('#moreSheet') || shown('#subsMenu') || shown('#modal') || shown('.np') || shown('#player') || null;
   }
 
   // ---------------------------------------------------------------- D-pad spatial navigation

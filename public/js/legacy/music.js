@@ -1,4 +1,4 @@
-/* Generated from js/music.js (sha b9c3ac84401a1e99) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/music.js (sha 4dae44398628839e) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -137,6 +137,40 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             return null;
         return { id: String(u.id), name: str(u.name), handle: str(u.handle), art: art480(u.profile_picture), cover: https((_a = u.cover_photo) === null || _a === void 0 ? void 0 : _a['2000x']) || https((_b = u.cover_photo) === null || _b === void 0 ? void 0 : _b['640x']), followers: u.follower_count | 0, tracks: u.track_count | 0, verified: !!u.is_verified, bio: str(u.bio), where: str(u.location), href: '#music/artist/' + encodeURIComponent(u.id) };
     }
+    // ---- the top songs in Australia across the charts (/api/music-charts: Apple Music, iTunes, Shazam, Deezer)
+    const CHARTS = { apple: 'Apple Music', itunes: 'iTunes', shazam: 'Shazam', deezer: 'Deezer' };
+    const simple = t => str(t).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[([][^)\]]*[)\]]/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+    function chartItem(c) {
+        if (!c || !str(c.name) || !str(c.artist))
+            return null;
+        const id = `${simple(c.name)}|${simple(c.artist)}`.slice(0, 120);
+        const charts = Object.fromEntries(Object.entries(c.charts || {}).filter(([k, v]) => CHARTS[k] && v > 0).map(([k, v]) => [k, v | 0]));
+        return {
+            key: 'ch:' + id, type: 'song', src: 'chart', id, name: str(c.name), artist: str(c.artist), art: https(c.art), rank: c.rank | 0, charts,
+            chartLine: Object.entries(charts).map(([k, v]) => `${CHARTS[k]} #${v}`).join(' · '), duration: 0, genre: '',
+        };
+    }
+    // The same song among OpenTune's YouTube Music results: the title and the artist have to match, and karaoke,
+    // covers, instrumentals and remixes lose out (unless that's what the chart song is)
+    function pickYouTube(item, results) {
+        const want = simple(item.name).replace(/\b(feat|ft|featuring|with)\b.*$/, '').trim(), who = simple(String(item.artist).split(/,|&|\bfeat\.?|\bx\b/i)[0]);
+        const extra = /\b(karaoke|cover|instrumental|remix|sped up|slowed|8d|live|tribute|lyrics?)\b/;
+        let best = null, bestScore = 0;
+        for (const r of results || []) {
+            const title = simple(r.name), artist = simple(r.artist);
+            if (!title.includes(want) && !want.includes(title))
+                continue;
+            let score = 1 + (title === want ? 1 : 0) + (artist.includes(who) || who.includes(artist) ? 2 : 0);
+            const raw = `${r.name} ${r.artist}`.toLowerCase(); // brackets kept: "(Cover)", "(Karaoke Version)"
+            if (extra.test(raw) && !extra.test(String(item.name).toLowerCase()))
+                score -= 3;
+            if (score > bestScore) {
+                best = r;
+                bestScore = score;
+            }
+        }
+        return bestScore >= 3 ? best : null; // the artist has to match: a wrong song is worse than none
+    }
     // ---- your own music server (Navidrome, Gonic, Airsonic...: the Subsonic API)
     // Requests are signed with a token (md5 of the password and a random salt), so the password itself is never kept.
     function md5(text) {
@@ -182,7 +216,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     // ---- your playlists and listening history
     // What is kept of a song or station: enough to show it and play it again. Songs played by their id keep no address
     // (a server song's address carries the sign-in token, and your own files are found on the device by their id).
-    const BY_ID = new Set(['audius', 'local', 'sub']);
+    const BY_ID = new Set(['audius', 'local', 'sub', 'youtube', 'chart']);
     function slim(item) {
         const { key, type, src, id, name, artist, artistId, art, url, duration, genre, album, albumId, coverArt } = item;
         const keepArt = src !== 'sub' && src !== 'local' && https(art); // those two get their picture back from their source
@@ -294,6 +328,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         const tail = [b, ...rest].join('/');
         if (a === 'browse')
             return { page: 'browse' };
+        if (a === 'charts')
+            return { page: 'charts' };
         if (a === 'genre')
             return genreById(b) ? { page: 'genre', genre: b } : { page: 'browse' };
         if (a === 'radio')
@@ -321,7 +357,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         return { page: 'home' };
     }
     const pure = {
-        GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, albumItem, artistItem, bigArt, urls, md5, serverLogin, subUrl, subSong, subAlbum, subArtist,
+        GENRES, genreById, chartItem, pickYouTube, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, albumItem, artistItem, bigArt, urls, md5, serverLogin, subUrl, subSong, subAlbum, subArtist,
         slim, isFav, toggleFav, validFav, validItem, addRecent, createPlaylist, addToPlaylist, removeFromPlaylist, moveInPlaylist, renamePlaylist, deletePlaylist, cleanPlaylists,
         organise, matches, shuffled, parseRoute, esc, clock, LIMITS,
     };
@@ -465,6 +501,20 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         return artLookups.get(k);
     }
     const data = {
+        charts: () => __awaiter(void 0, void 0, void 0, function* () { return list((yield getJSON('/api/music-charts')).items, chartItem); }),
+        openTuneSearch: (query) => __awaiter(void 0, void 0, void 0, function* () {
+            const response = yield fetch('https://streambox-opentune.onrender.com/api/search?q=' + encodeURIComponent(query));
+            if (!response.ok)
+                throw new Error('OpenTune search unavailable');
+            const payload = yield response.json();
+            return (payload.results || []).map(track => {
+                if (!track.videoId || !track.title)
+                    return null;
+                const parts = String(track.duration || '').split(':').map(Number);
+                const duration = parts.reduce((total, part) => total * 60 + (Number.isFinite(part) ? part : 0), 0);
+                return { key: 'yt:' + track.videoId, type: 'song', src: 'youtube', id: String(track.videoId), name: String(track.title), artist: String(track.artist || ''), art: https(track.thumbnail), duration };
+            }).filter(Boolean);
+        }),
         trending: (genre, limit) => __awaiter(void 0, void 0, void 0, function* () { return list((yield getJSON(urls.trending(genre, limit))).data, songItem); }),
         underground: () => __awaiter(void 0, void 0, void 0, function* () { return list((yield getJSON(urls.underground())).data, songItem); }),
         songSearch: (text) => __awaiter(void 0, void 0, void 0, function* () { return list((yield getJSON(urls.songSearch(text))).data, songItem); }),
@@ -565,6 +615,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
                     throw new Error('Connect your music server to play this');
                 return u;
             }
+            if (item.src === 'chart' || item.src === 'youtube')
+                throw new Error('it plays in YouTube’s player: tap it on its own');
             return https(item.url) || (item.src === 'audius' ? urls.stream(item.id) : '');
         });
     }
@@ -767,5 +819,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             move: (id, key, by) => savePlaylists(l => moveInPlaylist(l, id, key, by)),
             rename: (id, name) => savePlaylists(l => renamePlaylist(l, id, name)),
             delete: id => savePlaylists(l => deletePlaylist(l, id)),
-        }, clearRecent: () => { write(KEYS.recent, []); changed(); } });
+        }, clearRecent: () => { write(KEYS.recent, []); changed(); }, 
+        // songs played outside the audio player (YouTube's player) still go into the listening history
+        remember: item => { write(KEYS.recent, addRecent(read(KEYS.recent, []).filter(validItem), item)); changed(); }, 
+        // a chart song's full version on YouTube Music (OpenTune search), or null
+        findOnYouTube: (item) => __awaiter(void 0, void 0, void 0, function* () { return pickYouTube(item, yield data.openTuneSearch(`${item.name} ${item.artist}`).catch(() => [])); }) });
 })();

@@ -209,7 +209,8 @@ Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other
 
 **Music** (`#music`) is a personal music system with **no subscription**: your own music and free, legal music platforms in one place, laid out the way Apple Music is.
 
-- **Listen Now**: what you played recently, your playlists, music you added recently, new albums on your server, then free music: playlists and trending songs from Audius, radio, new artists, top songs by genre, Creative Commons picks and live concerts.
+- **Top Songs · Australia** leads Listen Now. It's one ranking that combines **Apple Music** (most played), **iTunes** (top downloads), **Shazam** (most Shazamed) and **Deezer** (Top Australia), so a song ranks higher the higher it is on each chart and the more charts list it. *See all* shows the numbered top 100 with each song's position on every chart. It refreshes hourly (`netlify/functions/music-charts.mjs`, `/api/music-charts`), and every song shows its official artwork. Tapping a song finds the official track on YouTube Music (OpenTune search, which skips karaoke and cover versions) and plays it in full in YouTube's own player, with **Next ›** for the following song. ARIA and Spotify publish their charts only as web pages or behind a sign-in, so they aren't included.
+- **Listen Now** then has what you played recently, your playlists, music you added recently, new albums on your server, then free music: playlists and trending songs from Audius, radio, new artists, top songs by genre, Creative Commons picks and live concerts.
 - **Browse**: 22 genres, each gathering that genre from your music and every free source.
 - **Radio**: SomaFM's commercial-free channels, Australian stations first, then stations by genre or name.
 - **Library**: Playlists, Artists, Albums, Songs, Favourites and Recently Played. This is also where you add your own music and connect a music server.

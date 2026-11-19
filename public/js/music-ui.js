@@ -62,15 +62,16 @@
     const li = reg(list);
     return `<div class="am-rows" role="list">${list.map((s, i) => `<div class="am-row" role="listitem" data-m-play="${esc(s.key)}" data-m-list="${li}">
       <button type="button" class="am-row-main" data-m="play" aria-label="Play ${esc(s.name)}">
-        ${numbered ? `<span class="am-num">${s.track || i + 1}</span>` : cover(s, 'am-row-art')}
-        <span class="am-row-text"><b>${esc(s.name)}</b><small>${esc([s.artist, s.album].filter(Boolean).join(' · '))}</small></span></button>
+        ${numbered ? `<span class="am-num">${s.rank || s.track || i + 1}</span>` : cover(s, 'am-row-art')}
+        ${numbered && s.src === 'chart' ? cover(s, 'am-row-art') : ''}
+        <span class="am-row-text"><b>${esc(s.name)}</b><small>${esc([s.artist, s.album || s.chartLine].filter(Boolean).join(' · '))}</small></span></button>
       <span class="am-len">${esc(clock(s.duration))}</span>${favBtn(s, favs)}${s.type === 'song' ? moreBtn(s) : ''}</div>`).join('')}</div>`;
   }
   const playButtons = li => `<div class="am-actions"><button type="button" class="btn am-btn" data-m-act="play" data-m-list="${li}">${ICON.play} Play</button><button type="button" class="btn am-btn ghost" data-m-act="shuffle" data-m-list="${li}">${ICON.shuffle} Shuffle</button></div>`;
   const songsBlock = (title, list, favs, opts = {}) => { if (!list.length) return ''; const li = reg(list); return `<div class="am-sec-head"><h2>${esc(title)}${opts.count ? ` <small>${list.length}</small>` : ''}</h2>${playButtons(li)}</div>${rows(list, favs, opts)}`; };
 
   const TABS = [['', 'Listen Now', 'home'], ['browse', 'Browse', 'browse'], ['radio', 'Radio', 'radio'], ['library', 'Library', 'library']];
-  const tabOf = page => ({ genre: 'browse', playlist: 'home', album: 'home', artist: 'home', search: 'search', mylist: 'library', myartist: 'library', myalbum: 'library', server: 'library', subalbum: 'library', subartist: 'library' }[page] || page);
+  const tabOf = page => ({ charts: 'home', genre: 'browse', playlist: 'home', album: 'home', artist: 'home', search: 'search', mylist: 'library', myartist: 'library', myalbum: 'library', server: 'library', subalbum: 'library', subartist: 'library' }[page] || page);
   function chrome(r, body) {
     const active = tabOf(r.page);
     return `<div class="page am" id="amRoot">
@@ -114,6 +115,7 @@
       const favs = M.favs(), recent = M.recent(), own = L()?.all() || [], picks = [genreById('pop'), genreById('electronic'), genreById('hiphop'), genreById('rock')];
       const lists_ = M.playlists();
       sections(view, r, live, title('Listen Now'), [
+        async () => songShelf('Top Songs · Australia', (await data.charts()).slice(0, 30), favs, { href: '#music/charts', cls: 'am-charts' }),
         async () => songShelf('Recently Played', recent.slice(0, 20), favs, { href: '#music/library/recent' }),
         async () => (lists_.length ? shelf('Your Playlists', lists_.map(playlistCard).join(''), { href: '#music/library/playlists' }) : ''),
         async () => songShelf('Recently Added to My Music', [...own].sort((a, b) => b.added - a.added).slice(0, 20), favs, { href: '#music/library/songs' }),
@@ -127,6 +129,13 @@
         async () => songShelf('Creative Commons Picks', await data.cc('pop rock', 20), favs),
         async () => shelf('Live Concerts', (await data.concerts()).map(linkCard).join('')),
         fixed(async () => shelf('Browse by Genre', GENRES.slice(0, 12).map(genreTile).join(''), { href: '#music/browse', cls: 'am-genre-shelf' })),
+      ]);
+    },
+    // The top songs in Australia: Apple Music, iTunes, Shazam and Deezer combined (netlify/functions/music-charts.mjs)
+    charts(view, r, live) {
+      const favs = M.favs();
+      sections(view, r, live, title('Top Songs · Australia', 'Apple Music, iTunes, Shazam and Deezer combined, updated hourly. Songs play in YouTube’s player.'), [
+        async () => { const t = await data.charts(); return t.length ? `<div class="am-sec-head"><h2>Top ${t.length}</h2>${playButtons(reg(t))}</div>${rows(t, favs, { numbered: true })}` : ''; },
       ]);
     },
     browse(view, r) {
@@ -353,7 +362,7 @@
     if (!openModal) return;
     const lists_ = M.playlists(), inList = context.playlist, fav = M.isFav(M.favs(), item.key);
     openModal(`<div class="modal-body am-menu"><div class="am-menu-head">${cover(item, 'am-row-art')}<div><h2>${esc(item.name)}</h2><p>${esc([item.artist, item.album].filter(Boolean).join(' · '))}</p></div></div>
-      <div class="am-menu-acts"><button type="button" class="btn btn-more" data-mm="next">${ICON.next} Play Next</button><button type="button" class="btn btn-more" data-mm="fav">${ICON.heart} ${fav ? 'Remove from Favourites' : 'Add to Favourites'}</button>
+      <div class="am-menu-acts">${item.src === 'chart' || item.src === 'youtube' ? '' : `<button type="button" class="btn btn-more" data-mm="next">${ICON.next} Play Next</button>`}<button type="button" class="btn btn-more" data-mm="fav">${ICON.heart} ${fav ? 'Remove from Favourites' : 'Add to Favourites'}</button>
         ${inList ? `<button type="button" class="btn btn-more" data-mm="up">Move Up</button><button type="button" class="btn btn-more" data-mm="down">Move Down</button><button type="button" class="btn btn-more" data-mm="unlist">Remove from This Playlist</button>` : ''}
         ${item.src === 'local' ? `<a class="btn btn-more" href="#music/my-album/${esc(encodeURIComponent(M.organise([item]).albums[0].key))}">${ICON.disc} Go to Album</a><button type="button" class="btn btn-more" data-mm="delete">Remove from This Device</button>` : ''}</div>
       <h3>Add to a Playlist</h3><div class="am-menu-lists">${lists_.filter(p => p.id !== inList).map(p => `<button type="button" class="btn btn-more" data-mm-add="${esc(p.id)}">${ICON.list} ${esc(p.name)}</button>`).join('') || '<p class="am-muted">No playlists yet.</p>'}</div>
@@ -383,7 +392,7 @@
   // OpenTune uses YouTube's official embedded player; no audio is downloaded or proxied.
   let youtubeLayer = null;
   function closeYouTube() { if (youtubeLayer) { youtubeLayer.remove(); youtubeLayer = null; } }
-  function openYouTube(item) {
+  function openYouTube(item, onNext) {
     closeYouTube();
     player.pause();
     const layer = document.createElement('div');
@@ -395,10 +404,35 @@
     layer.querySelector('button').addEventListener('click', closeYouTube);
     layer.querySelector('iframe').src = 'https://www.youtube.com/embed/' + encodeURIComponent(item.id) + '?autoplay=1&playsinline=1&rel=0';
     layer.addEventListener('click', e => { if (e.target === layer) closeYouTube(); });
+    if (onNext) {   // the next song of the list it came from (the chart, a search)
+      const next = document.createElement('button');
+      next.type = 'button'; next.className = 'btn btn-more am-yt-next'; next.textContent = 'Next ›';
+      next.addEventListener('click', onNext);
+      layer.querySelector('button').before(next);
+    }
     document.body.appendChild(layer); youtubeLayer = layer;
+    layer.querySelector('button').focus({ preventScroll: true });   // a TV remote starts on the player's buttons
+  }
+  document.addEventListener('keydown', e => { if (youtubeLayer && (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack')) { e.preventDefault(); e.stopPropagation(); closeYouTube(); } }, true);
+  addEventListener('hashchange', closeYouTube);
+  // Chart songs and YouTube Music songs play in YouTube's official player; a chart song is found there first
+  async function playOnYouTube(item, items, shuffle = false) {
+    let list = (items || [item]).filter(i => i.src === 'youtube' || i.src === 'chart');
+    if (shuffle) list = M.shuffled(list, item);
+    const at = list.findIndex(x => x.key === item.key);
+    const next = list.length > 1 ? () => playOnYouTube(list[(at + 1) % list.length], list) : null;
+    let video = item;
+    if (item.src === 'chart') {
+      toast(`Finding “${item.name}”…`);
+      const found = await M.findOnYouTube(item);
+      if (!found) { toast(`Couldn’t find “${item.name}” on YouTube Music right now`); return; }
+      video = { ...found, name: item.name, artist: item.artist };
+    }
+    M.remember(item);
+    openYouTube(video, next);
   }
   function playMusicItem(item, items, opts = {}) {
-    if (item?.src === 'youtube') { openYouTube(item); return; }
+    if (item?.src === 'youtube' || item?.src === 'chart') { playOnYouTube(item, items, opts.shuffle); return; }
     closeYouTube(); player.start(item, items, opts);
   }
 

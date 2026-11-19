@@ -115,7 +115,7 @@ test('page addresses map to what is shown', () => {
   assert.deepEqual(m.parseRoute('server'), { page: 'server' });
   assert.deepEqual(m.parseRoute('server/album/al-1'), { page: 'subalbum', id: 'al-1' });
   assert.deepEqual(m.parseRoute('server/artist/ar-9'), { page: 'subartist', id: 'ar-9' });
-  assert.deepEqual(m.parseRoute('charts'), { page: 'home' }, 'the old chart page goes to Listen Now');
+  assert.deepEqual(m.parseRoute('charts'), { page: 'charts' });
   assert.deepEqual(m.parseRoute('playlist/DOPRl'), { page: 'playlist', id: 'DOPRl' });
   assert.deepEqual(m.parseRoute('album/gd85-06-30.sbd'), { page: 'album', id: 'gd85-06-30.sbd' });
   assert.deepEqual(m.parseRoute('artist/G2ag35x'), { page: 'artist', id: 'G2ag35x' });
@@ -130,7 +130,7 @@ test('favourite music is rebuilt from safe fields before it is stored', () => {
   assert.equal(cleanMusicItem(ccFav).url, 'https://prod-1.storage.jamendo.com/?trackid=1227396&format=mp32');
   assert.equal(cleanMusicItem(ccFav).album, 'Midnight Grooves');
   assert.equal(cleanMusicItem({ ...ccFav, url: 'javascript:alert(1)' }), null, 'a song from outside Audius must have an https address');
-  assert.equal(cleanMusicItem({ key: 'y:khnokW3Mw24', type: 'song', src: 'yt', id: 'khnokW3Mw24', name: 'Old YouTube favourite' }), null, 'YouTube songs are gone: an old favourite of one is dropped');
+  assert.equal(cleanMusicItem({ key: 'y:khnokW3Mw24', type: 'song', src: 'yt', id: 'khnokW3Mw24', name: 'Old YouTube favourite' }), null, 'favourites from the old YouTube bridge are dropped');
   assert.equal(cleanMusicItem({ ...song, src: 'random', url: '' }), null, 'a song from an unknown source still needs an https address');
   assert.equal(cleanMusicItem({ ...radio, url: 'http://plain.example/s' }), null, 'a station must have an https stream');
   assert.equal(cleanMusicItem({ ...song, art: 'https://x.example/" onerror="alert(1)' }).art, undefined, 'artwork must be a clean https address');
@@ -251,4 +251,29 @@ test('your own files and server songs are favourites by their id (they play from
   assert.ok(m.validFav(fav));
   assert.equal('art' in fav || 'url' in fav, false);
   assert.ok(cleanMusicItem(fav), 'the account accepts it');
+});
+
+// ------------------------------------------------------------------ the Australian charts
+test('a chart song keeps its position on each chart, its official poster, and plays by its name', () => {
+  const c = m.chartItem({ rank: 1, name: "Choosin' Texas", artist: 'Ella Langley', art: 'https://is1.mzstatic.com/x/600x600bb.jpg', charts: { apple: 1, itunes: 2, shazam: 19, deezer: 2, bogus: 3 } });
+  assert.equal(c.key, 'ch:choosin texas|ella langley'); assert.equal(c.src, 'chart');
+  assert.equal(c.chartLine, 'Apple Music #1 · iTunes #2 · Shazam #19 · Deezer #2');
+  assert.equal(c.art, 'https://is1.mzstatic.com/x/600x600bb.jpg');
+  const fav = m.toggleFav([], c)[0];
+  assert.ok(m.validFav(fav) && !('url' in fav), 'a favourite chart song is kept by its id');
+  assert.ok(cleanMusicItem(fav), 'and the account keeps it');
+  assert.equal(m.chartItem({ name: 'No artist' }), null);
+});
+
+test('the full song on YouTube Music: title and artist match, karaoke and covers lose', () => {
+  const song = m.chartItem({ name: 'Man I Need', artist: 'Olivia Dean' });
+  const results = [
+    { key: 'yt:k', src: 'youtube', id: 'kara', name: 'Man I Need (By Olivia Dean)', artist: 'ZZang KARAOKE' },
+    { key: 'yt:c', src: 'youtube', id: 'cover', name: 'Man I Need (Cover)', artist: 'Someone' },
+    { key: 'yt:o', src: 'youtube', id: 'official', name: 'Man I Need', artist: 'Olivia Dean' },
+  ];
+  assert.equal(m.pickYouTube(song, results).id, 'official');
+  assert.equal(m.pickYouTube(song, results.slice(0, 2)), null, 'no karaoke or cover version instead of the real song');
+  assert.equal(m.pickYouTube(m.chartItem({ name: 'Lies (feat. Lana Del Rey)', artist: 'Zach Bryan & Lana Del Rey' }), [{ id: 'z', name: 'Lies', artist: 'Zach Bryan' }]).id, 'z', '"feat." and second artists don’t get in the way');
+  assert.equal(m.pickYouTube(song, []), null);
 });

@@ -117,6 +117,35 @@
     return { id: String(u.id), name: str(u.name), handle: str(u.handle), art: art480(u.profile_picture), cover: https(u.cover_photo?.['2000x']) || https(u.cover_photo?.['640x']), followers: u.follower_count | 0, tracks: u.track_count | 0, verified: !!u.is_verified, bio: str(u.bio), where: str(u.location), href: '#music/artist/' + encodeURIComponent(u.id) };
   }
 
+  // ---- the top songs in Australia across the charts (/api/music-charts: Apple Music, iTunes, Shazam, Deezer)
+  const CHARTS = { apple: 'Apple Music', itunes: 'iTunes', shazam: 'Shazam', deezer: 'Deezer' };
+  const simple = t => str(t).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[([][^)\]]*[)\]]/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+  function chartItem(c) {
+    if (!c || !str(c.name) || !str(c.artist)) return null;
+    const id = `${simple(c.name)}|${simple(c.artist)}`.slice(0, 120);
+    const charts = Object.fromEntries(Object.entries(c.charts || {}).filter(([k, v]) => CHARTS[k] && v > 0).map(([k, v]) => [k, v | 0]));
+    return {
+      key: 'ch:' + id, type: 'song', src: 'chart', id, name: str(c.name), artist: str(c.artist), art: https(c.art), rank: c.rank | 0, charts,
+      chartLine: Object.entries(charts).map(([k, v]) => `${CHARTS[k]} #${v}`).join(' · '), duration: 0, genre: '',
+    };
+  }
+  // The same song among OpenTune's YouTube Music results: the title and the artist have to match, and karaoke,
+  // covers, instrumentals and remixes lose out (unless that's what the chart song is)
+  function pickYouTube(item, results) {
+    const want = simple(item.name).replace(/\b(feat|ft|featuring|with)\b.*$/, '').trim(), who = simple(String(item.artist).split(/,|&|\bfeat\.?|\bx\b/i)[0]);
+    const extra = /\b(karaoke|cover|instrumental|remix|sped up|slowed|8d|live|tribute|lyrics?)\b/;
+    let best = null, bestScore = 0;
+    for (const r of results || []) {
+      const title = simple(r.name), artist = simple(r.artist);
+      if (!title.includes(want) && !want.includes(title)) continue;
+      let score = 1 + (title === want ? 1 : 0) + (artist.includes(who) || who.includes(artist) ? 2 : 0);
+      const raw = `${r.name} ${r.artist}`.toLowerCase();   // brackets kept: "(Cover)", "(Karaoke Version)"
+      if (extra.test(raw) && !extra.test(String(item.name).toLowerCase())) score -= 3;
+      if (score > bestScore) { best = r; bestScore = score; }
+    }
+    return bestScore >= 3 ? best : null;   // the artist has to match: a wrong song is worse than none
+  }
+
   // ---- your own music server (Navidrome, Gonic, Airsonic...: the Subsonic API)
   // Requests are signed with a token (md5 of the password and a random salt), so the password itself is never kept.
   function md5(text) {   // RFC 1321, for the Subsonic token
@@ -158,7 +187,7 @@
   // ---- your playlists and listening history
   // What is kept of a song or station: enough to show it and play it again. Songs played by their id keep no address
   // (a server song's address carries the sign-in token, and your own files are found on the device by their id).
-  const BY_ID = new Set(['audius', 'local', 'sub', 'youtube']);
+  const BY_ID = new Set(['audius', 'local', 'sub', 'youtube', 'chart']);
   function slim(item) {
     const { key, type, src, id, name, artist, artistId, art, url, duration, genre, album, albumId, coverArt } = item;
     const keepArt = src !== 'sub' && src !== 'local' && https(art);   // those two get their picture back from their source
@@ -263,6 +292,7 @@
     const [a = '', b = '', ...rest] = String(arg).split('/');
     const tail = [b, ...rest].join('/');
     if (a === 'browse') return { page: 'browse' };
+    if (a === 'charts') return { page: 'charts' };
     if (a === 'genre') return genreById(b) ? { page: 'genre', genre: b } : { page: 'browse' };
     if (a === 'radio') return b === 'search' ? { page: 'radio', search: rest.join('/') } : { page: 'radio', genre: genreById(b) ? b : '' };
     if (a === 'library') return LIBRARY_PARTS.includes(b) ? { page: 'library', part: b } : { page: 'library', part: '' };
@@ -279,7 +309,7 @@
   }
 
   const pure = {
-    GENRES, genreById, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, albumItem, artistItem, bigArt, urls, md5, serverLogin, subUrl, subSong, subAlbum, subArtist,
+    GENRES, genreById, chartItem, pickYouTube, songItem, ccItem, iaTracks, stationItem, somaItem, playlistItem, albumItem, artistItem, bigArt, urls, md5, serverLogin, subUrl, subSong, subAlbum, subArtist,
     slim, isFav, toggleFav, validFav, validItem, addRecent, createPlaylist, addToPlaylist, removeFromPlaylist, moveInPlaylist, renamePlaylist, deletePlaylist, cleanPlaylists,
     organise, matches, shuffled, parseRoute, esc, clock, LIMITS,
   };
@@ -370,6 +400,7 @@
   }
 
   const data = {
+    charts: async () => list((await getJSON('/api/music-charts')).items, chartItem),
     openTuneSearch: async query => {
       const response = await fetch('https://streambox-opentune.onrender.com/api/search?q=' + encodeURIComponent(query));
       if (!response.ok) throw new Error('OpenTune search unavailable');
@@ -452,6 +483,7 @@
   async function sourceOf(item) {
     if (item.src === 'local') { const blob = await local()?.file(item.id); if (!blob) throw new Error('This song isn’t on this device'); return URL.createObjectURL(blob); }
     if (item.src === 'sub') { const u = server.stream(item.id); if (!u) throw new Error('Connect your music server to play this'); return u; }
+    if (item.src === 'chart' || item.src === 'youtube') throw new Error('it plays in YouTube’s player: tap it on its own');
     return https(item.url) || (item.src === 'audius' ? urls.stream(item.id) : '');
   }
   async function begin(item) {
@@ -577,5 +609,9 @@
       delete: id => savePlaylists(l => deletePlaylist(l, id)),
     },
     clearRecent: () => { write(KEYS.recent, []); changed(); },
+    // songs played outside the audio player (YouTube's player) still go into the listening history
+    remember: item => { write(KEYS.recent, addRecent(read(KEYS.recent, []).filter(validItem), item)); changed(); },
+    // a chart song's full version on YouTube Music (OpenTune search), or null
+    findOnYouTube: async item => pickYouTube(item, await data.openTuneSearch(`${item.name} ${item.artist}`).catch(() => [])),
   };
 })();
