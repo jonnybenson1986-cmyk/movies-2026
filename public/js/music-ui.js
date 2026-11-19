@@ -31,6 +31,7 @@
     person: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
     disc: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>',
     clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    output: '<svg viewBox="0 0 24 24"><path d="M6 17H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="m12 14 5.5 7h-11z" fill="currentColor"/></svg>',
   };
 
   // ---- pieces
@@ -404,6 +405,10 @@
     layer.querySelector('button').addEventListener('click', closeYouTube);
     layer.querySelector('iframe').src = 'https://www.youtube.com/embed/' + encodeURIComponent(item.id) + '?autoplay=1&playsinline=1&rel=0';
     layer.addEventListener('click', e => { if (e.target === layer) closeYouTube(); });
+    const note = document.createElement('p');
+    note.className = 'am-yt-note';
+    note.textContent = 'Chart songs play in YouTube’s player, which stops when the screen locks. Music from your library, your server, Audius and radio keeps playing.';
+    layer.appendChild(note);
     if (onNext) {   // the next song of the list it came from (the chart, a search)
       const next = document.createElement('button');
       next.type = 'button'; next.className = 'btn btn-more am-yt-next'; next.textContent = 'Next ›';
@@ -531,7 +536,8 @@
         <div class="np-scrub" id="npScrub"><input type="range" id="npSeek" min="0" max="1000" value="0" aria-label="Position in the song"><div class="np-times"><span id="npElapsed">0:00</span><span id="npLeft"></span></div></div>
         <div class="np-live" id="npLive" hidden><span class="dot"></span>LIVE RADIO</div>
         <div class="np-controls"><button class="icon-btn" id="npShuffle" type="button" aria-label="Shuffle the rest">${ICON.shuffle}</button><button class="icon-btn" id="npPrev" type="button" aria-label="Previous">${ICON.prev}</button><button class="icon-btn np-play" id="npPlay" type="button" aria-label="Pause">${ICON.pause}</button><button class="icon-btn" id="npNext" type="button" aria-label="Next">${ICON.next}</button></div>
-        <p class="np-hint">Keeps playing with the screen off. Use the lock-screen controls to pause or skip.</p>
+        <button class="np-out" id="npOut" type="button" hidden>${ICON.output}<span>Play on speakers &amp; TVs</span></button>
+        <p class="np-hint">Swipe the cover to skip. Keeps playing with the screen off: the lock screen, headphones, Bluetooth and your car’s buttons pause and skip.</p>
       </div>
       <div class="np-queue" id="npQueue"></div>
     </div>`;
@@ -571,6 +577,10 @@
     }
     for (const id of ['#musicPlay', '#npPlay']) { const b = $(id); b.innerHTML = paused ? ICON.play : ICON.pause; b.setAttribute('aria-label', paused ? 'Play' : 'Pause'); }
     for (const id of ['#musicPrev', '#musicNext', '#npPrev', '#npNext', '#npShuffle']) $(id).disabled = !many;
+    const out = $('#npOut'), away = player.onOtherDevice;
+    out.hidden = !player.canPickOutput && !away;
+    out.classList.toggle('on', away);
+    out.querySelector('span').textContent = away ? 'Playing on another device · Change' : 'Play on speakers & TVs';
     np.classList.toggle('paused', paused);
     const fav = M.isFav(M.favs(), c.key);
     $('#npFav').classList.toggle('on', fav); $('#npFav').setAttribute('aria-pressed', String(fav));
@@ -597,6 +607,23 @@
   $('#musicClose').onclick = () => player.stop();
   $('#npDown').onclick = closeNP;
   $('#npShuffle').onclick = () => { player.shuffleRest(); toast('Shuffled what’s next'); };
+  $('#npOut').onclick = () => { if (!player.pickOutput()) toast('No speakers or TVs found on this Wi-Fi'); };
+  // Swipe left or right to skip: on the cover in Now Playing, and anywhere on the mini player
+  function swipeToSkip(el, nudge) {
+    let x0 = null, y0 = 0;
+    el.addEventListener('touchstart', e => { if (e.touches.length !== 1 || e.target.closest('input')) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    el.addEventListener('touchend', e => {
+      if (x0 == null) return;
+      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+      x0 = null;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5 || player.queue.length < 2) return;
+      nudge.classList.remove('skip-left', 'skip-right'); void nudge.offsetWidth;
+      nudge.classList.add(dx < 0 ? 'skip-left' : 'skip-right');
+      player.step(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  }
+  swipeToSkip($('#npArt'), $('#npArt'));
+  swipeToSkip(bar, bar);
   $('#npFav').onclick = () => { if (player.current) toast(M.favourite(player.current) ? 'Added to Favourites' : 'Removed from Favourites'); };
   $('#npMore').onclick = () => { if (player.current) { closeNP(); songMenu(player.current); } };
   $('#npArtist').addEventListener('click', closeNP);

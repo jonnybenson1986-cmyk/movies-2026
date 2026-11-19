@@ -236,6 +236,8 @@ Inside the list, `↑`/`↓` move through the channels, `←`/`→` browse other
 - **Playlists** (`sb:music-playlists`), **listening history** (`sb:music-recent`, last 100) and the **server connection** (`sb:music-server`) stay on the device.
 - Signing out forgets the server connection.
 
+**On a phone.** Swipe the mini player, or the cover in Now Playing, left or right to skip. The mini player shows Previous, Play/Pause and Next as 48-pixel buttons, and Now Playing's controls are larger on phones. **Play on speakers & TVs** in Now Playing opens AirPlay on iPhone, iPad and Mac (Apple TV, HomePod, AirPlay speakers) or Chromecast from Chrome on Android. Bluetooth speakers, headphones and cars are picked in the phone's settings; they show the song and cover art (sent in the sizes car and watch screens ask for) and their buttons pause and skip. Chart and YouTube Music songs play in YouTube's player, which stops when the screen locks (the player says so), so a queue that mixes them in skips them when the screen is off instead of stopping.
+
 **Player.** One audio element plays everything, so music keeps going with the screen off. The lock screen, Control Center and headphones get the song, its poster and play/pause/next/previous/seek. A mini player stays above the tab bar; tap it for **Now Playing**, which has the poster, a scrubber, controls, ♥, ⋯ and Up Next. Your own files start inside the tap that asked for them, which phones require. Long sessions are fine: your files are read from the device one song at a time.
 
 **How it fits together (for developers).**

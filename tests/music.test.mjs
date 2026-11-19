@@ -277,3 +277,12 @@ test('the full song on YouTube Music: title and artist match, karaoke and covers
   assert.equal(m.pickYouTube(m.chartItem({ name: 'Lies (feat. Lana Del Rey)', artist: 'Zach Bryan & Lana Del Rey' }), [{ id: 'z', name: 'Lies', artist: 'Zach Bryan' }]).id, 'z', '"feat." and second artists don’t get in the way');
   assert.equal(m.pickYouTube(song, []), null);
 });
+
+test('music can go to speakers, TVs, Bluetooth and cars, and the queue never stops on a song that can’t play with the screen off', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../public/js/music.js', import.meta.url), 'utf8');
+  assert.match(src, /audio\.setAttribute\('x-webkit-airplay', 'allow'\)/, 'AirPlay to an Apple TV, HomePod or speaker');
+  assert.match(src, /audio\.remote\?\.prompt/, 'Chromecast from Chrome on Android');
+  assert.match(src, /\['96x96', '256x256', '512x512', '600x600'\]/, 'artwork in the sizes car and Bluetooth screens ask for');
+  assert.match(src, /const own = items\.filter\(i => i === item \|\| inPlayer\(i\)\)/, 'chart and YouTube songs are left out of the screen-off queue');
+});

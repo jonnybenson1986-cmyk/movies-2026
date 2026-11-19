@@ -1,4 +1,4 @@
-/* Generated from js/music.js (sha 4dae44398628839e) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/music.js (sha 15d90c388eb84832) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -28,6 +28,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
    three on this device only. The first half is plain logic (no page code) so it can be tested on its own. */
 (() => {
     'use strict';
+    var _a, _b, _c;
     const APP = 'StreamBox';
     const AUDIUS = 'https://api.audius.co/v1';
     const OPENVERSE = 'https://api.openverse.org/v1/audio/';
@@ -545,6 +546,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     const audio = document.createElement('audio');
     audio.preload = 'auto';
     audio.setAttribute('playsinline', '');
+    audio.setAttribute('x-webkit-airplay', 'allow'); // can be sent to an Apple TV, HomePod or AirPlay speaker
     audio.style.display = 'none';
     (document.body || document.documentElement).appendChild(audio);
     const media = audio;
@@ -583,7 +585,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             const art = bigArt(item) || item.art;
             ms.metadata = new MediaMetadata({
                 title: item.name, artist: item.artist || (item.type === 'radio' ? 'Radio' : ''), album: item.album || (item.type === 'radio' ? 'Live radio' : APP),
-                artwork: art ? [{ src: art, sizes: '600x600' }] : [{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
+                // several sizes of the same picture: car screens, watches and Bluetooth displays each pick the one they want
+                artwork: art ? ['96x96', '256x256', '512x512', '600x600'].map(sizes => ({ src: art, sizes })) : [{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
             });
         }
         catch ( /* older browsers */_a) { /* older browsers */ }
@@ -657,10 +660,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             changed();
         } });
     }
+    const inPlayer = i => i && i.src !== 'chart' && i.src !== 'youtube';
     function start(item, items, { shuffle = false } = {}) {
         clearTimeout(retryTimer);
+        // Only songs this player plays go in its queue: chart and YouTube Music songs play in YouTube's player, which
+        // can't carry on with the screen off, so a list that mixes them skips them instead of stopping on them
         if (items) {
-            queue = shuffle ? shuffled(items, item) : items;
+            const own = items.filter(i => i === item || inPlayer(i));
+            queue = shuffle ? shuffled(own, item) : own;
             index = queue.findIndex(i => i.key === item.key);
         }
         current = item;
@@ -804,12 +811,42 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     claimSession();
     media.addEventListener('play', () => { if (current && !silent())
         describe(current); claimSession(); });
+    // Speakers and TVs: AirPlay on iPhone, iPad and Mac (Apple TV, HomePod, AirPlay speakers and cars' AirPlay), and
+    // Chromecast from Chrome on Android (the Remote Playback API). Bluetooth speakers, headphones and cars are chosen in
+    // the phone's own settings; the lock-screen details and buttons above are what they show and use.
+    const outputs = { airplay: 'WebKitPlaybackTargetAvailabilityEvent' in window, cast: false };
+    audio.addEventListener('webkitplaybacktargetavailabilitychanged', e => { outputs.airplay = e.availability === 'available' || outputs.airplay; changed(); });
+    audio.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', changed);
+    try {
+        (_a = audio.remote) === null || _a === void 0 ? void 0 : _a.watchAvailability(a => { outputs.cast = a; changed(); }).catch(() => { });
+    }
+    catch ( /* no Remote Playback here */_d) { /* no Remote Playback here */ }
+    for (const ev of ['connect', 'connecting', 'disconnect'])
+        (_c = (_b = audio.remote) === null || _b === void 0 ? void 0 : _b.addEventListener) === null || _c === void 0 ? void 0 : _c.call(_b, ev, changed);
+    function pickOutput() {
+        var _a;
+        try {
+            if (audio.webkitShowPlaybackTargetPicker) {
+                audio.webkitShowPlaybackTargetPicker();
+                return true;
+            }
+            if ((_a = audio.remote) === null || _a === void 0 ? void 0 : _a.prompt) {
+                audio.remote.prompt().catch(() => { });
+                return true;
+            }
+        }
+        catch ( /* not available right now */_b) { /* not available right now */ }
+        return false;
+    }
     const player = {
         audio: media, start, step, stop, toggle, seekTo, pause, playNext, shuffleRest,
         get current() { return current; },
         get queue() { return queue; },
         get index() { return index; },
         get paused() { return media.paused || silent(); },
+        get canPickOutput() { return outputs.airplay || outputs.cast; },
+        get onOtherDevice() { var _a; return !!audio.webkitCurrentPlaybackTargetIsWireless || ((_a = audio.remote) === null || _a === void 0 ? void 0 : _a.state) === 'connected'; },
+        pickOutput,
         set onProblem(fn) { onProblem = fn; },
     };
     window.StreamBoxMusic = Object.assign(Object.assign({}, pure), { data, player, server, favs, favourite, playlists, recent, revive, findArt, pause, stop, render: () => { }, playlist: {

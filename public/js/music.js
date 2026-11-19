@@ -443,6 +443,7 @@
   const audio = document.createElement('audio');
   audio.preload = 'auto';
   audio.setAttribute('playsinline', '');
+  audio.setAttribute('x-webkit-airplay', 'allow');   // can be sent to an Apple TV, HomePod or AirPlay speaker
   audio.style.display = 'none';
   (document.body || document.documentElement).appendChild(audio);
   const media = audio;
@@ -468,7 +469,8 @@
       const art = bigArt(item) || item.art;
       ms.metadata = new MediaMetadata({
         title: item.name, artist: item.artist || (item.type === 'radio' ? 'Radio' : ''), album: item.album || (item.type === 'radio' ? 'Live radio' : APP),
-        artwork: art ? [{ src: art, sizes: '600x600' }] : [{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
+        // several sizes of the same picture: car screens, watches and Bluetooth displays each pick the one they want
+        artwork: art ? ['96x96', '256x256', '512x512', '600x600'].map(sizes => ({ src: art, sizes })) : [{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
       });
     } catch { /* older browsers */ }
   }
@@ -502,9 +504,12 @@
     findArt(item.artist, item.album || item.name).then(art => { if (art && current === item && !item.art) { item.art = art; describe(item); changed(); } });
   }
 
+  const inPlayer = i => i && i.src !== 'chart' && i.src !== 'youtube';
   function start(item, items, { shuffle = false } = {}) {
     clearTimeout(retryTimer);
-    if (items) { queue = shuffle ? shuffled(items, item) : items; index = queue.findIndex(i => i.key === item.key); }
+    // Only songs this player plays go in its queue: chart and YouTube Music songs play in YouTube's player, which
+    // can't carry on with the screen off, so a list that mixes them skips them instead of stopping on them
+    if (items) { const own = items.filter(i => i === item || inPlayer(i)); queue = shuffle ? shuffled(own, item) : own; index = queue.findIndex(i => i.key === item.key); }
     current = item; heard = '';
     if (item.src === 'local') unlock();
     changed();
@@ -590,12 +595,31 @@
   claimSession();
   media.addEventListener('play', () => { if (current && !silent()) describe(current); claimSession(); });
 
+  // Speakers and TVs: AirPlay on iPhone, iPad and Mac (Apple TV, HomePod, AirPlay speakers and cars' AirPlay), and
+  // Chromecast from Chrome on Android (the Remote Playback API). Bluetooth speakers, headphones and cars are chosen in
+  // the phone's own settings; the lock-screen details and buttons above are what they show and use.
+  const outputs = { airplay: 'WebKitPlaybackTargetAvailabilityEvent' in window, cast: false };
+  audio.addEventListener('webkitplaybacktargetavailabilitychanged', e => { outputs.airplay = e.availability === 'available' || outputs.airplay; changed(); });
+  audio.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', changed);
+  try { audio.remote?.watchAvailability(a => { outputs.cast = a; changed(); }).catch(() => {}); } catch { /* no Remote Playback here */ }
+  for (const ev of ['connect', 'connecting', 'disconnect']) audio.remote?.addEventListener?.(ev, changed);
+  function pickOutput() {
+    try {
+      if (audio.webkitShowPlaybackTargetPicker) { audio.webkitShowPlaybackTargetPicker(); return true; }
+      if (audio.remote?.prompt) { audio.remote.prompt().catch(() => {}); return true; }
+    } catch { /* not available right now */ }
+    return false;
+  }
+
   const player = {
     audio: media, start, step, stop, toggle, seekTo, pause, playNext, shuffleRest,
     get current() { return current; },
     get queue() { return queue; },
     get index() { return index; },
     get paused() { return media.paused || silent(); },
+    get canPickOutput() { return outputs.airplay || outputs.cast; },
+    get onOtherDevice() { return !!audio.webkitCurrentPlaybackTargetIsWireless || audio.remote?.state === 'connected'; },
+    pickOutput,
     set onProblem(fn) { onProblem = fn; },
   };
   window.StreamBoxMusic = {
