@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "StreamBox Music",
+    "slug": "streambox-music",
+    "scheme": "streamboxmusic",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.streambox.music",
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"]
+      }
+    },
+    "android": {
+      "package": "com.streambox.music",
+      "permissions": ["FOREGROUND_SERVICE", "FOREGROUND_SERVICE_MEDIA_PLAYBACK"]
+    },
+    "plugins": [
+      "expo-linear-gradient",
+      "react-native-track-player"
+    ]
+  }
+}
