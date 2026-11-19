@@ -10,16 +10,20 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.streambox.music",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
       "package": "com.streambox.music",
-      "permissions": ["FOREGROUND_SERVICE", "FOREGROUND_SERVICE_MEDIA_PLAYBACK"]
+      "permissions": [
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "plugins": [
-      "expo-linear-gradient",
-      "react-native-track-player"
+      "expo-linear-gradient"
     ]
   }
 }
