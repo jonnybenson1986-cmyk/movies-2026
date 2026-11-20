@@ -1,0 +1,73 @@
+/* Compact Netflix-style layout for Android TV / APK. Loaded after tv.css. */
+html.tv {
+  --tv-x: 3.2vw;
+  --tv-y: 3vh;
+  --gutter: var(--tv-x);
+  font-size: 16px;
+}
+html.tv body { font-size: 16px; line-height: 1.35; }
+html.tv .topbar { gap: 16px; padding: var(--tv-y) var(--tv-x) 10px; row-gap: 8px; }
+html.tv .logo { font-size: 22px; }
+html.tv .nav { gap: 2px; }
+html.tv .nav a { font-size: 14px; padding: 6px 10px; }
+html.tv .icon-btn { width: 40px; height: 40px; }
+html.tv .icon-btn svg { width: 22px; height: 22px; }
+html.tv .search-input.open { width: 280px; font-size: 16px; height: 34px; }
+html.tv .page { padding-top: calc(var(--tv-y) + 112px); }
+html.tv .page-head h1, html.tv .am-title h1 { font-size: 34px; }
+html.tv .page-head .count, html.tv .am-title p { font-size: 16px; }
+html.tv .row-head h2, html.tv .am-shelf .row-head h2, html.tv .am-sec-head h2 { font-size: 22px; }
+html.tv .row-head .see-all { font-size: 14px; padding: 5px 10px; }
+html.tv .hero { height: 76vh; max-height: none; min-height: 0; }
+html.tv .hero-content { bottom: 13%; max-width: 58vw; }
+html.tv .hero h1 { font-size: 40px; margin: 6px 0 9px; }
+html.tv .hero p { font-size: 16px; margin-bottom: 14px; }
+html.tv .btn { font-size: 16px; padding: 9px 20px; min-height: 42px; }
+html.tv .chip { font-size: 15px; min-height: 40px; padding: 0 14px; }
+/* Approximately half-size artwork: more titles visible per row. */
+html.tv .card.apple { width: clamp(130px, 14vw, 220px); }
+html.tv .card.apple.poster { width: clamp(90px, 9vw, 132px); }
+html.tv .card.apple .caption .name { font-size: 15px; }
+html.tv .card.apple .caption .meta { font-size: 12px; }
+html.tv .card.poster .tile { padding: 5px 6px; }
+html.tv .card.poster .name { font-size: 12px; }
+html.tv .card.poster .meta { font-size: 10px; }
+html.tv .row-track { gap: 14px; padding-top: 10px; padding-bottom: 16px; }
+html.tv .grid { gap: 18px 14px; }
+html.tv .am-tabs a { font-size: 15px; padding: 8px 14px; }
+html.tv .am-card { width: clamp(150px, 12vw, 210px); }
+html.tv .am-name { font-size: 15px; }
+html.tv .am-by { font-size: 13px; }
+html.tv .am-row-text b { font-size: 16px; }
+html.tv .am-row-text small { font-size: 13px; }
+html.tv .am-heart { width: 42px; height: 42px; }
+html.tv .music-bar { padding: 8px 12px; }
+html.tv .music-bar .icon-btn { width: 42px; height: 42px; }
+html.tv .music-now b { font-size: 15px; }
+html.tv .music-now small { font-size: 13px; }
+html.tv .np-in { padding: var(--tv-y) var(--tv-x); }
+html.tv .np-text b { font-size: 26px; }
+html.tv .np-text a { font-size: 19px; }
+html.tv .np-controls .icon-btn { width: 60px; height: 60px; }
+/* Keep the focus ring visible without enlarging a card so much that it overlaps neighbours. */
+html.tv .card:focus, html.tv .am-tile:focus, html.tv .country-tile:focus,
+html.tv .classic-card:focus, html.tv .am-link:focus, html.tv .epg-prog:focus,
+html.tv .am-genre:focus, html.tv .card:focus-visible, html.tv .am-tile:focus-visible,
+html.tv .country-tile:focus-visible, html.tv .classic-card:focus-visible,
+html.tv .am-link:focus-visible { transform: scale(1.025); z-index: 8; }
+html.tv :focus { outline-width: 3px !important; outline-offset: 2px; box-shadow: 0 0 0 5px rgba(10,132,255,.55) !important; }
+html.tv .nav a:focus, html.tv .chip:focus, html.tv .am-tabs a:focus { background: #fff !important; color: #000 !important; }
+html.tv .btn:focus { transform: scale(1.025); }
+html.tv input:not([type=checkbox]):not([type=radio]):not([type=range]), html.tv select { font-size: 16px !important; min-height: 42px; }
+html.tv .player-title strong { font-size: 22px; }
+html.tv .player-title small { font-size: 15px; }
+html.tv .player-bar .icon-btn, html.tv .player-nav .icon-btn, html.tv #playerClose { width: 48px; height: 48px; }
+html.tv .player-bar .icon-btn svg { width: 26px; height: 26px; }
+html.tv .zap-row { padding: 10px; }
+html.tv .zap-name { font-size: 17px; }
+html.tv .zap-meta, html.tv .zap-n { font-size: 13px; }
+@media (max-height: 600px) {
+  html.tv .page { padding-top: calc(var(--tv-y) + 96px); }
+  html.tv .hero { height: 68vh; }
+  html.tv .hero-content { bottom: 9%; }
+}
