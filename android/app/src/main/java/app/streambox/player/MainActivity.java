@@ -280,6 +280,16 @@ public class MainActivity extends Activity {
     // nothing left to close, Back leaves the app.
     private void back() {
         if (fullscreenView != null) { web.evaluateJavascript("document.exitFullscreen&&document.fullscreenElement&&document.exitFullscreen()", null); exitFullscreen(); return; }
+        if (tv && movyRemoteActive) {
+            web.evaluateJavascript("(function(){try{return !!(window.StreamBoxMovyBrowser&&window.StreamBoxMovyBrowser.remoteBack&&window.StreamBoxMovyBrowser.remoteBack())}catch(e){return false}})()", value -> {
+                if (!"true".equals(value)) backFromPage();
+            });
+            return;
+        }
+        backFromPage();
+    }
+
+    private void backFromPage() {
         web.evaluateJavascript("(function(){try{return !!(window.StreamBoxTV&&StreamBoxTV.back&&StreamBoxTV.back())}catch(e){return false}})()", value -> {
             if ("true".equals(value)) return;
             if (web.canGoBack()) web.goBack(); else finish();
