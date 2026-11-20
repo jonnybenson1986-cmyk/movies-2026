@@ -1,4 +1,4 @@
-/* Generated from js/app.js (sha 416e4953a0378859) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/app.js (sha 2e1b82fcbc67111f) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -319,36 +319,76 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             return res.text();
         });
     }
-    function ingestXmltv(xml, au = false) {
+    // A guide as plain data: { channels: [[id, [names]]], programmes: { id: [[start, stop, title, desc]] } }
+    function xmltvData(xml, now, horizon) {
         var _a, _b;
         if (xml.length > 80e6)
             throw new Error('guide file too large');
         const doc = new DOMParser().parseFromString(xml, 'text/xml');
         if (doc.getElementsByTagName('parsererror').length)
             throw new Error('not valid XMLTV');
-        const now = Date.now(), horizon = now + 36 * 3600e3;
+        const channels = [], programmes = {};
         for (const ch of doc.getElementsByTagName('channel')) {
             const id = ch.getAttribute('id');
-            if (!id)
-                continue;
-            for (const dn of ch.getElementsByTagName('display-name')) {
-                const n = normName(dn.textContent);
-                if (n)
-                    guide.byName.set(n, id);
-                if (!guide.names.has(id))
-                    guide.names.set(id, dn.textContent.trim());
-            }
-            if (au && !guide.au.includes(id))
-                guide.au.push(id);
+            if (id)
+                channels.push([id, [...ch.getElementsByTagName('display-name')].map(dn => dn.textContent.trim())]);
         }
         for (const p of doc.getElementsByTagName('programme')) {
             const start = parseXmltvTime(p.getAttribute('start')), stop = parseXmltvTime(p.getAttribute('stop'));
             if (!stop || stop < now || start > horizon)
                 continue;
             const id = p.getAttribute('channel');
+            (programmes[id] || (programmes[id] = [])).push([start, stop, (((_a = p.getElementsByTagName('title')[0]) === null || _a === void 0 ? void 0 : _a.textContent) || '').trim(), (((_b = p.getElementsByTagName('desc')[0]) === null || _b === void 0 ? void 0 : _b.textContent) || '').trim()]);
+        }
+        return { channels, programmes };
+    }
+    // Guides are downloaded and read in a background worker: reading the ~7.5 MB Sydney guide on the page froze a
+    // Fire TV Stick for ~4 s, which stalled a channel that had only just started. The page reads it itself only where
+    // a worker can't (an old TV without fetch in workers, say).
+    function guideInWorker(url, now, horizon) {
+        return new Promise((resolve, reject) => {
+            const w = new Worker('/js/xmltv-worker.js');
+            const end = (fn, v) => { w.terminate(); fn(v); };
+            w.onmessage = e => (e.data.error ? end(reject, Object.assign(new Error(e.data.error), { final: e.data.final })) : end(resolve, e.data));
+            w.onerror = e => { e.preventDefault(); end(reject, new Error('guide worker failed')); };
+            w.postMessage({ url: new URL(url, location.href).href, now, horizon });
+        });
+    }
+    function loadGuide(url_1) {
+        return __awaiter(this, arguments, void 0, function* (url, au = false) {
+            const now = Date.now(), horizon = now + 36 * 3600e3;
+            let data = null;
+            if (window.Worker) {
+                try {
+                    data = yield guideInWorker(url, now, horizon);
+                }
+                catch (e) {
+                    if (e.final)
+                        throw e;
+                    console.warn('guide worker unavailable, reading on the page', e);
+                }
+            }
+            ingestGuide(data || xmltvData(yield fetchGuideText(url), now, horizon), au);
+        });
+    }
+    function ingestGuide({ channels, programmes }, au) {
+        for (const [id, names] of channels) {
+            for (const name of names) {
+                const n = normName(name);
+                if (n)
+                    guide.byName.set(n, id);
+                if (!guide.names.has(id) && name)
+                    guide.names.set(id, name);
+            }
+            if (au && !guide.au.includes(id))
+                guide.au.push(id);
+        }
+        for (const id of Object.keys(programmes)) {
             if (!guide.byId.has(id))
                 guide.byId.set(id, []);
-            guide.byId.get(id).push({ start, stop, title: ((_a = p.getElementsByTagName('title')[0]) === null || _a === void 0 ? void 0 : _a.textContent) || '', desc: ((_b = p.getElementsByTagName('desc')[0]) === null || _b === void 0 ? void 0 : _b.textContent) || '' });
+            const list = guide.byId.get(id);
+            for (const [start, stop, title, desc] of programmes[id])
+                list.push({ start, stop, title, desc });
         }
         guide.byId.forEach(list => list.sort((a, b) => a.start - b.start));
     }
@@ -388,7 +428,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             const urls = [...new Set([...settings.guides, ...autoGuides])].slice(0, 5);
             for (const url of urls) {
                 try {
-                    ingestXmltv(yield fetchGuideText(url));
+                    yield loadGuide(url);
                 }
                 catch (e) {
                     console.warn('guide failed', url, e);
@@ -402,7 +442,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             else {
                 auGuideState = 'loading';
                 try {
-                    ingestXmltv(yield fetchGuideText(auUrl), true);
+                    yield loadGuide(auUrl, true);
                     auGuideState = 'ready';
                 }
                 catch (e) {
@@ -1101,6 +1141,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     // After it has resolved, a later failure is shown to the user directly.
     function attemptPlay(url, native, item) {
         return new Promise((resolve, reject) => {
+            var _a, _b;
             teardown({ keepRoute: true });
             let settled = false;
             const finish = err => {
@@ -1123,7 +1164,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
                 }
                 showPlayerMsg('Stream stopped', why, item);
             };
-            const wait = onAirPlay() ? 30000 : 10000; // an Apple TV takes longer to start a stream than this device
+            const wait = onAirPlay() ? 30000 : ((_a = window.StreamBoxTV) === null || _a === void 0 ? void 0 : _a.on) ? 15000 : 10000; // an Apple TV, or a slower TV stick, takes longer to start a stream
             stallTimer = setTimeout(() => finish(new Error(`no video after ${wait / 1000}s`)), wait);
             video.onplaying = () => { finish(); msg.hidden = true; applySubs(); };
             video.onerror = () => {
@@ -1139,7 +1180,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
                 video.play().catch(() => { video.muted = true; video.play().catch(() => { }); });
                 return;
             }
-            hls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 30 });
+            // Steady over snappy: low-latency mode chased the live edge with only ~3 s of video in hand, so any Wi-Fi dip
+            // on a TV stick meant a pause. A TV box also keeps less played video around (they're short on memory).
+            hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: ((_b = window.StreamBoxTV) === null || _b === void 0 ? void 0 : _b.on) ? 10 : 30 });
             let recoveries = 0;
             hls.loadSource(url);
             hls.attachMedia(video);

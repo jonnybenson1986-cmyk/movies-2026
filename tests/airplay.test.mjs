@@ -19,7 +19,7 @@ test('changing channel while on the Apple TV keeps the AirPlay connection', () =
 });
 
 test('an Apple TV gets longer to start a stream before the channel counts as failed (and is skipped)', () => {
-  assert.match(app, /const wait = onAirPlay\(\) \? 30000 : 10000;/);
+  assert.match(app, /const wait = onAirPlay\(\) \? 30000 : window\.StreamBoxTV\?\.on \? 15000 : 10000;/);
 });
 
 test('while on the TV: a "Playing on your TV" screen, controls stay up, lock screen and remote controls', () => {
