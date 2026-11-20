@@ -188,11 +188,11 @@
   function shown(sel) { var el = doc.querySelector(sel); return el && !el.hidden && el.getClientRects().length ? el : null; }
   // Layers, top first. Navigation stays inside the top one.
   function topLayer() {
-    return shown('#legacyNotice') || shown('.am-youtube-layer') || shown('#moreSheet') || shown('#subsMenu') || shown('#modal') || shown('.np') || shown('#player') || null;
+    return shown('#legacyNotice') || shown('.movy-browser') || shown('.am-youtube-layer') || shown('#moreSheet') || shown('#subsMenu') || shown('#modal') || shown('.np') || shown('#player') || null;
   }
 
   // ---------------------------------------------------------------- D-pad spatial navigation
-  var FOCUSABLE = 'a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), video[controls], [tabindex]:not([tabindex="-1"])';
+  var FOCUSABLE = 'a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), video[controls], iframe[tabindex="0"], [tabindex]:not([tabindex="-1"])';
   var SKIP = '.row-arrow, [aria-hidden="true"] *, [inert] *';
   function visible(el) {
     if (el.matches(SKIP)) return false;
@@ -395,6 +395,14 @@
   var MEDIA_CODES = { 179: 'toggle', 250: 'toggle', 85: 'toggle', 415: 'play', 19: 'pause', 178: 'stop', 413: 'stop', 228: 'ff', 417: 'ff', 227: 'rw', 412: 'rw', 176: 'next', 425: 'next', 177: 'prev', 424: 'prev' };
   function click(sel) { var el = doc.querySelector(sel); if (el && !el.disabled) { el.click(); return true; } return false; }   // works on hidden controls too (TV mode hides the on-screen D-pad)
   function media(action) {
+    var movy = shown('.movy-browser');
+    if (movy) {
+      var movyFrame = movy.querySelector('.movy-browser-frame');
+      // Third-party players are cross-origin: focus their iframe so the TV remote's
+      // arrows/OK and provider-supported media keys are delivered to the provider UI.
+      if (movyFrame) { try { movyFrame.focus(); } catch (ignore) {} }
+      return false;
+    }
     var player = shown('#player'), video = doc.getElementById('video');
     if (player) {
       var live = player.classList.contains('live-mode'), own = video && !video.hidden && !live;

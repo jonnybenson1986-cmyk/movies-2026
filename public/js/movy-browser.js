@@ -161,7 +161,7 @@
         <button class="icon-btn" data-mb="external" aria-label="Open in a browser tab" title="Open in a browser tab" hidden><svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg></button>
         <button class="icon-btn" data-mb="close" aria-label="Close" title="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
-      <iframe class="movy-browser-frame" title="Movy browser box" referrerpolicy="no-referrer" allow="autoplay *; fullscreen *; encrypted-media; picture-in-picture"></iframe>`;
+      <iframe class="movy-browser-frame" tabindex="0" title="Movy browser box" referrerpolicy="no-referrer" allow="autoplay *; fullscreen *; encrypted-media; picture-in-picture"></iframe>`;
     document.body.appendChild(el);
     frame = el.querySelector('.movy-browser-frame');
     address = el.querySelector('input');
@@ -171,7 +171,7 @@
     fullBtn = el.querySelector('[data-mb="fullscreen"]');
     document.addEventListener('fullscreenchange', updateFullscreenIcon);
     frame.addEventListener('load', () => {
-      if (ownLoad) { ownLoad = false; poke(); return; }
+      if (ownLoad) { ownLoad = false; poke(); if (document.documentElement.classList.contains('tv')) setTimeout(() => { if (!el.hidden) frame.focus(); }, 350); return; }
       say('The site moved inside itself — the address shown may be out of date.');
     });
     el.addEventListener('click', e => {
@@ -219,7 +219,8 @@
     document.body.style.overflow = 'hidden';
     if (!go(url)) go(HOME);
     say(chip());
-    if (address) { address.focus(); address.select(); }
+    if (address && !document.documentElement.classList.contains('tv')) { address.focus(); address.select(); }
+    else if (frame) setTimeout(() => { if (!el.hidden) frame.focus(); }, 350);
   }
   function close() {
     if (!el) return;
