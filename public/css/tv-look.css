@@ -1,0 +1,39 @@
+/* The TV look, after the CleanYourTV launcher (github.com/Gathin23/cleanyourtv, MIT licence): a greeting and a big
+   clock beside the logo, glass buttons, and a soft glow behind the whole screen in the colour of whatever is
+   selected. TV mode only. Loaded after tv-compact.css. The glow is two layers that cross-fade by opacity
+   (js/tv.js), so a TV stick only composites while it fades; nothing is repainted frame by frame. */
+.tv-clock, .tv-glow { display: none; }
+
+/* ---------------------------------------------------------------- ambient glow */
+html.tv body { background: transparent; }   /* the page colour stays on <html>, so the glow sits between the two */
+html.tv .tv-glow { display: block; position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+html.tv .tv-glow i {
+  position: absolute; inset: 0; opacity: 0; transition: opacity .9s ease;
+  background: radial-gradient(ellipse 55% 60% at 36% 40%, var(--c, #e50914) 0, transparent 72%);
+}
+html.tv .tv-glow i.on { opacity: .42; }
+/* The home banner lets the glow through instead of painting its own red */
+html.tv .hero .hero-bg { background: none; }
+html.tv .hero::after { background: linear-gradient(77deg, rgba(0,0,0,.6) 0, rgba(0,0,0,.15) 55%, transparent 80%); }
+@media (prefers-reduced-motion: reduce) { html.tv .tv-glow i { transition: none; } }
+
+/* ---------------------------------------------------------------- greeting and clock, beside the logo */
+html.tv .tv-clock {
+  display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0;
+  margin-left: 4px; padding-left: 16px; border-left: 1px solid rgba(255,255,255,.22); line-height: 1.05; color: #fff;
+}
+html.tv .tv-greet { font-size: 11px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: rgba(255,255,255,.72); white-space: nowrap; }
+html.tv .tv-when { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+html.tv .tv-time { font-size: 26px; font-weight: 300; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+html.tv .tv-ampm { font-size: 13px; font-weight: 500; text-transform: uppercase; }
+html.tv .tv-date {
+  font-size: 12px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.8);
+  margin-left: 6px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,.3);
+}
+html.tv .topbar.search-open .tv-clock { display: none; }
+@media (max-width: 760px) { html.tv .tv-date { display: none; } }
+
+/* ---------------------------------------------------------------- glass buttons and a focus halo in the glow colour */
+html.tv .topbar .icon-btn { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); }
+html.tv .nav { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); }
+html.tv :focus { box-shadow: 0 0 0 5px var(--glow-ring, rgba(10,132,255,.55)), 0 8px 30px var(--glow-halo, transparent) !important; }

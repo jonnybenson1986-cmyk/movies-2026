@@ -58,13 +58,16 @@
   <link rel="stylesheet" href="/css/touch.css">
   <link rel="stylesheet" href="/css/tv.css">
   <link rel="stylesheet" href="/css/tv-compact.css">
+  <link rel="stylesheet" href="/css/tv-look.css">
 </head>
 <body>
+  <div class="tv-glow" id="tvGlow" aria-hidden="true"><i></i><i></i></div>
   <header class="topbar" id="topbar">
     <button class="icon-btn back-btn" id="backBtn" type="button" aria-label="Back" title="Back" hidden>
       <svg viewBox="0 0 24 24"><path d="M15 18 9 12l6-6"/></svg>
     </button>
     <a class="logo" href="#home">STREAMBOX</a>
+    <div class="tv-clock" id="tvClock" aria-hidden="true"><span class="tv-greet"></span><span class="tv-when"><b class="tv-time"></b><small class="tv-ampm"></small><span class="tv-date"></span></span></div>
     <nav class="nav" id="nav">
       <a href="#home" data-route="home">Home</a>
       <a href="#countries" data-route="live">Live TV</a>

@@ -131,3 +131,17 @@ test('TV browsers are recognised from their user agent, and phones and computers
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15']) assert.ok(!re.test(other), other);
 });
+
+test('TV look (after CleanYourTV): clock beside the logo and a glow that follows the selected tile, TV mode only', async () => {
+  const { readFileSync } = await import('node:fs');
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../public/css/tv-look.css', import.meta.url), 'utf8');
+  const tvjs = readFileSync(new URL('../public/js/tv.js', import.meta.url), 'utf8');
+  assert.match(html, /href="\/css\/tv-compact\.css">\s*<link rel="stylesheet" href="\/css\/tv-look\.css">/, 'loaded after the compact TV layout');
+  assert.match(html, /<div class="tv-glow" id="tvGlow" aria-hidden="true"><i><\/i><i><\/i><\/div>/);
+  assert.match(html, /class="logo"[^>]*>STREAMBOX<\/a>\s*<div class="tv-clock" id="tvClock" aria-hidden="true">/);
+  assert.match(css, /^\.tv-clock, \.tv-glow \{ display: none; \}/m, 'hidden outside TV mode');
+  assert.doesNotMatch(css, /will-change|filter: blur|backdrop-filter/, 'light on TV graphics chips');
+  assert.match(tvjs, /function glowTo\(rgb\)/); assert.match(tvjs, /function tick\(\)/);
+  assert.match(tvjs, /if \(!doc\.body \|\| !GLOW\) return;/, 'safe when TV mode is applied before the clock code is read');
+});

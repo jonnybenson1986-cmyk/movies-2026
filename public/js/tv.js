@@ -163,7 +163,7 @@
     if (s === '0') return false;
     return TV_UA.test(navigator.userAgent || '');
   }
-  function apply(on) { root.classList.toggle('tv', !!on); }
+  function apply(on) { root.classList.toggle('tv', !!on); look(); }
   apply(decide());
 
   // ---------------------------------------------------------------- engines too old for the app: say so, don't go blank
@@ -531,6 +531,73 @@
     if (!root.classList.contains('tv') && !win.StreamBoxAndroid) return;   // phones and computers: their own volume, as usual
     if (volume(dir)) e.preventDefault();
   });
+
+  // ---------------------------------------------------------------- the TV look: clock and ambient glow
+  // After the CleanYourTV launcher (github.com/Gathin23/cleanyourtv, MIT): a greeting and a big clock beside the logo,
+  // and a soft glow behind the screen in the colour of whatever is selected (css/tv-look.css). The glow is two layers:
+  // the next colour goes on the hidden one, then they swap opacity, so a TV stick only composites while it fades.
+  var GLOW = ['#e50914', '#0a84ff', '#30d158', '#ff9f0a', '#bf5af2', '#40c8e0', '#ff375f', '#d4a20a'];
+  var CARD = '.card, .am-card, .am-tile, .country-tile, .classic-card, .am-link, .epg-row';
+  var glowFront = 0, glowNow = '', clockTimer = 0;
+  function rgbOf(s) {
+    var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(s || '');
+    return m && (m[4] === undefined || +m[4] > 0.5) ? [+m[1] / 255, +m[2] / 255, +m[3] / 255] : null;
+  }
+  // A colour that glows: never grey, never near black or white. Returns [r, g, b] (0-255), or null for a grey.
+  function glowFrom(rgb) {
+    var max = Math.max(rgb[0], rgb[1], rgb[2]), min = Math.min(rgb[0], rgb[1], rgb[2]), d = max - min, l = (max + min) / 2;
+    var s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    if (s < 0.18 || d < 0.06) return null;
+    var h = d === 0 ? 0 : max === rgb[0] ? ((rgb[1] - rgb[2]) / d + 6) % 6 : max === rgb[1] ? (rgb[2] - rgb[0]) / d + 2 : (rgb[0] - rgb[1]) / d + 4;
+    s = Math.max(s, 0.6); l = Math.min(Math.max(l, 0.42), 0.55);
+    var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(h % 2 - 1)), o = l - c / 2, i = Math.floor(h) % 6;
+    var p = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][i];
+    return [Math.round((p[0] + o) * 255), Math.round((p[1] + o) * 255), Math.round((p[2] + o) * 255)];
+  }
+  function hex(h) { var n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+  function glowOf(el) {
+    var card = el && el.closest ? el.closest(CARD) : null;
+    if (!card) return null;
+    var tile = card.querySelector('.tile') || card, rgb = rgbOf(getComputedStyle(tile).backgroundColor), c = rgb && glowFrom(rgb);
+    if (c) return c;
+    var key = card.getAttribute('data-key') || card.getAttribute('href') || card.textContent || '', n = 0;
+    for (var i = 0; i < key.length; i++) n = (n * 31 + key.charCodeAt(i)) | 0;
+    return hex(GLOW[Math.abs(n) % GLOW.length]);   // a logo or a photo: a steady colour of its own
+  }
+  function glowTo(rgb) {
+    var layers = doc.getElementById('tvGlow'), c = rgb && rgb.join(',');
+    if (!c || c === glowNow || !layers || layers.children.length < 2) return;
+    glowNow = c;
+    var next = layers.children[1 - glowFront];
+    next.style.setProperty('--c', 'rgb(' + c + ')');
+    next.classList.add('on'); layers.children[glowFront].classList.remove('on');
+    glowFront = 1 - glowFront;
+    root.style.setProperty('--glow-ring', 'rgba(' + c + ',.6)');
+    root.style.setProperty('--glow-halo', 'rgba(' + c + ',.45)');
+  }
+  function greeting(h) { return h >= 5 && h < 12 ? 'Good morning' : h >= 12 && h < 17 ? 'Good afternoon' : 'Good evening'; }
+  function tick() {
+    clearTimeout(clockTimer);
+    var box = doc.getElementById('tvClock');
+    if (!box || !root.classList.contains('tv')) return;
+    var d = new Date(), t, date;
+    try { t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) { t = d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2); }
+    try { date = d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' }).replace(/,/g, ''); } catch (e) { date = d.toDateString(); }
+    var m = /^\s*([\d:.]+)\s*(.*)$/.exec(t) || [t, t, ''];
+    box.querySelector('.tv-greet').textContent = greeting(d.getHours());
+    box.querySelector('.tv-time').textContent = m[1];
+    box.querySelector('.tv-ampm').textContent = m[2].replace(/\./g, '');
+    box.querySelector('.tv-date').textContent = date;
+    clockTimer = setTimeout(tick, 60000 - d.getSeconds() * 1000 - d.getMilliseconds() + 50);   // just after each minute turns
+  }
+  function look() {
+    if (!doc.body || !GLOW) return;   // (apply() first runs before this part of the file has been read)
+    tick();
+    if (root.classList.contains('tv') && !glowNow) glowTo(hex(GLOW[0]));   // StreamBox red to start with
+  }
+  doc.addEventListener('focusin', function (e) { if (root.classList.contains('tv')) glowTo(glowOf(e.target)); });
+  doc.addEventListener('visibilitychange', function () { if (!doc.hidden) tick(); });
+  look();
 
   win.StreamBoxTV = {
     back: goBack,
