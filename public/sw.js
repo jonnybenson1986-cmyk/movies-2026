@@ -1,5 +1,5 @@
 // App-shell cache so StreamBox opens instantly when installed. Streams are never cached.
-const CACHE = 'streambox-v13';
+const CACHE = 'streambox-v14';
 const SHELL = ['/', '/index.html', '/css/app.css', '/js/app.js', '/js/personal-library.js', '/css/personal-library.css', '/js/movies-ui.js', '/js/movie-catalog.js', '/js/movy-ui.js', '/js/movy-browser.js', '/js/movy-setup.js', '/js/watch-providers.js', '/css/watch.css', '/js/movie-playback.js', '/data/movies.json', '/data/australia.json', '/js/australia-ui.js', '/manifest.webmanifest', '/icons/icon-192.png'];
 
 self.addEventListener('install', e => {
