@@ -481,8 +481,53 @@
     ['playing', 'pause', 'ended', 'emptied'].forEach(function (type) { doc.addEventListener(type, checkPlaying, true); });
   }
 
+  // ---------------------------------------------------------------- volume (Fire TV Stick and other TV boxes)
+  // A Fire TV's HDMI output has a fixed volume, so its remote's volume keys either work the TV directly (infrared)
+  // or reach the app and do nothing. They now change StreamBox's own volume: the channel or film playing, the music,
+  // or a YouTube song. A bar on screen shows the level. (The Android app sends the keys here: StreamBoxTV.volume.)
+  var VOL_KEYS = { AudioVolumeUp: 1, VolumeUp: 1, AudioVolumeDown: -1, VolumeDown: -1, AudioVolumeMute: 0, VolumeMute: 0 };
+  var VOL_CODES = { 175: 1, 24: 1, 174: -1, 25: -1, 173: 0, 164: 0 };
+  var volBox = null, volTimer = 0;
+  function showVolume(level, muted) {
+    if (!volBox) {
+      volBox = doc.createElement('div'); volBox.className = 'tv-volume'; volBox.setAttribute('role', 'status'); volBox.setAttribute('aria-live', 'polite');
+      volBox.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path class="tv-volume-waves" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg><span class="tv-volume-bar"><i></i></span><b></b>';
+      doc.body.appendChild(volBox);
+    }
+    var pct = muted ? 0 : Math.round(level * 100);
+    volBox.querySelector('i').style.width = pct + '%';
+    volBox.querySelector('b').textContent = muted ? 'Muted' : pct + '%';
+    volBox.classList.toggle('muted', !!muted);
+    volBox.hidden = false;
+    clearTimeout(volTimer); volTimer = setTimeout(function () { volBox.hidden = true; }, 1800);
+  }
+  // dir: +1 louder, -1 quieter, 0 mute / unmute. Returns false when nothing is playing.
+  function volume(dir) {
+    var yt = win.StreamBoxYouTubePlayer;
+    if (yt && yt.open && yt.volume) { var r = yt.volume(dir); if (r) { showVolume(r.level, r.muted); return true; } }
+    var video = shown('#player') && doc.getElementById('video');
+    var music = win.StreamBoxMusic && win.StreamBoxMusic.player;
+    var el = video && !video.hidden ? video : music && music.current ? music.audio : null;
+    if (!el) return false;
+    if (dir === 0) el.muted = !el.muted;
+    else {
+      if (el.muted && dir > 0) el.muted = false;
+      el.volume = Math.max(0, Math.min(1, Math.round((el.volume + dir * 0.1) * 10) / 10));
+      if (el.volume === 0) el.muted = true;
+    }
+    showVolume(el.volume, el.muted);
+    return true;
+  }
+  win.addEventListener('keydown', function (e) {
+    var dir = e.key in VOL_KEYS ? VOL_KEYS[e.key] : VOL_CODES[e.keyCode];
+    if (dir === undefined || e.defaultPrevented) return;
+    if (!root.classList.contains('tv') && !win.StreamBoxAndroid) return;   // phones and computers: their own volume, as usual
+    if (volume(dir)) e.preventDefault();
+  });
+
   win.StreamBoxTV = {
     back: goBack,
+    volume: volume,
     get on() { return root.classList.contains('tv'); },
     get mode() { var s = stored(); return s === '1' ? 'on' : s === '0' ? 'off' : 'auto'; },
     set: function (mode) {   // 'on' | 'off' | 'auto'

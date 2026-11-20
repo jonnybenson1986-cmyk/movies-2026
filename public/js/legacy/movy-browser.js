@@ -1,4 +1,4 @@
-/* Generated from js/movy-browser.js (sha 0045aa7276093afa) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/movy-browser.js (sha a8dc1f4c207d7ef5) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 /* Movy Browser box: an in-app browser panel for Movy and its playback providers. */
 (() => {
     'use strict';
@@ -26,9 +26,31 @@
     let el = null, frame = null, address = null, stateText = null, external = null;
     let backBtn = null, forwardBtn = null, fullBtn = null;
     let stack = [], at = -1, current = '', ownLoad = false, watchToken = '', openTitle = '';
-    let servers = [], serverAt = -1, searchTimer = null, searching = false;
+    let servers = [], serverAt = -1, searchTimer = null, searching = false, controlsTimer = null, videoPlaying = false;
     function say(text) { if (stateText)
         stateText.textContent = text || ''; }
+    function showControls() {
+        if (!el)
+            return;
+        el.classList.remove('controls-hidden');
+        clearTimeout(controlsTimer);
+        if (videoPlaying && !el.hidden)
+            controlsTimer = setTimeout(hideControls, 5000);
+    }
+    function hideControls() {
+        if (!el || el.hidden || !videoPlaying || document.activeElement === address)
+            return;
+        el.classList.add('controls-hidden');
+    }
+    function setPlaybackState(playing) {
+        videoPlaying = !!playing;
+        if (videoPlaying)
+            showControls();
+        else {
+            clearTimeout(controlsTimer);
+            el === null || el === void 0 ? void 0 : el.classList.remove('controls-hidden');
+        }
+    }
     function chip() {
         var _a;
         const ok = (_a = window.StreamBoxMovy) === null || _a === void 0 ? void 0 : _a.protectedPlayback;
@@ -178,28 +200,35 @@
         if (event.origin === origin && (data === null || data === void 0 ? void 0 : data.type) === 'streambox-movie-state' && data.token === watchToken) {
             if (searching) {
                 if (data.state === 'unavailable' || data.state === 'error') {
+                    setPlaybackState(false);
                     clearTimeout(searchTimer);
                     tryServer(serverAt + 1);
                     return;
                 }
                 clearSearch();
+                setPlaybackState(data.state === 'playing' || data.state === 'starting');
                 say(stateFor(data.state) + ' · server found');
             }
-            else
+            else {
+                setPlaybackState(data.state === 'playing' || data.state === 'starting');
                 say(stateFor(data.state));
+            }
         }
         else if (event.origin === 'https://vidlink.pro' && (data === null || data === void 0 ? void 0 : data.type) === 'PLAYER_EVENT') {
             const ev = (_a = data.data) === null || _a === void 0 ? void 0 : _a.event;
             if (searching && ev === 'play') {
                 clearSearch();
+                setPlaybackState(true);
                 say('Playing · VidLink · server found');
             }
-            else if (ev === 'play')
+            else if (ev === 'play') {
+                setPlaybackState(true);
                 say('Playing · VidLink');
-            else if (ev === 'pause')
-                say('Paused · VidLink');
-            else if (ev === 'ended')
-                say('Finished · VidLink');
+            }
+            else if (ev === 'pause' || ev === 'ended') {
+                setPlaybackState(false);
+                say(ev === 'pause' ? 'Paused · VidLink' : 'Finished · VidLink');
+            }
         }
     }
     function build() {
@@ -224,7 +253,7 @@
         <button class="icon-btn" data-mb="external" aria-label="Open in a browser tab" title="Open in a browser tab" hidden><svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg></button>
         <button class="icon-btn" data-mb="close" aria-label="Close" title="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
-      <iframe class="movy-browser-frame" title="Movy browser box" referrerpolicy="no-referrer" allow="autoplay *; fullscreen *; encrypted-media; picture-in-picture"></iframe>`;
+      <iframe class="movy-browser-frame" tabindex="0" title="Movy browser box" referrerpolicy="no-referrer" allow="autoplay *; fullscreen *; encrypted-media; picture-in-picture"></iframe>`;
         document.body.appendChild(el);
         frame = el.querySelector('.movy-browser-frame');
         address = el.querySelector('input');
@@ -237,10 +266,14 @@
             if (ownLoad) {
                 ownLoad = false;
                 poke();
+                if (document.documentElement.classList.contains('tv'))
+                    setTimeout(() => { if (!el.hidden)
+                        frame.focus(); }, 350);
                 return;
             }
             say('The site moved inside itself — the address shown may be out of date.');
         });
+        ['pointerdown', 'pointermove', 'keydown'].forEach(type => el.addEventListener(type, showControls, { passive: true }));
         el.addEventListener('click', e => {
             const btn = e.target.closest('[data-mb]');
             if (!btn)
@@ -303,20 +336,28 @@
         if (frame)
             frame.title = openTitle + ' — browser box';
         el.hidden = false;
+        el.classList.remove('controls-hidden');
+        setPlaybackState(false);
         document.body.style.overflow = 'hidden';
         if (!go(url))
             go(HOME);
         say(chip());
-        if (address) {
+        if (address && !document.documentElement.classList.contains('tv')) {
             address.focus();
             address.select();
         }
+        else if (frame)
+            setTimeout(() => { if (!el.hidden)
+                frame.focus(); }, 350);
     }
     function close() {
         if (!el)
             return;
         clearSearch();
         el.hidden = true;
+        clearTimeout(controlsTimer);
+        videoPlaying = false;
+        el.classList.remove('controls-hidden');
         if (document.fullscreenElement && document.fullscreenElement === el)
             document.exitFullscreen().catch(() => { });
         if (frame)

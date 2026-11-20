@@ -1,4 +1,4 @@
-/* Generated from js/app.js (sha 3bbc02634efab16c) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/app.js (sha 6aa3c7bd8dadfb92) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -1420,6 +1420,18 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     };
     for (const ev of ['play', 'pause', 'volumechange', 'emptied', 'webkitbeginfullscreen', 'webkitendfullscreen'])
         video.addEventListener(ev, syncPlayerUI);
+    // Volume changed some other way (a TV remote's volume keys, tv.js): remembered for the next channel too
+    video.addEventListener('volumechange', () => {
+        if (IS_IOS || !video.getAttribute('src') && !video.currentSrc)
+            return;
+        const v = video.volume, m = video.muted || v === 0;
+        if (m === volumeState.m && (m || v === volumeState.v))
+            return;
+        volumeState.m = m;
+        if (v > 0)
+            volumeState.v = v;
+        store.set('volume', volumeState);
+    });
     for (const ev of ['fullscreenchange', 'webkitfullscreenchange'])
         document.addEventListener(ev, () => {
             var _a, _b;

@@ -71,6 +71,7 @@ The code: `netlify/lib/webauthn.mjs` (the checks), `netlify/functions/passkey.mj
 `public/js/tv.js` and `public/css/tv.css` make the app work with a TV remote. TV browsers are recognised automatically (Settings → *TV & remote control* turns TV mode on or off; `?tv=1` forces it):
 
 - **D-pad navigation** between cards, rows, the menu and windows, with a thick white focus ring. **Back** closes the player or window on top before it leaves a page, and the remote's **media keys** (play/pause, next/previous channel, fast-forward, rewind, stop) work.
+- **Volume on a Fire TV Stick**: a Fire TV's HDMI output has a fixed volume, so its remote's volume keys now change StreamBox's own volume (the channel or film, the music, or a YouTube song), with a large bar on screen; the video volume is remembered. In the Android app, the volume keys go to StreamBox's volume on TV boxes, and to the phone's volume on phones and tablets. If your Fire TV remote is set to control the TV itself (infrared), its volume keys keep working the TV as before.
 - **A 10-foot layout**: a 5% safe zone so overscan never cuts anything off, the menu across the top instead of the phone tab bar, bigger text and controls, and no blur effects (slow on TV graphics chips).
 
 **Older TVs** (Android TV boxes whose Android System WebView hasn't been updated, back to Chromium 51 / about 2016) get the same app through three layers:

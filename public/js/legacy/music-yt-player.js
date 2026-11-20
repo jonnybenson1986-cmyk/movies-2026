@@ -1,4 +1,4 @@
-/* Generated from js/music-yt-player.js (sha 1bc76a0c914dc64d) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/music-yt-player.js (sha 205c84fc59229585) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -343,5 +343,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         }
     }, true);
     addEventListener('hashchange', close);
-    window.StreamBoxYouTubePlayer = { play, close, get open() { return !!layer; } };
+    // The remote's volume keys (tv.js): YouTube's player volume, 0-100 in steps of 10
+    function volume(dir) {
+        if (!(yt === null || yt === void 0 ? void 0 : yt.getVolume))
+            return null;
+        if (dir === 0) {
+            if (yt.isMuted())
+                yt.unMute();
+            else
+                yt.mute();
+            return { level: yt.getVolume() / 100, muted: !yt.isMuted() };
+        } // isMuted() updates a moment later
+        const v = Math.max(0, Math.min(100, Math.round((yt.getVolume() + dir * 10) / 10) * 10));
+        if (dir > 0 && yt.isMuted())
+            yt.unMute();
+        yt.setVolume(v);
+        return { level: v / 100, muted: v === 0 };
+    }
+    window.StreamBoxYouTubePlayer = { play, close, volume, get open() { return !!layer; } };
 })();

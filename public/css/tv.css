@@ -143,3 +143,13 @@ html.tv .watch-hub-tile.skeleton { animation: none !important; }
 #legacyNotice h1 { color: #e50914; font-size: 44px; letter-spacing: .04em; margin-bottom: 24px; }
 #legacyNotice p { max-width: 900px; margin: 0 0 16px; }
 #legacyNotice .legacy-small { color: #8e8e93; font-size: 18px; }
+
+/* The volume bar a TV remote's volume keys show (js/tv.js) */
+.tv-volume { position: fixed; right: max(5vw, 24px); top: max(5vh, 24px); z-index: 10100; display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-radius: 18px; background: rgba(20,20,22,.92); color: #fff; font: 600 20px/1 system-ui, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.tv-volume[hidden] { display: none; }
+.tv-volume svg { width: 30px; height: 30px; }
+.tv-volume-waves { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.tv-volume.muted .tv-volume-waves { display: none; }
+.tv-volume-bar { position: relative; width: 220px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.25); overflow: hidden; }
+.tv-volume-bar i { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: #fff; border-radius: 4px; }
+.tv-volume b { min-width: 72px; text-align: right; font-variant-numeric: tabular-nums; }

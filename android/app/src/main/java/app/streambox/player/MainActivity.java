@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
+import android.media.AudioManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -66,6 +67,7 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(Color.BLACK);
         root.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);   // the volume keys always mean the music / video volume
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -290,7 +292,38 @@ public class MainActivity extends Activity {
             if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) back();
             return true;
         }
+        if (volumeKey(event)) return true;
         return super.dispatchKeyEvent(event);
+    }
+
+    // The remote's (or the phone's) volume keys. On a Fire TV Stick and other TV boxes the HDMI output's volume is
+    // fixed, so changing the system volume does nothing: StreamBox's own volume is changed instead, with a bar on screen
+    // (js/tv.js StreamBoxTV.volume). Everywhere else the system volume changes as usual. Either way the key is handled
+    // here, so the WebView can't swallow it.
+    private boolean volumeKey(KeyEvent event) {
+        int code = event.getKeyCode();
+        int dir = code == KeyEvent.KEYCODE_VOLUME_UP ? 1 : code == KeyEvent.KEYCODE_VOLUME_DOWN ? -1 : code == KeyEvent.KEYCODE_VOLUME_MUTE ? 0 : 2;
+        if (dir == 2) return false;
+        if (event.getAction() != KeyEvent.ACTION_DOWN) return true;
+        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        boolean fixed = audio == null || audio.isVolumeFixed();
+        if (fixed || tv) {
+            final int d = dir;
+            web.evaluateJavascript("(function(){try{return !!(window.StreamBoxTV&&StreamBoxTV.volume&&StreamBoxTV.volume(" + d + "))}catch(e){return false}})()", handled -> {
+                // nothing playing in StreamBox: let the box change its own volume, where it can
+                if (!"true".equals(handled) && !fixed) adjustSystemVolume(audio, d);
+            });
+            return true;
+        }
+        adjustSystemVolume(audio, dir);
+        return true;
+    }
+
+    private void adjustSystemVolume(AudioManager audio, int dir) {
+        if (audio == null) return;
+        int how = dir > 0 ? AudioManager.ADJUST_RAISE : dir < 0 ? AudioManager.ADJUST_LOWER
+            : Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? AudioManager.ADJUST_TOGGLE_MUTE : AudioManager.ADJUST_SAME;
+        audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, how, AudioManager.FLAG_SHOW_UI);
     }
 
     @SuppressWarnings("deprecation")
