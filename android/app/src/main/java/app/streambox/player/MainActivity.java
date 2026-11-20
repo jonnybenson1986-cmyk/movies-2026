@@ -52,6 +52,7 @@ public class MainActivity extends Activity {
     private WebChromeClient.CustomViewCallback fullscreenCallback;
     private ValueCallback<Uri[]> fileCallback;
     private boolean tv;
+    private boolean movyRemoteActive;
     private Uri home;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -293,7 +294,19 @@ public class MainActivity extends Activity {
             return true;
         }
         if (volumeKey(event)) return true;
+        if (tv && movyRemoteActive && isDpadKey(event.getKeyCode())) {
+            // Keep the WebView as the focused native view while Movy is open.
+            web.requestFocus();
+            web.evaluateJavascript("window.StreamBoxMovyBrowser&&window.StreamBoxMovyBrowser.remoteKey&&window.StreamBoxMovyBrowser.remoteKey()", null);
+            return super.dispatchKeyEvent(event);
+        }
         return super.dispatchKeyEvent(event);
+    }
+
+    private boolean isDpadKey(int code) {
+        return code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN
+            || code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT
+            || code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER;
     }
 
     // The remote's (or the phone's) volume keys. On a Fire TV Stick and other TV boxes the HDMI output's volume is
@@ -338,6 +351,9 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public boolean isTv() { return tv; }
+
+        @JavascriptInterface
+        public void setMovyRemoteActive(boolean active) { runOnUiThread(() -> movyRemoteActive = active); }
 
         @JavascriptInterface
         public String version() { return versionName(); }
