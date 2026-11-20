@@ -368,3 +368,14 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .player.live-mode.idle { cursor: none; }
 @media (max-width: 600px) { .player-vol { display: none; } .player-live { margin-left: 4px; } }
 @media (max-height: 420px) { .player.live-mode .player-bar { padding-top: 20px; } .player.live-mode .player-top { padding-bottom: 14px; } }   /* phone in landscape */
+
+/* Movy playback: tuck the browser/navigation bar away five seconds after confirmed playback. */
+.movy-browser { overflow: hidden; }
+.movy-browser-bar { transition: transform .28s ease, opacity .28s ease, padding .28s ease, height .28s ease; z-index: 2; }
+.movy-browser.controls-hidden { grid-template-rows: 0 minmax(0, 1fr); }
+.movy-browser.controls-hidden .movy-browser-bar {
+  height: 0; min-height: 0; padding: 0; border: 0; overflow: hidden;
+  opacity: 0; transform: translateY(-100%); pointer-events: none;
+}
+.movy-browser-frame { min-height: 0; }
+@media (prefers-reduced-motion: reduce) { .movy-browser-bar { transition: none; } }
