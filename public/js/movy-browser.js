@@ -22,14 +22,17 @@
   let servers = [], serverAt = -1, searchTimer = null, searching = false, controlsTimer = null, videoPlaying = false;
 
   function say(text) { if (stateText) stateText.textContent = text || ''; }
+  function isTv() { try { return !!(document.documentElement.classList.contains('tv') || window.StreamBoxAndroid?.isTv?.()); } catch { return document.documentElement.classList.contains('tv'); } }
   function showControls() {
     if (!el) return;
     el.classList.remove('controls-hidden');
     clearTimeout(controlsTimer);
-    if (videoPlaying && !el.hidden) controlsTimer = setTimeout(hideControls, 5000);
+    // TV browser chrome hides after five seconds even when the provider cannot report playback state.
+    if ((videoPlaying || isTv()) && !el.hidden) controlsTimer = setTimeout(hideControls, 5000);
   }
   function hideControls() {
-    if (!el || el.hidden || !videoPlaying || document.activeElement === address) return;
+    if (!el || el.hidden || document.activeElement === address) return;
+    if (!videoPlaying && !isTv()) return;
     el.classList.add('controls-hidden');
   }
   function setPlaybackState(playing) {
@@ -186,7 +189,7 @@
     fullBtn = el.querySelector('[data-mb="fullscreen"]');
     document.addEventListener('fullscreenchange', updateFullscreenIcon);
     frame.addEventListener('load', () => {
-      if (ownLoad) { ownLoad = false; poke(); if (document.documentElement.classList.contains('tv')) setTimeout(() => { if (!el.hidden) frame.focus(); }, 350); return; }
+      if (ownLoad) { ownLoad = false; poke(); if (isTv()) setTimeout(() => { if (!el.hidden) { frame.focus(); showControls(); } }, 350); return; }
       say('The site moved inside itself — the address shown may be out of date.');
     });
     ['pointerdown', 'pointermove', 'keydown'].forEach(type => el.addEventListener(type, showControls, { passive: true }));
@@ -233,6 +236,7 @@
     if (frame) frame.title = openTitle + ' — browser box';
     el.hidden = false;
     el.classList.remove('controls-hidden');
+    try { window.StreamBoxAndroid?.setMovyRemoteActive?.(true); } catch { /* browser only */ }
     setPlaybackState(false);
     document.body.style.overflow = 'hidden';
     if (!go(url)) go(HOME);
@@ -240,8 +244,20 @@
     if (address && !document.documentElement.classList.contains('tv')) { address.focus(); address.select(); }
     else if (frame) setTimeout(() => { if (!el.hidden) frame.focus(); }, 350);
   }
+  function remoteKey() {
+    if (!el || el.hidden) return;
+    showControls();
+    if (frame) frame.focus();
+  }
+  function remoteBack() {
+    if (!el || el.hidden) return false;
+    if (el.classList.contains('controls-hidden')) { showControls(); if (frame) frame.focus(); return true; }
+    close();
+    return true;
+  }
   function close() {
     if (!el) return;
+    try { window.StreamBoxAndroid?.setMovyRemoteActive?.(false); } catch { /* browser only */ }
     clearSearch();
     el.hidden = true;
     clearTimeout(controlsTimer); videoPlaying = false; el.classList.remove('controls-hidden');
@@ -251,5 +267,5 @@
     if (!document.querySelector('.player:not([hidden]), .movy-setup:not([hidden])')) document.body.style.overflow = '';
     say('');
   }
-  window.StreamBoxMovyBrowser = { open, close, allowedUrl, hostAllowed, HOME, serverUrls, startServerSearch, toggleFullscreen };
+  window.StreamBoxMovyBrowser = { open, close, allowedUrl, hostAllowed, HOME, serverUrls, startServerSearch, toggleFullscreen, remoteKey, remoteBack };
 })();
