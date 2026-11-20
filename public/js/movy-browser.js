@@ -19,9 +19,24 @@
   let el = null, frame = null, address = null, stateText = null, external = null;
   let backBtn = null, forwardBtn = null, fullBtn = null;
   let stack = [], at = -1, current = '', ownLoad = false, watchToken = '', openTitle = '';
-  let servers = [], serverAt = -1, searchTimer = null, searching = false;
+  let servers = [], serverAt = -1, searchTimer = null, searching = false, controlsTimer = null, videoPlaying = false;
 
   function say(text) { if (stateText) stateText.textContent = text || ''; }
+  function showControls() {
+    if (!el) return;
+    el.classList.remove('controls-hidden');
+    clearTimeout(controlsTimer);
+    if (videoPlaying && !el.hidden) controlsTimer = setTimeout(hideControls, 5000);
+  }
+  function hideControls() {
+    if (!el || el.hidden || !videoPlaying || document.activeElement === address) return;
+    el.classList.add('controls-hidden');
+  }
+  function setPlaybackState(playing) {
+    videoPlaying = !!playing;
+    if (videoPlaying) showControls();
+    else { clearTimeout(controlsTimer); el?.classList.remove('controls-hidden'); }
+  }
   function chip() {
     const ok = window.StreamBoxMovy?.protectedPlayback;
     return ok ? 'Helper active' : 'Helper not installed';
@@ -128,16 +143,16 @@
     const data = event.data;
     if (event.origin === origin && data?.type === 'streambox-movie-state' && data.token === watchToken) {
       if (searching) {
-        if (data.state === 'unavailable' || data.state === 'error') { clearTimeout(searchTimer); tryServer(serverAt + 1); return; }
+        if (data.state === 'unavailable' || data.state === 'error') { setPlaybackState(false); clearTimeout(searchTimer); tryServer(serverAt + 1); return; }
         clearSearch();
+        setPlaybackState(data.state === 'playing' || data.state === 'starting');
         say(stateFor(data.state) + ' · server found');
-      } else say(stateFor(data.state));
+      } else { setPlaybackState(data.state === 'playing' || data.state === 'starting'); say(stateFor(data.state)); }
     } else if (event.origin === 'https://vidlink.pro' && data?.type === 'PLAYER_EVENT') {
       const ev = data.data?.event;
-      if (searching && ev === 'play') { clearSearch(); say('Playing · VidLink · server found'); }
-      else if (ev === 'play') say('Playing · VidLink');
-      else if (ev === 'pause') say('Paused · VidLink');
-      else if (ev === 'ended') say('Finished · VidLink');
+      if (searching && ev === 'play') { clearSearch(); setPlaybackState(true); say('Playing · VidLink · server found'); }
+      else if (ev === 'play') { setPlaybackState(true); say('Playing · VidLink'); }
+      else if (ev === 'pause' || ev === 'ended') { setPlaybackState(false); say(ev === 'pause' ? 'Paused · VidLink' : 'Finished · VidLink'); }
     }
   }
   function build() {
@@ -174,6 +189,7 @@
       if (ownLoad) { ownLoad = false; poke(); if (document.documentElement.classList.contains('tv')) setTimeout(() => { if (!el.hidden) frame.focus(); }, 350); return; }
       say('The site moved inside itself — the address shown may be out of date.');
     });
+    ['pointerdown', 'pointermove', 'keydown'].forEach(type => el.addEventListener(type, showControls, { passive: true }));
     el.addEventListener('click', e => {
       const btn = e.target.closest('[data-mb]');
       if (!btn) return;
@@ -216,6 +232,8 @@
     openTitle = String(name || 'Movy').slice(0, 120);
     if (frame) frame.title = openTitle + ' — browser box';
     el.hidden = false;
+    el.classList.remove('controls-hidden');
+    setPlaybackState(false);
     document.body.style.overflow = 'hidden';
     if (!go(url)) go(HOME);
     say(chip());
@@ -226,6 +244,7 @@
     if (!el) return;
     clearSearch();
     el.hidden = true;
+    clearTimeout(controlsTimer); videoPlaying = false; el.classList.remove('controls-hidden');
     if (document.fullscreenElement && document.fullscreenElement === el) document.exitFullscreen().catch(() => {});
     if (frame) frame.src = 'about:blank';
     current = ''; watchToken = ''; ownLoad = false; at = -1; stack = [];
