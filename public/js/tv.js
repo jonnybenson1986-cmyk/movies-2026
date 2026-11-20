@@ -274,6 +274,11 @@
   win.addEventListener('keydown', function (e) {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;   // the app (e.g. the channel remote) already used it
     var dir = DIRS[e.key] || (!e.key || e.key === 'Unidentified' ? CODE_DIRS[e.keyCode] : null), t = doc.activeElement;
+    // Movy hosts third-party players in a cross-origin iframe. Once it is open,
+    // do not consume D-pad keys for StreamBox's own focus grid: let the focused
+    // iframe/provider handle them. Parent-page key handlers cannot control its internals.
+    var movyLayer = topLayer();
+    if (movyLayer && movyLayer.matches && movyLayer.matches('.movy-browser')) return;
     if (dir) {
       if (typing(t) && dir[0]) return;                                   // Left / Right move the text cursor
       if (t && t.type === 'range' && dir[0]) return;                      // ... and the volume slider
@@ -434,6 +439,8 @@
   }
   win.addEventListener('keydown', function (e) {
     if (e.defaultPrevented) return;
+    var layer = topLayer();
+    if (layer && layer.matches && layer.matches('.movy-browser')) return;
     var action = MEDIA[e.key] || MEDIA_CODES[e.keyCode];
     if (action && media(action)) e.preventDefault();
   });
