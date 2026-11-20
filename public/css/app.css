@@ -247,6 +247,11 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .movie-note { color: var(--muted); font-size: 12px; margin-top: 16px; }
 .player #movieFrame { position: absolute; inset: 76px 0 64px; width: 100%; height: calc(100% - 140px); border: 0; background: #000; }
 .player.movie-mode .player-top { opacity: 1; pointer-events: auto; padding-bottom: 10px; background: #141414; }
+/* A video StreamBox plays itself (Free Classics, your own library) fills the whole screen: the title bar floats over the
+   picture and fades out with the video's controls after a few seconds; a tap, mouse move or remote key brings it back. */
+.player.movie-mode.own-video .player-top { padding-bottom: 30px; background: linear-gradient(rgba(0,0,0,.8), transparent); }
+.player.movie-mode.own-video.idle .player-top { opacity: 0; pointer-events: none; }
+.player.own-video.idle { cursor: none; }
 .movie-tools { position: absolute; inset: auto 0 0; min-height: 64px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; background: #141414; }
 .movie-tools select { color: #fff; background: #252525; border: 1px solid #555; border-radius: 4px; padding: 8px; }
 .movie-tools .btn { font-size: 12px; padding: 8px 12px; }
@@ -298,6 +303,10 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .player.movie-mode { display: grid; grid-template-rows: 76px minmax(0, 1fr) auto; }
 .player.movie-mode #movieFrame { position: static; grid-row: 2; height: 100%; min-height: 0; }
 .player.movie-mode .movie-tools { position: static; grid-row: 3; padding-bottom: calc(10px + var(--safe-bottom)); }
+/* That grid is for a film inside another site's frame. A video StreamBox plays itself fills the screen edge to edge instead
+   (in the grid it landed in the 76px title row). */
+.player.movie-mode.own-video { display: block; }
+.player.movie-mode.own-video video { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 .movy-downloads { margin: 16px var(--gutter); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .movy-downloads a:not(.btn) { text-decoration: underline; }

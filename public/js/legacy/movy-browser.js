@@ -1,4 +1,4 @@
-/* Generated from js/movy-browser.js (sha a8dc1f4c207d7ef5) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/movy-browser.js (sha b817e3696a8d5491) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 /* Movy Browser box: an in-app browser panel for Movy and its playback providers. */
 (() => {
     'use strict';
@@ -29,16 +29,25 @@
     let servers = [], serverAt = -1, searchTimer = null, searching = false, controlsTimer = null, videoPlaying = false;
     function say(text) { if (stateText)
         stateText.textContent = text || ''; }
+    function isTv() { var _a, _b; try {
+        return !!(document.documentElement.classList.contains('tv') || ((_b = (_a = window.StreamBoxAndroid) === null || _a === void 0 ? void 0 : _a.isTv) === null || _b === void 0 ? void 0 : _b.call(_a)));
+    }
+    catch (_c) {
+        return document.documentElement.classList.contains('tv');
+    } }
     function showControls() {
         if (!el)
             return;
         el.classList.remove('controls-hidden');
         clearTimeout(controlsTimer);
-        if (videoPlaying && !el.hidden)
+        // TV browser chrome hides after five seconds even when the provider cannot report playback state.
+        if ((videoPlaying || isTv()) && !el.hidden)
             controlsTimer = setTimeout(hideControls, 5000);
     }
     function hideControls() {
-        if (!el || el.hidden || !videoPlaying || document.activeElement === address)
+        if (!el || el.hidden || document.activeElement === address)
+            return;
+        if (!videoPlaying && !isTv())
             return;
         el.classList.add('controls-hidden');
     }
@@ -266,9 +275,11 @@
             if (ownLoad) {
                 ownLoad = false;
                 poke();
-                if (document.documentElement.classList.contains('tv'))
-                    setTimeout(() => { if (!el.hidden)
-                        frame.focus(); }, 350);
+                if (isTv())
+                    setTimeout(() => { if (!el.hidden) {
+                        frame.focus();
+                        showControls();
+                    } }, 350);
                 return;
             }
             say('The site moved inside itself — the address shown may be out of date.');
@@ -331,12 +342,17 @@
             : '<svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>';
     }
     function open(url = HOME, name = 'Movy') {
+        var _a, _b;
         build();
         openTitle = String(name || 'Movy').slice(0, 120);
         if (frame)
             frame.title = openTitle + ' — browser box';
         el.hidden = false;
         el.classList.remove('controls-hidden');
+        try {
+            (_b = (_a = window.StreamBoxAndroid) === null || _a === void 0 ? void 0 : _a.setMovyRemoteActive) === null || _b === void 0 ? void 0 : _b.call(_a, true);
+        }
+        catch ( /* browser only */_c) { /* browser only */ }
         setPlaybackState(false);
         document.body.style.overflow = 'hidden';
         if (!go(url))
@@ -350,9 +366,33 @@
             setTimeout(() => { if (!el.hidden)
                 frame.focus(); }, 350);
     }
+    function remoteKey() {
+        if (!el || el.hidden)
+            return;
+        showControls();
+        if (frame)
+            frame.focus();
+    }
+    function remoteBack() {
+        if (!el || el.hidden)
+            return false;
+        if (el.classList.contains('controls-hidden')) {
+            showControls();
+            if (frame)
+                frame.focus();
+            return true;
+        }
+        close();
+        return true;
+    }
     function close() {
+        var _a, _b;
         if (!el)
             return;
+        try {
+            (_b = (_a = window.StreamBoxAndroid) === null || _a === void 0 ? void 0 : _a.setMovyRemoteActive) === null || _b === void 0 ? void 0 : _b.call(_a, false);
+        }
+        catch ( /* browser only */_c) { /* browser only */ }
         clearSearch();
         el.hidden = true;
         clearTimeout(controlsTimer);
@@ -371,5 +411,5 @@
             document.body.style.overflow = '';
         say('');
     }
-    window.StreamBoxMovyBrowser = { open, close, allowedUrl, hostAllowed, HOME, serverUrls, startServerSearch, toggleFullscreen };
+    window.StreamBoxMovyBrowser = { open, close, allowedUrl, hostAllowed, HOME, serverUrls, startServerSearch, toggleFullscreen, remoteKey, remoteBack };
 })();

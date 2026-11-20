@@ -68,6 +68,21 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(Color.BLACK);
         root.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {   // fill the notch area too, so no black strip at the top
+            WindowManager.LayoutParams lp = getWindow().getAttributes();
+            lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            getWindow().setAttributes(lp);
+        }
+        immersive(true);                                      // the whole app runs full screen: no status or navigation bar
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+            // Full screen stops adjustResize from shrinking the page for the keyboard, so make room for it here:
+            // a big bottom inset is the keyboard (the navigation bar stays hidden and is much smaller).
+            root.setOnApplyWindowInsetsListener((v, insets) -> {
+                int bottom = insets.getSystemWindowInsetBottom();
+                v.setPadding(0, 0, 0, bottom > v.getHeight() / 5 ? bottom : 0);
+                return insets;
+            });
+        }
         setVolumeControlStream(AudioManager.STREAM_MUSIC);   // the volume keys always mean the music / video volume
 
         WebSettings s = web.getSettings();
@@ -251,10 +266,16 @@ public class MainActivity extends Activity {
         root.removeView(fullscreenView);
         fullscreenView = null;
         web.setVisibility(View.VISIBLE);
-        immersive(false);
+        immersive(true);
         if (fullscreenCallback != null) fullscreenCallback.onCustomViewHidden();
         fullscreenCallback = null;
         web.requestFocus();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {      // the bars come back after dialogs, the keyboard or a swipe: hide them again
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) immersive(true);
     }
 
     @SuppressWarnings("deprecation")

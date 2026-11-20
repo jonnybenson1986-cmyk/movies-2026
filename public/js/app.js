@@ -783,7 +783,7 @@
     movieFrame.src = 'about:blank';
     movieFrame.hidden = movieTools.hidden = true;
     video.hidden = false;
-    player.classList.remove('movie-mode');
+    player.classList.remove('movie-mode', 'own-video');
     playerHint.hidden = true;
     if (hls) { hls.destroy(); hls = null; }
     video.pause();
@@ -826,7 +826,7 @@
     if (item.type === 'movie' && item.catalog === 'personal') {
       video.hidden = false;
       movieFrame.hidden = movieTools.hidden = true;
-      player.classList.add('movie-mode');
+      player.classList.add('movie-mode', 'own-video');   // full picture: the title bar fades away like the video's own controls
       video.controls = true;
       syncPlayerUI();   // shows the AirPlay button when an Apple TV or speaker is nearby
       // Pick up a place saved from another device a moment ago (but never wait long for it)
@@ -1434,7 +1434,13 @@
   // ---------------------------------------------------------------- install (download the app)
   // Chrome/Edge/Android hand us an install prompt; iOS Safari has no prompt, so we show the steps instead.
   let installPrompt = null;
-  const isInstalled = () => IN_ANDROID_APP || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  // The installed app opens full screen ("fullscreen" in the manifest, "standalone" where that isn't supported). A browser
+  // tab in full screen matches display-mode: fullscreen too, so that only counts when no element is full screen.
+  function installedDisplay() {
+    return matchMedia('(display-mode: standalone)').matches
+      || (matchMedia('(display-mode: fullscreen)').matches && !document.fullscreenElement && !document.webkitFullscreenElement);
+  }
+  const isInstalled = () => IN_ANDROID_APP || installedDisplay() || navigator.standalone === true;
   const installBtn = $('#installBtn');
   const refreshInstallBtn = () => { installBtn.hidden = isInstalled() || !(installPrompt || IS_IOS || IS_ANDROID); };   // Android: the APK is always on offer
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; refreshInstallBtn(); });
@@ -1836,7 +1842,7 @@
   addEventListener('scroll', onScroll, { passive: true });
   // ---- Full screen for the whole app (desktop, Android, iPad). Not shown in the installed app, which already is, or on iPhone Safari.
   const appFsBtn = $('#appFsBtn');
-  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const standalone = installedDisplay() || navigator.standalone === true;
   const root = document.documentElement;
   const canAppFullscreen = !!(root.requestFullscreen || root.webkitRequestFullscreen);
   function syncAppFullscreen() {
