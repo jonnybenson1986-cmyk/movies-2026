@@ -56,9 +56,19 @@
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const res = await fetch(url, { signal: controller.signal, credentials: 'omit' });
-      if (!res.ok) throw new Error('Catalog HTTP ' + res.status);
-      const data = await res.json();
+      let data;
+      // The legacy Movy catalogue host has become unreliable. Use StreamBox's
+      // shared TMDB client for its compatible movie/TV endpoints instead.
+      if (url.startsWith(DB + '/')) {
+        const parsed = new URL(url);
+        const path = parsed.pathname.replace(/^\\/3\\/?/, '');
+        if (!window.StreamBoxArt?.request) throw new Error('TMDB catalogue client unavailable');
+        data = await window.StreamBoxArt.request(path, parsed.searchParams);
+      } else {
+        const res = await fetch(url, { signal: controller.signal, credentials: 'omit' });
+        if (!res.ok) throw new Error('Catalog HTTP ' + res.status);
+        data = await res.json();
+      }
       if (data.success === false || data.error) throw new Error('Catalog unavailable');
       cache.set(url, { data, until: Date.now() + 300000 });
       if (cache.size > 60) cache.delete(cache.keys().next().value);
