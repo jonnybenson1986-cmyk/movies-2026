@@ -143,7 +143,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         .observe(document.documentElement, { childList: true, subtree: true });
     scan();
     function request(path, params) {
-        var url = new URL('https://api.themoviedb.org/3/' + String(path || '').replace(/^\\/+/, ''));
+        const url = new URL('https://api.themoviedb.org/3/' + String(path || '').replace(/^\/+/, ''));
         url.searchParams.set('api_key', key());
         if (params && typeof params.forEach === 'function')
             params.forEach(function (value, name) { url.searchParams.set(name, value); });
