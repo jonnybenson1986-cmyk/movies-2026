@@ -78,10 +78,20 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 15000);
             try {
-                const res = yield fetch(url, { signal: controller.signal, credentials: 'omit' });
-                if (!res.ok)
-                    throw new Error('Catalog HTTP ' + res.status);
-                const data = yield res.json();
+                let data;
+                if (url.indexOf(DB + '/') === 0) {
+                    const parsed = new URL(url);
+                    const path = parsed.pathname.replace(/^\\/3\\/?/, '');
+                    if (!window.StreamBoxArt || !window.StreamBoxArt.request)
+                        throw new Error('TMDB catalogue client unavailable');
+                    data = yield window.StreamBoxArt.request(path, parsed.searchParams);
+                }
+                else {
+                    const res = yield fetch(url, { signal: controller.signal, credentials: 'omit' });
+                    if (!res.ok)
+                        throw new Error('Catalog HTTP ' + res.status);
+                    data = yield res.json();
+                }
                 if (data.success === false || data.error)
                     throw new Error('Catalog unavailable');
                 cache.set(url, { data, until: Date.now() + 300000 });
