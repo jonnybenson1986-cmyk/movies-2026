@@ -81,7 +81,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
                 let data;
                 if (url.indexOf(DB + '/') === 0) {
                     const parsed = new URL(url);
-                    const path = parsed.pathname.replace(/^\\/3\\/?/, '');
+        const path = parsed.pathname.replace(/^\/3\/?/, '');
                     if (!window.StreamBoxArt || !window.StreamBoxArt.request)
                         throw new Error('TMDB catalogue client unavailable');
                     data = yield window.StreamBoxArt.request(path, parsed.searchParams);
