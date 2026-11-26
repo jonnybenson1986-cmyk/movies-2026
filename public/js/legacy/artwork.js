@@ -142,8 +142,21 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     } })
         .observe(document.documentElement, { childList: true, subtree: true });
     scan();
+    function request(path, params) {
+        var url = new URL('https://api.themoviedb.org/3/' + String(path || '').replace(/^\\/+/, ''));
+        url.searchParams.set('api_key', key());
+        if (params && typeof params.forEach === 'function')
+            params.forEach(function (value, name) { url.searchParams.set(name, value); });
+        else if (params)
+            Object.keys(params).forEach(function (name) { if (params[name] != null) url.searchParams.set(name, String(params[name])); });
+        return fetch(url.toString(), { credentials: 'omit' }).then(function (response) {
+            if (!response.ok) throw new Error('TMDB HTTP ' + response.status);
+            return response.json();
+        });
+    }
     window.StreamBoxArt = {
         enabled: () => !!key(),
+        request,
         // Call after the key changes: cards on screen are looked at again
         reload() { save(); document.querySelectorAll('[data-art-id]').forEach(el => { seen.delete(el); }); scan(); }, // keeps what is already fetched
     };
