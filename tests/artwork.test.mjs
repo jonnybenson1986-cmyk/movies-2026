@@ -85,3 +85,15 @@ test('the key is only ever sent to TMDB', async () => {
   h.card(1); h.card(2, 'tv'); h.art.reload(); await settle();
   for (const url of h.fetched) assert.ok(url.startsWith('https://api.themoviedb.org/3/'), url);
 });
+
+
+test('shared TMDB request supports catalogue endpoints and query parameters', async () => {
+  const h = harness();
+  const data = await h.art.request('/discover/movie', { page: 2, language: 'en-US', 'primary_release_date.gte': '2026-11-01' });
+  assert.equal(data.poster_path, '/p.jpg');
+  const url = new URL(h.fetched[0]);
+  assert.equal(url.pathname, '/3/discover/movie');
+  assert.equal(url.searchParams.get('api_key'), BUILT_IN);
+  assert.equal(url.searchParams.get('page'), '2');
+  assert.equal(url.searchParams.get('primary_release_date.gte'), '2026-11-01');
+});
