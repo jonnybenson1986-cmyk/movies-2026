@@ -19,7 +19,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = join(root, 'public/js');
 const out = join(src, 'legacy');
 // tv.js is already written in ES5 and is loaded directly by every browser.
-export const SKIP = new Set(['tv.js', 'xmltv-worker.js']);   // already ES5
+export const SKIP = new Set(['tv.js', 'xmltv-worker.js', 'release-collections.js']);   // already ES5
 
 export const hash = text => createHash('sha256').update(text).digest('hex').slice(0, 16);
 const header = (name, h) => `/* Generated from js/${name} (sha ${h}) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */\n`;
