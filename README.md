@@ -29,7 +29,7 @@ Settings → **Backup & restore** → **Export backup** saves a `streambox-backu
 
 ## Accounts (username and password)
 
-Everyone signs in with their own username and password. A Netlify edge function (`netlify/edge-functions/gate.js`) checks the sign-in on the server before **any** file is served, so it can't be skipped by editing the page. The sign-in is asked for again every time the app or page is closed. The accounts are `bb`, `jb`, `sb`, `tc`, `nn`, `bn` and `ja`. Usernames aren't case sensitive.
+Everyone signs in with their own username and password. A Netlify edge function (`netlify/edge-functions/gate.js`) checks the sign-in on the server before **any** file is served, so it can't be skipped by editing the page. The sign-in is asked for again every time the app or page is closed. The accounts are `bb`, `jb`, `sb`, `tc`, `nn`, `bn`, `ja` and `jg`. Usernames aren't case sensitive.
 
 **What each account keeps** (saved on Netlify, so it follows the person to any phone or tablet):
 - **My List** and **Continue Watching**

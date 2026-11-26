@@ -18,6 +18,7 @@ const DEFAULT_USERS = {
   nn: 'cf4121bc940b39045b0bb65afc45dcc824fdb236a0c4890c3e59ace05d83bc8c',
   bn: '84172c9c33df4a4c8bc11b4b9d531fe54bf208b4dcdcc61be1ab5dcd5c6abf52',
   ja: '40f2055b4e9d4e3a91ce0fd1eb2b1a1babdefaa96437a2a582138b09a5b33846',
+  jg: 'b36e2ae14b0ab0c5018b3487682baeb96c64213065ce0ae68b89d38bfaf2ad7c',
 };
 
 const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
