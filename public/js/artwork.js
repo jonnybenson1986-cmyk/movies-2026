@@ -89,8 +89,21 @@
     .observe(document.documentElement, { childList: true, subtree: true });
   scan();
 
+  async function request(path, params = {}) {
+    const apiKey = key();
+    if (!apiKey) throw new Error('TMDB API key unavailable');
+    const url = new URL('https://api.themoviedb.org/3/' + String(path || '').replace(/^\\/+/, ''));
+    url.searchParams.set('api_key', apiKey);
+    if (params instanceof URLSearchParams) params.forEach((value, name) => url.searchParams.set(name, value));
+    else for (const [name, value] of Object.entries(params || {})) if (value != null) url.searchParams.set(name, String(value));
+    const response = await fetch(url.toString(), { credentials: 'omit' });
+    if (!response.ok) throw new Error('TMDB HTTP ' + response.status);
+    return response.json();
+  }
+
   window.StreamBoxArt = {
     enabled: () => !!key(),
+    request,
     // Call after the key changes: cards on screen are looked at again
     reload() { save(); document.querySelectorAll('[data-art-id]').forEach(el => { seen.delete(el); }); scan(); },   // keeps what is already fetched
   };
