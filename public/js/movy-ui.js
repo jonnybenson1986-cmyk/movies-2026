@@ -61,7 +61,7 @@
       // shared TMDB client for its compatible movie/TV endpoints instead.
       if (url.startsWith(DB + '/')) {
         const parsed = new URL(url);
-        const path = parsed.pathname.replace(/^\\/3\\/?/, '');
+        const path = parsed.pathname.replace(/^\/3\/?/, '');
         if (!window.StreamBoxArt?.request) throw new Error('TMDB catalogue client unavailable');
         data = await window.StreamBoxArt.request(path, parsed.searchParams);
       } else {
