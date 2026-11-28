@@ -52,17 +52,20 @@
       discover('tv', 'tv', '2026-11-01', '2026-11-30', 'first_air_date.desc'),
       discover('movie', 'movie', '2026-12-01', '2026-12-31', 'primary_release_date.asc'),
       discover('tv', 'tv', '2026-12-01', '2026-12-31', 'first_air_date.asc'),
-    ]).then(([novMovies, novTv, decMovies, decTv]) => [
+      discoverEighties(),
+    ]).then(([novMovies, novTv, decMovies, decTv, eighties]) => [
       { id: ids[0], title: labels[ids[0]], movies: novMovies },
       { id: ids[1], title: labels[ids[1]], movies: novTv },
-      { id: ids[2], title: labels[ids[2]], movies: [...decMovies, ...decTv] },\n      { id: ids[3], title: labels[ids[3]], movies: eighties },
+      { id: ids[2], title: labels[ids[2]], movies: [...decMovies, ...decTv] },
+      { id: ids[3], title: labels[ids[3]], movies: eighties },
     ]).catch(error => { cache = null; throw error; });
     return cache;
   }
   function card(item) {
     const tv = item.mediaType === 'tv';
     const type = tv ? 'tv' : 'movie';
-    const date = item.releaseDate || '';\n    const meta = [date, item.vote ? '★ ' + item.vote.toFixed(1) : ''].filter(Boolean).join(' · ');
+    const date = item.releaseDate || '';
+    const meta = [date, item.vote ? '★ ' + item.vote.toFixed(1) : ''].filter(Boolean).join(' · ');
     return `<a class="card apple poster movie-card" href="#movy/detail/${type}/${esc(item.id)}" data-art-id="${esc(item.id)}" data-art-type="${type}" aria-label="Open ${esc(item.name)} in Movy">
       <span class="art"><span class="badge">${tv ? 'SERIES' : 'MOVIE'}</span><span class="art-year">${esc(date || item.year)}</span><span class="art-title">${esc(item.name)}</span></span>
       <span class="caption"><span class="name">${esc(item.name)}</span><span class="meta">${esc(meta)}</span></span></a>`;
