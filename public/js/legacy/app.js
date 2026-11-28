@@ -1,4 +1,4 @@
-/* Generated from js/app.js (sha f4de31cea40083b7) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
+/* Generated from js/app.js (sha 0dfe38f9f8a9ff83) by scripts/build-legacy-js.mjs for older TV browsers. Do not edit. */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -508,7 +508,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     // themselves. 'favs' (synced to the account like My List) holds channels added from other countries, newest first,
     // and the Australian ones taken off ({ ...channel, off: true }).
     const favEntries = () => store.get('favs', []).filter(i => (i === null || i === void 0 ? void 0 : i.type) === 'live' && typeof i.key === 'string');
-    const homeChannel = item => (item === null || item === void 0 ? void 0 : item.type) === 'live' && item.cc === HOME_CC;
+    // (Australian free-to-air and the networks' own channels; not the Australian lineups of Plex, Samsung TV Plus and co.)
+    const FAST_SERVICES = new Set(['Plex', 'Pluto TV', 'Samsung TV Plus', 'Roku', 'Tubi']);
+    const homeChannel = item => (item === null || item === void 0 ? void 0 : item.type) === 'live' && item.cc === HOME_CC && !FAST_SERVICES.has(item.source);
     function isFav(item) {
         if ((item === null || item === void 0 ? void 0 : item.type) !== 'live')
             return false;
@@ -518,7 +520,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     function favourites() {
         const entries = favEntries(), off = new Set(entries.filter(i => i.off).map(i => i.key));
         const added = entries.filter(i => !i.off).map(revive), seen = new Set(added.map(i => i.key));
-        return [...added, ...visibleChannels().filter(c => c.cc === HOME_CC && !off.has(c.key) && !seen.has(c.key))];
+        return [...added, ...visibleChannels().filter(c => homeChannel(c) && !off.has(c.key) && !seen.has(c.key))];
     }
     function toggleFav(item) {
         if ((item === null || item === void 0 ? void 0 : item.type) !== 'live')
@@ -795,7 +797,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
       <div class="page-head"><h1>★ Favourites</h1><span class="count" id="favCount">${list.length} channels</span>
         <a class="btn btn-more page-btn" href="#countries">All countries</a>
         ${list.length ? '<button class="btn btn-more" data-act="vlcpl" style="font-size:13px;padding:7px 14px">Play in VLC</button>' : ''}</div>
-      <p class="fav-note">Every Australian channel starts here. Tap ★ on a channel to take it off, or ☆ on any channel to add it.</p>
+      <p class="fav-note">Every Australian free-to-air channel starts here. Tap ★ on a channel to take it off, or ☆ on any channel to add it.</p>
       <div id="gridMount"></div>
     </div>`;
         if (!list.length) {

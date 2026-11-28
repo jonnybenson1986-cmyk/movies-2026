@@ -2,7 +2,9 @@
 //   node scripts/build-channels.mjs           use the playlists in the repo
 //   node scripts/build-channels.mjs --fetch   first refresh the playlists from their sources (used on every Netlify deploy)
 // Sources: iptv-org (publicly available channels worldwide), Free-TV/IPTV (free-to-air and free ad-supported
-// channels), and the free ad-supported services Samsung TV Plus, Pluto TV, Roku and Tubi (generated playlists).
+// channels), Matt Huisman's free-to-air lists for every Australian city and New Zealand (i.mjh.nz: the networks'
+// own free live streams, including the 7plus, 9Now, 10 and SBS pop-up channels), and the free ad-supported
+// services Samsung TV Plus, Pluto TV, Plex, Roku and Tubi (generated playlists).
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,13 +54,23 @@ const SOURCES = {
   'fast-pluto.m3u': `${FAST}/plutotv_all.m3u`,
   'fast-roku.m3u': `${FAST}/roku_all.m3u`,
   'fast-tubi.m3u': `${FAST}/tubi_all.m3u`,
+  // Plex locks each country's lineup to that country, so only the Australian one (most other lineups don't play here)
+  'fast-plex-au.m3u': `${FAST}/plex_au.m3u`,
+  'mjh-au-nz.m3u': 'https://i.mjh.nz/all/raw-tv.m3u8',
 };
 // How each extra playlist is read. countryGroups: its groups are countries, not kinds of channel. cc: every channel's country.
 const EXTRA = {
   'free-tv.m3u': { countryGroups: true },
   'fast-samsung.m3u': { countryGroups: true }, 'fast-pluto.m3u': { countryGroups: true },
   'fast-roku.m3u': { cc: 'us' }, 'fast-tubi.m3u': { cc: 'us' },
+  'fast-plex-au.m3u': { cc: 'au', countryGroups: true },
+  // Groups are Australian cities, "Au" (national and pop-up channels), "Nz" and "World". Its user-agent lines are for
+  // an Apple TV app: the same addresses play in a browser without them (iptv-org lists several with none).
+  'mjh-au-nz.m3u': { mjh: true, noHeaders: true },
 };
+// Country groups written as names (Plex), for playlists whose channel ids don't end in a country code
+const GROUP_CC = { australia: 'au', nz: 'nz', 'new zealand': 'nz', canada: 'ca', 'united kingdom': 'gb', uk: 'gb', mexico: 'mx', spain: 'es', france: 'fr', 'united states': 'us', usa: 'us' };
+const MJH_CC = { au: 'au', nz: 'nz', world: '' };
 if (process.argv.includes('--fetch')) {
   for (const [file, url] of Object.entries(SOURCES)) {
     try {
@@ -130,11 +142,17 @@ for (const file of m3us) {
     const l = line.trim();
     if (l.startsWith('#EXTINF')) {
       const attr = k => l.match(new RegExp(`${k}="([^"]*)"`))?.[1] || '';
-      const title = l.slice(l.lastIndexOf(',') + 1).trim();
-      const country = (attr('tvg-country') || attr('channel-id').match(/-([a-z]{2})$/)?.[1] || extra.cc || '').toLowerCase();
-      meta = { name: cleanName(title.replace(/\s*[\u24B6-\u24E9]/g, '')), quality: title.match(/\((\d{3,4}p)\)/)?.[1] || '', group: extra.countryGroups ? '' : attr('group-title').split(';')[0], looseGroups: file !== 'iptv-org.m3u', tvgId: attr('tvg-id'), logo: attr('tvg-logo'),
+      const title = l.slice(l.lastIndexOf(',') + 1).trim(), group = attr('group-title');
+      let country = (attr('tvg-country') || attr('channel-id').match(/-([a-z]{2})$/)?.[1] || GROUP_CC[group.toLowerCase()] || extra.cc || '').toLowerCase();
+      let name = cleanName(title.replace(/\s*[\u24B6-\u24E9]/g, ''));
+      if (extra.mjh) {   // a city group is that city's version of a network: "Seven (Melbourne)"
+        const g = group.toLowerCase();
+        country = g in MJH_CC ? MJH_CC[g] : 'au';
+        if (!(g in MJH_CC) && group && !/\(/.test(name)) name += ` (${group})`;   // (unless it already names its area)
+      }
+      meta = { name, quality: title.match(/\((\d{3,4}p)\)/)?.[1] || '', group: extra.countryGroups || extra.mjh ? '' : group.split(';')[0], looseGroups: file !== 'iptv-org.m3u', tvgId: attr('tvg-id'), logo: attr('tvg-logo'),
         cc: /^[a-z]{2}$/.test(country) ? (country === 'uk' ? 'gb' : country) : '' };
-    } else if (l.startsWith('#EXTVLCOPT') && meta) {
+    } else if (l.startsWith('#EXTVLCOPT') && meta && !extra.noHeaders) {
       const m = /^#EXTVLCOPT:http-(user-agent|referrer)=(.*)$/.exec(l);
       if (m) meta[m[1] === 'referrer' ? 'rf' : 'ua'] = m[2];
     } else if (l && !l.startsWith('#') && meta) {

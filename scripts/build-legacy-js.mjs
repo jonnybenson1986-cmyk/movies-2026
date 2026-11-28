@@ -94,7 +94,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   } else {
     mkdirSync(out, { recursive: true });
     const names = sources();
-    for (const f of readdirSync(out)) if (f.endsWith('.js') && !names.includes(f)) unlinkSync(join(out, f));
+    for (const f of readdirSync(out)) if (f.endsWith('.js') && !names.includes(f) && !SKIP.has(f)) unlinkSync(join(out, f));   // (a skipped file's copy may be kept by hand)
     let changed = 0;
     for (const f of names) {
       const text = convert(ts, f, readFileSync(join(src, f), 'utf8'));
