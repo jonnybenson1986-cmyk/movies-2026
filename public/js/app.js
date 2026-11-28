@@ -10,8 +10,15 @@
   ];
 
   const QUICK_LINKS = [
+    { name: 'Foxtel', url: 'https://www.foxtel.com.au/', icon: '📺', note: 'Official paid TV service · sign in or subscribe' },
+    { name: 'Kayo Sports', url: 'https://kayosports.com.au/', icon: '🏉', note: 'Official live sports streaming · subscription' },
+    { name: 'BINGE', url: 'https://www.binge.com.au/', icon: '🎬', note: 'Official movies and series streaming · subscription' },
+    { name: 'Optus Sport', url: 'https://sport.optus.com.au/', icon: '⚽', note: 'Official sports streaming · subscription/eligible plans' },
+    { name: 'Stan Sport', url: 'https://www.stan.com.au/sport', icon: '🏆', note: 'Official sports add-on · subscription' },
+    { name: 'Paramount+', url: 'https://www.paramountplus.com/au/', icon: '🎞', note: 'Official movies and series streaming · subscription' },
+    { name: 'Fetch TV', url: 'https://www.fetchtv.com.au/', icon: '📡', note: 'Official TV and entertainment service' },
     { name: '7plus Live', url: 'https://7plus.com.au/live-tv?channel-id=Seven', icon: '📺', note: 'Free-to-air Seven Network' },
-    { name: 'iptv-org', url: 'https://github.com/iptv-org/iptv', icon: '🌍', note: 'Source of the channel list' },
+    { name: 'iptv-org', url: 'https://github.com/iptv-org/iptv', icon: '🌍', note: 'Open channel-list project' },
   ];
   // Cricket from the broadcasters that hold the rights in Australia (Sports page). Each opens in the service's own app
   // where it's installed, otherwise its website.
@@ -570,11 +577,22 @@
         ${rowHTML('Music', byCat('Music').slice(0, ROW_LIMIT), '#live/Music')}
         ${rowHTML('Lifestyle', byCat('Lifestyle').slice(0, ROW_LIMIT), '#live/Lifestyle')}
         ${rowHTML('More Live TV', byCat('Entertainment').slice(0, ROW_LIMIT), '#live/Entertainment')}
-        ${rowHTML('Quick Links', QUICK_LINKS.map((l, i) => ({ ...l, type: 'link', key: 'q:' + i })))}
+        ${rowHTML('Official Streaming Services', QUICK_LINKS.map((l, i) => ({ ...l, type: 'link', key: 'q:' + i })))}
       </div>`;
     window.StreamBoxWatch?.mountHub($('#watchHub'));
     // "Notify Me When Available": tell the person when a title they are waiting for has arrived on a service
     window.StreamBoxWatch?.checkAlerts((text, href) => { alerts.push({ text, href }); showAlert(); });
+  }
+
+  // Pay TV directory: official provider links only. StreamBox does not embed unauthorized paid-channel restreams.
+  const PAYTV_LINKS = QUICK_LINKS.filter(l => !['7plus Live', 'iptv-org'].includes(l.name));
+  function renderPayTV() {
+    view.innerHTML = `<div class="page">
+      <div class="page-head"><h1>Pay TV &amp; Streaming</h1><span class="count">Official services</span></div>
+      <p class="movie-note">Open a provider’s official app or website and sign in with your subscription. StreamBox links to the services; it does not include pirated or unauthorised Foxtel, Kayo or other paid-channel restream URLs.</p>
+      ${rowHTML('Australia · Pay TV &amp; Sports', PAYTV_LINKS.map((l, i) => ({ ...l, type: 'link', key: 'paytv:' + i })))}
+      <div class="chips"><a class="chip" href="#live">‹ Back to Live TV</a></div>
+    </div>`;
   }
 
   function renderLive(cat) {
@@ -591,7 +609,7 @@
     view.innerHTML = `<div class="page">
       <div class="page-head"><h1>Live TV</h1><span class="count">${list.length.toLocaleString()} channels${settings.showAll ? '' : ` · ${channels.filter(c => !c.isPlaylist && !c.dead && !isPlayable(c)).length.toLocaleString()} more need VLC or a proxy (Settings)`}</span>
         <button class="btn btn-more page-btn" data-act="vlcpl">Play this list in VLC</button></div>
-      <div class="chips"><a class="chip chip-accent" href="#countries">🌍 By country</a><a class="chip chip-accent" href="#guide">📅 TV Guide</a><a class="chip" href="#australia">Australia · ${window.StreamBoxAustralia.count} guide channels</a>${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
+      <div class="chips"><a class="chip chip-accent" href="#countries">🌍 By country</a><a class="chip chip-accent" href="#guide">📅 TV Guide</a><a class="chip chip-accent" href="#paytv">💳 Pay TV &amp; Restreams</a><a class="chip" href="#australia">Australia · ${window.StreamBoxAustralia.count} guide channels</a>${chips.map(c => `<a class="chip ${c === active ? 'active' : ''}" href="#live/${encodeURIComponent(c)}">${esc(c)}${counts[c] ? ` · ${counts[c]}` : ''}</a>`).join('')}</div>
       <div id="gridMount"></div>
     </div>`;
     mountGrid($('#gridMount'), list);
@@ -734,6 +752,7 @@
     switch (name) {
       case 'live': renderLive(arg); break;
       case 'sports': renderSports(); break;
+      case 'paytv': renderPayTV(); break;
       case 'australia': window.StreamBoxAustralia.render(view, arg, { streams: channels.filter(c => !(settings.hideBad && isBad(c))), card: cardHTML }); break;
       case 'countries': renderCountries(arg); break;
       case 'favourites': renderFavourites(); break;
