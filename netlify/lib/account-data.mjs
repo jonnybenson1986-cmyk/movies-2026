@@ -1,8 +1,8 @@
-// What is saved for each signed-in person: My List, Continue Watching, favourite music, and where they are
+// What is saved for each signed-in person: My List, Continue Watching, favourite channels and music, and where they are
 // up to in videos. Everything arriving from a browser is re-built field by field here, so a stored account can
 // only ever hold plain, size-limited data.
 
-export const LIMITS = { mylist: 200, history: 30, music: 300, progress: 400, bytes: 400_000 };
+export const LIMITS = { mylist: 200, history: 30, music: 300, favs: 300, progress: 400, bytes: 400_000 };
 const ITEM_TYPES = new Set(['live', 'movie']);
 const TEXT = { name: 300, url: 1000, cat: 80, quality: 20, source: 80, logo: 1000, tvgId: 120, ua: 300, rf: 300, id: 120, catalog: 40, mediaType: 20, overview: 700, year: 8, vote: 8, embedId: 120, cc: 3 };
 
@@ -16,6 +16,7 @@ export function cleanItem(raw) {
   const item = { key: text(raw.key, 120), type: raw.type };
   for (const [field, max] of Object.entries(TEXT)) { const v = text(raw[field], max); if (v) item[field] = v; }
   if (raw.needsHeaders === true) item.needsHeaders = true;
+  if (raw.off === true && item.type === 'live') item.off = true;   // an Australian channel taken off Favourites
   for (const field of ['season', 'episode']) if (Number.isInteger(raw[field]) && raw[field] >= 0) item[field] = Math.min(raw[field], 9999);
   if (item.type === 'live' && !/^https?:\/\//.test(item.url || '')) return null;
   return item;
@@ -64,8 +65,8 @@ export function cleanProgress(map) {
   return Object.fromEntries(entries.sort((a, b) => b[1].at - a[1].at).slice(0, LIMITS.progress));
 }
 
-export const EMPTY = () => ({ v: 1, mylist: { at: 0, items: [] }, history: { at: 0, items: [] }, music: { at: 0, items: [] }, progress: {} });
-const LISTS = ['mylist', 'history', 'music'];
+export const EMPTY = () => ({ v: 1, mylist: { at: 0, items: [] }, history: { at: 0, items: [] }, music: { at: 0, items: [] }, favs: { at: 0, items: [] }, progress: {} });
+const LISTS = ['mylist', 'history', 'music', 'favs'];
 
 // Clean whatever fields are present. Absent fields stay absent (a partial update).
 export function cleanData(raw) {

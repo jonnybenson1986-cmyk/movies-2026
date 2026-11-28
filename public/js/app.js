@@ -404,6 +404,62 @@
     list.unshift(snapshot(item));
     store.set('history', list.slice(0, 30));
   }
+  // ---------------------------------------------------------------- favourite channels
+  // Every Australian channel is a favourite unless it has been taken off, so Australian channels added later join by
+  // themselves. 'favs' (synced to the account like My List) holds channels added from other countries, newest first,
+  // and the Australian ones taken off ({ ...channel, off: true }).
+  const favEntries = () => store.get('favs', []).filter(i => i?.type === 'live' && typeof i.key === 'string');
+  const homeChannel = item => item?.type === 'live' && item.cc === HOME_CC;
+  function isFav(item) {
+    if (item?.type !== 'live') return false;
+    const entry = favEntries().find(i => i.key === item.key);
+    return entry ? !entry.off : homeChannel(item);
+  }
+  function favourites() {
+    const entries = favEntries(), off = new Set(entries.filter(i => i.off).map(i => i.key));
+    const added = entries.filter(i => !i.off).map(revive), seen = new Set(added.map(i => i.key));
+    return [...added, ...visibleChannels().filter(c => c.cc === HOME_CC && !off.has(c.key) && !seen.has(c.key))];
+  }
+  function toggleFav(item) {
+    if (item?.type !== 'live') return;
+    const was = isFav(item);
+    const list = favEntries().filter(i => i.key !== item.key);
+    if (was && homeChannel(item)) list.unshift({ ...snapshot(item), off: true });
+    else if (!was && !homeChannel(item)) list.unshift(snapshot(item));
+    store.set('favs', list.slice(0, 300));
+    toast(was ? 'Removed from Favourites' : '★ Added to Favourites');
+    syncFavUI(item);
+  }
+  const starHTML = item => {
+    const on = isFav(item);
+    return `<span class="fav-star${on ? ' on' : ''}" data-fav="${esc(item.key)}" role="button" aria-pressed="${on}" aria-label="${on ? 'Remove from' : 'Add to'} Favourites" title="${on ? 'Remove from' : 'Add to'} Favourites">${on ? '★' : '☆'}</span>`;
+  };
+  function favRowHTML() {
+    const list = favourites();
+    return list.length ? rowHTML('★ Favourites', list.slice(0, ROW_LIMIT), '#favourites')
+      : '<section class="row"><div class="row-head"><h2>★ Favourites</h2></div><p class="fav-empty">Tap ☆ on any channel to add it here.</p></section>';
+  }
+  // After a star is tapped: every star for that channel, the Favourites row and page, and the player's star
+  function syncPlayerFav() {
+    const btn = $('.player-star');
+    if (!btn) return;
+    btn.hidden = current?.type !== 'live';
+    if (btn.hidden) return;
+    const on = isFav(current);
+    btn.textContent = on ? '★' : '☆'; btn.classList.toggle('on', on);
+    btn.title = on ? 'Remove from Favourites' : 'Add to Favourites'; btn.setAttribute('aria-label', btn.title); btn.setAttribute('aria-pressed', String(on));
+  }
+  function syncFavUI(item) {
+    view.querySelectorAll('[data-fav]').forEach(el => { if (el.dataset.fav === item.key) el.outerHTML = starHTML(item); });
+    const row = $('#favRow');
+    if (row) row.innerHTML = favRowHTML();
+    if (location.hash.startsWith('#favourites') && !isFav(item)) {
+      view.querySelectorAll('#gridMount .card[data-key]').forEach(el => { if (el.dataset.key === item.key) el.remove(); });
+      const count = $('#favCount'); if (count) count.textContent = `${favourites().length} channels`;
+    }
+    syncPlayerFav();
+  }
+
   // Saved items survive reloads even if the source list changes
   const snapshot = it => {
     const { key, type, name, url, cat, quality, source, logo, needsHeaders, tvgId, ua, rf, id, catalog, mediaType, overview, year, vote, season, episode, embedId, cc } = it;
@@ -428,7 +484,7 @@
         ${item.logo ? `<span class="plate">${logoImg(item.logo, 320, 180)}</span>` : ''}
         <span class="initials">${esc(initials(item.name))}</span>
         <span class="badge ${ok ? '' : 'warn'}">${ok ? '<span class="dot"></span>LIVE' : 'VLC'}</span>
-        ${inMyList(item.key) ? '<span class="fav">★</span>' : ''}
+        ${starHTML(item)}
         ${item.cc ? flagImg(item.cc, 'card-flag') : ''}
       </span>
       <span class="caption"><span class="name">${esc(item.name)}</span><span class="meta">${esc(meta)}</span></span>
@@ -561,10 +617,11 @@
     view.innerHTML = `<div class="page">
       <div class="page-head"><h1>Countries</h1><span class="count">${shown.filter(g => g.cc).length} countries · ${total.toLocaleString()} channels</span>
         <input class="country-filter" id="countryFilter" type="search" placeholder="Find a country…" autocomplete="off"></div>
-      <div class="chips"><a class="chip chip-accent" href="#live">📺 All channels</a><a class="chip chip-accent" href="#guide">📅 TV Guide · Australia</a><a class="chip ${active ? '' : 'active'}" href="#countries">All areas</a>${areas.map(a => {
+      <div class="chips"><a class="chip chip-accent" href="#favourites">★ Favourites · ${favourites().length}</a><a class="chip chip-accent" href="#live">📺 All channels</a><a class="chip chip-accent" href="#guide">📅 TV Guide · Australia</a><a class="chip ${active ? '' : 'active'}" href="#countries">All areas</a>${areas.map(a => {
         const n = groups.filter(g => g.area === a).reduce((m, g) => m + g.channels.length, 0);
         return `<a class="chip ${a === active ? 'active' : ''}" href="#countries/${encodeURIComponent(a)}">${esc(a)} · ${n.toLocaleString()}</a>`;
       }).join('')}</div>
+      ${active ? '' : `<div class="rows fav-rows" id="favRow">${favRowHTML()}</div>`}
       ${areas.filter(a => !active || a === active).map(a => {
         const list = shown.filter(g => g.area === a);
         return `<section class="area"><h2 class="area-head">${esc(a)} <small>${list.length} ${list.length === 1 ? 'country' : 'countries'}</small></h2>
@@ -617,6 +674,20 @@
     mountGrid($('#gridMount'), sports.filter(c => c.source !== 'SKY Racing'));
   }
 
+  function renderFavourites() {
+    const list = favourites();
+    vlcList = { name: 'streambox-favourites', items: list };
+    view.innerHTML = `<div class="page">
+      <div class="page-head"><h1>★ Favourites</h1><span class="count" id="favCount">${list.length} channels</span>
+        <a class="btn btn-more page-btn" href="#countries">All countries</a>
+        ${list.length ? '<button class="btn btn-more" data-act="vlcpl" style="font-size:13px;padding:7px 14px">Play in VLC</button>' : ''}</div>
+      <p class="fav-note">Every Australian channel starts here. Tap ★ on a channel to take it off, or ☆ on any channel to add it.</p>
+      <div id="gridMount"></div>
+    </div>`;
+    if (!list.length) { $('#gridMount').innerHTML = '<div class="empty">Tap ☆ on any channel to add it to your Favourites.</div>'; return; }
+    mountGrid($('#gridMount'), list);
+  }
+
   function renderMyList() {
     const mine = myList().map(revive);
     vlcList = { name: 'streambox-my-list', items: mine.filter(i => i.type === 'live') };
@@ -652,7 +723,7 @@
     movy.cancel();
     const [name, ...rest] = decodeURIComponent(location.hash.slice(1) || 'home').split('/');
     const arg = rest.join('/');
-    const navName = name === 'country' || name === 'countries' || name === 'guide' ? 'live' : name === 'classics' ? 'movies' : name;   // Live TV opens the country list
+    const navName = name === 'country' || name === 'countries' || name === 'guide' || name === 'favourites' ? 'live' : name === 'classics' ? 'movies' : name;   // Live TV opens the country list
     document.querySelectorAll('[data-route]').forEach(a => a.classList.toggle('active', a.dataset.route === navName));
     await Promise.all([channelsReady, movies.ready, window.StreamBoxAustralia.ready]);
     if (version !== routeVersion) return;
@@ -663,6 +734,7 @@
       case 'sports': renderSports(); break;
       case 'australia': window.StreamBoxAustralia.render(view, arg, { streams: channels.filter(c => !(settings.hideBad && isBad(c))), card: cardHTML }); break;
       case 'countries': renderCountries(arg); break;
+      case 'favourites': renderFavourites(); break;
       case 'guide': renderGuide(arg); break;
       case 'music': window.StreamBoxMusic.render(view, arg, { toast, openModal, closeModal, isCurrent: () => version === routeVersion }); break;
       case 'country': renderCountry(arg); break;
@@ -848,6 +920,7 @@
     $('#playerTitle').textContent = item.name;
     renderPlayerSub();
     $('#playerLive').hidden = item.type !== 'live';
+    syncPlayerFav();
     $('#playerPrev').hidden = $('#playerNext').hidden = item.type !== 'live' || currentList.length < 2;
     msg.innerHTML = '<div class="spinner"></div>'; msg.hidden = false;
     pushHistory(item);
@@ -1275,7 +1348,7 @@
   async function exportData() {
     const data = {
       app: 'streambox', version: 1, exported: new Date().toISOString(),
-      mylist: myList(), history: store.get('history', []),
+      mylist: myList(), history: store.get('history', []), favs: favEntries(),
       settings: { showAll: settings.showAll, sources: settings.sources, guides: settings.guides },
     };
     await saveFile('streambox-backup.json', 'application/json', JSON.stringify(data, null, 2));
@@ -1292,6 +1365,7 @@
     const merge = (a, b) => { const seen = new Set(a.map(i => i.key)); return [...a, ...b.filter(i => !seen.has(i.key))]; };
     store.set('mylist', merge(myList(), clean(data.mylist)).slice(0, 200));
     store.set('history', merge(store.get('history', []), clean(data.history)).slice(0, 30));
+    if (Array.isArray(data.favs)) store.set('favs', merge(favEntries(), (Array.isArray(data.favs) ? data.favs : []).filter(i => i?.type === 'live' && typeof i.key === 'string' && /^https?:\/\//.test(i.url || '')).map(i => ({ ...snapshot(i), ...(i.off === true ? { off: true } : {}) }))).slice(0, 300));
     const s = data.settings || {};
     for (const k of ['sources', 'guides']) {
       const incoming = (Array.isArray(s[k]) ? s[k] : []).filter(u => typeof u === 'string' && /^https:\/\//.test(u));
@@ -1508,6 +1582,8 @@
 
   // ---------------------------------------------------------------- events
   document.addEventListener('click', e => {
+    const star = e.target.closest('[data-fav]');
+    if (star) { e.preventDefault(); e.stopPropagation(); toggleFav(items.get(star.dataset.fav)); return; }   // the star on a card, not the card
     const act = e.target.closest('[data-act]');
     if (act) {
       const a = act.dataset.act;
@@ -1604,6 +1680,11 @@
   favBtn.className = 'icon-btn'; favBtn.title = 'My List'; favBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
   favBtn.onclick = () => current && toggleMyList(current);
   $('.player-nav').prepend(favBtn);
+  // ...and to Favourites (live channels only)
+  const starBtn = document.createElement('button');
+  starBtn.className = 'icon-btn player-star'; starBtn.type = 'button'; starBtn.hidden = true;
+  starBtn.onclick = () => current && toggleFav(current);
+  $('.player-nav').prepend(starBtn);
 
 
 
@@ -1908,7 +1989,7 @@
 
   window.addEventListener('streambox-account-synced', () => {
     const name = location.hash.slice(1).split('/')[0] || 'home';
-    if (['home', 'mylist'].includes(name)) {
+    if (['home', 'mylist', 'countries', 'favourites'].includes(name)) {
       if (player.hidden && modal.hidden) route();
       else pendingMovieRender = true;
     }

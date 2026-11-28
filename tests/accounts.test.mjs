@@ -257,3 +257,15 @@ test('favourite music is saved to the person’s account and kept apart from oth
   assert.deepEqual((await (await call(h, 'GET', { cookie: JB })).json()).data.music.items, []);
   assert.deepEqual((await (await call(handler, 'GET', { cookie: BB })).json()).data.music, { at: 0, items: [] }, 'a new account starts with no favourites');
 });
+
+test('favourite channels sync like My List, and keep the "taken off" mark for Australian channels', async () => {
+  const { cleanData, LIMITS, EMPTY } = await import('../netlify/lib/account-data.mjs');
+  const out = cleanData({ favs: { at: 5, items: [
+    { key: 'l:1', type: 'live', name: 'ABC', url: 'https://x.test/a.m3u8', cc: 'au', off: true },
+    { key: 'l:2', type: 'live', name: 'Firstlight', url: 'https://x.test/b.m3u8', cc: 'nz', off: 'yes' },
+    { key: 'l:3', type: 'live', name: 'Bad', url: 'javascript:alert(1)' },
+  ] } });
+  assert.deepEqual(out.favs.items.map(i => [i.key, i.off === true]), [['l:1', true], ['l:2', false]]);
+  assert.equal(LIMITS.favs, 300);
+  assert.deepEqual(EMPTY().favs, { at: 0, items: [] });
+});

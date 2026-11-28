@@ -211,3 +211,17 @@ html, body { background: #000; color: var(--text); font-family: var(--font); -we
 .air-prompt span { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; }
 .air-prompt small { font-size: 12px; font-weight: 500; opacity: .85; }
 @media (max-width: 600px) { #appFsBtn { display: none; } }   /* phones: the player has its own full screen, and the top bar is full */
+
+/* Favourite channels: a star in the top corner of every channel card (tap it, not the card). ★ = in Favourites. */
+.card .fav-star {
+  position: absolute; z-index: 3; top: 4px; right: 4px; width: 34px; height: 34px; display: grid; place-items: center;
+  border-radius: 50%; font-size: 19px; line-height: 1; color: rgba(255,255,255,.85); background: rgba(0,0,0,.45);
+  text-shadow: 0 1px 4px rgba(0,0,0,.6); cursor: pointer; transition: transform .15s, background .15s;
+}
+.card .fav-star.on { color: #ffd60a; }
+.card .fav-star:hover { transform: scale(1.12); background: rgba(0,0,0,.65); }
+.player-star { font-size: 22px; line-height: 1; }
+.player-star.on { color: #ffd60a; }
+.fav-rows { margin-top: 4px; }
+.fav-empty, .fav-note { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+.fav-empty { padding: 0 var(--gutter); }
