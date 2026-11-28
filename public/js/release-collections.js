@@ -4,11 +4,12 @@
   const movies = window.StreamBoxMovies;
   const art = window.StreamBoxArt;
   if (!movies || !art?.request) return;
-  const ids = ['new_movies_nov_2026', 'new_series_nov_2026', 'coming_soon_dec_2026'];
+  const ids = ['new_movies_nov_2026', 'new_series_nov_2026', 'coming_soon_dec_2026', 'movies_1980s'];
   const labels = {
     new_movies_nov_2026: 'New Movies – November 2026',
     new_series_nov_2026: 'New Series & Seasons – November 2026',
     coming_soon_dec_2026: 'Coming Soon – December 2026',
+    movies_1980s: '1980s Movies',
   };
   const requests = new Map();
   let cache = null;
@@ -28,6 +29,22 @@
         year: date.slice(0, 4), releaseDate: date, vote: Number(raw.vote_average) || 0, mediaType };
     }).filter(Boolean);
   }
+  async function discoverEighties() {
+    const pages = await Promise.all([1, 2, 3, 4, 5].map(page => art.request('discover/movie', {
+      language: 'en-US', include_adult: false, include_video: false, page,
+      sort_by: 'popularity.desc', 'primary_release_date.gte': '1980-01-01',
+      'primary_release_date.lte': '1989-12-31', 'vote_count.gte': 25,
+    })));
+    const unique = new Map();
+    pages.flatMap(data => data.results || []).forEach(raw => {
+      const date = raw.release_date || '';
+      if (!Number.isSafeInteger(raw.id) || raw.id <= 0 || !/^198[0-9]-/.test(date)) return;
+      if (!unique.has(raw.id)) unique.set(raw.id, { id: raw.id, name: raw.title || 'Untitled',
+        overview: raw.overview || '', year: date.slice(0, 4), releaseDate: date,
+        vote: Number(raw.vote_average) || 0, mediaType: 'movie' });
+    });
+    return [...unique.values()];
+  }
   function load() {
     if (cache) return cache;
     cache = Promise.all([
@@ -38,17 +55,17 @@
     ]).then(([novMovies, novTv, decMovies, decTv]) => [
       { id: ids[0], title: labels[ids[0]], movies: novMovies },
       { id: ids[1], title: labels[ids[1]], movies: novTv },
-      { id: ids[2], title: labels[ids[2]], movies: [...decMovies, ...decTv] },
+      { id: ids[2], title: labels[ids[2]], movies: [...decMovies, ...decTv] },\n      { id: ids[3], title: labels[ids[3]], movies: eighties },
     ]).catch(error => { cache = null; throw error; });
     return cache;
   }
   function card(item) {
     const tv = item.mediaType === 'tv';
     const type = tv ? 'tv' : 'movie';
-    const date = item.releaseDate || '';
+    const date = item.releaseDate || '';\n    const meta = [date, item.vote ? '★ ' + item.vote.toFixed(1) : ''].filter(Boolean).join(' · ');
     return `<a class="card apple poster movie-card" href="#movy/detail/${type}/${esc(item.id)}" data-art-id="${esc(item.id)}" data-art-type="${type}" aria-label="Open ${esc(item.name)} in Movy">
       <span class="art"><span class="badge">${tv ? 'SERIES' : 'MOVIE'}</span><span class="art-year">${esc(date || item.year)}</span><span class="art-title">${esc(item.name)}</span></span>
-      <span class="caption"><span class="name">${esc(item.name)}</span><span class="meta">${esc(date)}</span></span></a>`;
+      <span class="caption"><span class="name">${esc(item.name)}</span><span class="meta">${esc(meta)}</span></span></a>`;
   }
   function row(collection) {
     return `<section class="row" data-release-row="${collection.id}"><div class="row-head"><h2>${esc(collection.title)}</h2><a class="see-all" href="#movies/releases/${collection.id}">See all ›</a></div><div class="row-track-wrap"><div class="row-track">${collection.movies.slice(0, 24).map(card).join('')}</div></div></section>`;
