@@ -6,7 +6,7 @@ A Netflix-style player for live TV, sports and movies. It's a static Progressive
 
 | Section | Source |
 |---|---|
-| **Live TV** (~19,900 channels) | [iptv-org](https://github.com/iptv-org/iptv) (`playlists/iptv-org.m3u`), [Free-TV](https://github.com/Free-TV/IPTV) (`free-tv.m3u`), Matt Huisman's free-to-air lists for every Australian city and New Zealand ([i.mjh.nz](https://i.mjh.nz), `mjh-au-nz.m3u`), the free ad-supported services Samsung TV Plus, Pluto TV, Plex (Australian lineup), Roku and Tubi (`fast-*.m3u`, from [app-m3u-generator](https://github.com/BuddyChewChew/app-m3u-generator)) and your VLC playlist (`VLC_TV_IPTV.xspf`), merged into `public/data/channels.json` with logos, countries and TV-guide IDs |
+| **Live TV** (~19,600 channels) | [iptv-org](https://github.com/iptv-org/iptv) (`playlists/iptv-org.m3u`), [Free-TV](https://github.com/Free-TV/IPTV) (`free-tv.m3u`), Matt Huisman's lists ([i.mjh.nz](https://i.mjh.nz)): **Australia's channels are exactly his Australian list** (`https://i.mjh.nz/au/all/raw-tv.m3u8`, `mjh-au.m3u`) plus SKY Racing 1 and 2, and New Zealand comes from his NZ list (`mjh-nz.m3u`), the free ad-supported services Samsung TV Plus, Pluto TV, Roku and Tubi (`fast-*.m3u`, from [app-m3u-generator](https://github.com/BuddyChewChew/app-m3u-generator)) and your VLC playlist (`VLC_TV_IPTV.xspf`), merged into `public/data/channels.json` with logos, countries and TV-guide IDs |
 | **Movies** | Curated collections (MCU, Bond, Oscar contenders, Horror, Classics, Hallmark, …) from [KiduyuTv](https://github.com/kiduyu-klaus/KiduyuTv_final) lists — local catalog, Play buttons and switchable video sources |
 | **Movy** | Live movies, TV shows, anime and 4K catalog browsing, with Vidy embeds protected by the companion browser extension |
 | **Sports** | SKY Racing 1 & 2 (from `playlists/Sports_App_2026.html`) plus every sports channel in the playlist |
@@ -135,7 +135,7 @@ Keep `streambox.jks` safe and never commit it. Apps signed with a different key 
 
 ## Updating channels
 
-Every Netlify deploy runs `node scripts/build-channels.mjs --fetch`, which downloads the latest copy of every source (the `SOURCES` list at the top of the script: iptv-org, Free-TV, i.mjh.nz Australia & NZ, Samsung TV Plus, Pluto TV, Plex Australia, Roku, Tubi) and rebuilds `public/data/channels.json`. A source that can't be reached falls back to its copy in `playlists/`. To add another source, add a line to `SOURCES` (and to `EXTRA` if its groups are countries). The same stream listed by two sources is kept once. To rebuild locally, or after adding `.m3u` / `.xspf` files to `playlists/`:
+Every Netlify deploy runs `node scripts/build-channels.mjs --fetch`, which downloads the latest copy of every source (the `SOURCES` list at the top of the script: iptv-org, Free-TV, i.mjh.nz Australia & NZ, Samsung TV Plus, Pluto TV, Roku, Tubi; Australian channels from any source but i.mjh.nz/au/all are left out) and rebuilds `public/data/channels.json`. A source that can't be reached falls back to its copy in `playlists/`. To add another source, add a line to `SOURCES` (and to `EXTRA` if its groups are countries). The same stream listed by two sources is kept once. To rebuild locally, or after adding `.m3u` / `.xspf` files to `playlists/`:
 
 ```bash
 node scripts/build-channels.mjs          # use the playlists in the repo
